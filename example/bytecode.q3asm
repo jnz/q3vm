@@ -1,0 +1,5 @@
+-o ".\bytecode"
+g_main
+..\g_syscalls
+bg_lib
+
