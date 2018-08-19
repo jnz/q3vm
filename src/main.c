@@ -1,4 +1,16 @@
 #include <stdio.h>
+
+#include "vm_local.h"
+
+int main(int argc, char **argv)
+{
+    vm_t* vm = VM_Create("bytecode", VMI_BYTECODE);
+    VM_Call(vm, 0);
+
+    return 0;
+}
+
+#if 0
 #include "q3vm.h"
 
 q3vm_t vm;
@@ -36,3 +48,4 @@ int main(int argc, char **argv)
 
     return w.U4;
 }
+#endif
