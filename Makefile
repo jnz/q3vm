@@ -25,7 +25,7 @@ TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
-LTO_FLAGS := -flto -fno-builtin
+# LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
 CFLAGS += -O2 -ggdb -c
 CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections

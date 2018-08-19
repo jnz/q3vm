@@ -40,7 +40,7 @@ vm_t    *lastVM    = NULL;
 int     vm_debugLevel;
 
 // used by Com_Error to get rid of running vm's before longjmp
-static int forced_unload;
+// static int forced_unload;
 
 #define MAX_VM      3
 vm_t    vmTable[MAX_VM];
@@ -350,7 +350,7 @@ VM_LoadQVM
 Load a .qvm file
 =================
 */
-static uint8_t fileTmp[5*1024*1024*1024];
+// static uint8_t fileTmp[5*1024*1024];
 vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
 {
     int  dataLength;
@@ -441,7 +441,7 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
         // allocate zero filled space for initialized and uninitialized data
         // leave some space beyond data mask so we can secure all mask operations
         vm->dataAlloc = dataLength + 4;
-        vm->dataBase = malloc(vm->dataAlloc);
+        vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
         vm->dataMask = dataLength - 1;
     }
     else
@@ -480,7 +480,7 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
 
         if(alloc)
         {
-            vm->jumpTableTargets = malloc(header.h->jtrgLength);
+            vm->jumpTableTargets = (uint8_t*)malloc(header.h->jtrgLength);
         }
         else
         {
@@ -550,9 +550,9 @@ it will attempt to load as a system dll
 vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     vm_t        *vm;
     vmHeader_t  *header;
-    int         i, retval;
-    char filename[MAX_OSPATH];
-    void *startSearch = NULL;
+    // int i;
+    int retval;
+    // char filename[MAX_OSPATH];
 
     if ( !module || !module[0] ) {
         Com_Error( ERR_FATAL, "VM_Create: bad parms" );
@@ -568,14 +568,14 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     // VM_Free overwrites the name on failed load
     Q_strncpyz(vm->name, module, sizeof(vm->name));
 
-    if(retval < 0)
+    if (retval < 0)
         return NULL;
 
     vm->systemCall = SV_GameSystemCalls;
 
     // allocate space for the jump targets, which will be filled in by the compile/prep functions
     vm->instructionCount = header->instructionCount;
-    vm->instructionPointers = malloc(vm->instructionCount * sizeof(*vm->instructionPointers));
+    vm->instructionPointers = (intptr_t*)malloc(vm->instructionCount * sizeof(*vm->instructionPointers));
 
     // copy or compile the instructions
     vm->codeLength = header->codeLength;
@@ -659,7 +659,6 @@ void VM_Forced_Unload_Done(void) {
 }
 #endif
 
-#if 0
 void *VM_ArgPtr( intptr_t intValue ) {
     if ( !intValue ) {
         return NULL;
@@ -675,6 +674,7 @@ void *VM_ArgPtr( intptr_t intValue ) {
         return (void *)(currentVM->dataBase + (intValue & currentVM->dataMask));
     }
 }
+#if 0
 
 void *VM_ExplicitArgPtr( vm_t *vm, intptr_t intValue ) {
     if ( !intValue ) {
@@ -724,7 +724,7 @@ intptr_t QDECL VM_Call( vm_t *vm, int callnum, ... )
 {
     vm_t    *oldVM;
     intptr_t r;
-    int i;
+    // int i;
 
     if(!vm || !vm->name[0])
         Com_Error(ERR_FATAL, "VM_Call with NULL vm");
@@ -738,53 +738,7 @@ intptr_t QDECL VM_Call( vm_t *vm, int callnum, ... )
     }
 
     ++vm->callLevel;
-    // if we have a dll loaded, call it directly
-    if ( vm->entryPoint ) {
-        //rcg010207 -  see dissertation at top of VM_DllSyscall() in this file.
-#if 0
-        int args[MAX_VMMAIN_ARGS-1];
-        va_list ap;
-        va_start(ap, callnum);
-        for (i = 0; i < ARRAY_LEN(args); i++) {
-            args[i] = va_arg(ap, int);
-        }
-        va_end(ap);
-
-        r = vm->entryPoint( callnum,  args[0],  args[1],  args[2], args[3],
-                            args[4],  args[5],  args[6], args[7],
-                            args[8],  args[9], args[10], args[11]);
-#endif
-    } else {
-#if ( id386 || idsparc ) && !defined __clang__ // calling convention doesn't need conversion in some cases
-#ifndef NO_VM_COMPILED
-        if ( vm->compiled )
-            r = VM_CallCompiled( vm, (int*)&callnum );
-        else
-#endif
-            r = VM_CallInterpreted( vm, (int*)&callnum );
-#else
-        struct {
-            int callnum;
-            int args[MAX_VMMAIN_ARGS-1];
-        } a;
-#if 0
-        va_list ap;
-
-        a.callnum = callnum;
-        va_start(ap, callnum);
-        for (i = 0; i < ARRAY_LEN(a.args); i++) {
-            a.args[i] = va_arg(ap, int);
-        }
-        va_end(ap);
-#endif
-#ifndef NO_VM_COMPILED
-        if ( vm->compiled )
-            r = VM_CallCompiled( vm, &a.callnum );
-        else
-#endif
-            r = VM_CallInterpreted( vm, &a.callnum );
-#endif
-    }
+    r = VM_CallInterpreted( vm, (int*)&callnum );
     --vm->callLevel;
 
     if ( oldVM != NULL )
@@ -815,6 +769,7 @@ VM_VmProfile_f
 
 ==============
 */
+#if 0
 void VM_VmProfile_f( void ) {
     vm_t        *vm;
     vmSymbol_t  **sorted, *sym;
@@ -855,6 +810,7 @@ void VM_VmProfile_f( void ) {
 
     Z_Free( sorted );
 }
+#endif
 
 /*
 ==============
