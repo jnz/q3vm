@@ -60,7 +60,7 @@ Linux:
 Build LCC
 
     > cd lcc
-    > make BUILDDIR=build all lcc
+    > make BUILDDIR=build all
     > cd build
     > cp lcc ../../bin/linux/lcc
     > cp cpp ../../bin/linux/q3cpp
