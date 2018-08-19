@@ -27,7 +27,7 @@ LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
 # LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
-CFLAGS += -O2 -ggdb -c
+CFLAGS += -Og -ggdb -c
 CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -c: Compile without linking
 # -MMD: to autogenerate dependencies for make
