@@ -1,3 +1,5 @@
+# Makefile to build the virtual machine host
+# 
 # Jan Zwiener 2018
 
 -include config.mk

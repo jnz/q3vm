@@ -1,14 +1,22 @@
 Q3VM
 ====
 
+      ___   _______     ____  __
+     / _ \ |___ /\ \   / /  \/  |
+    | | | |  |_ \ \ \ / /| |\/| |
+    | |_| |____) | \ V / | |  | |
+     \__\_______/   \_/  |_|  |_|
+
+
 Jan Zwiener, 2018
 Mail: jan@zwiener.org
 
 Standalone interpreter for Quake 3 Virtual machine bytecode files (.qvm files).
 
-Based on Quake 3 and Triseism:
+Based on Quake 3, ioquake3 and Triseism:
 
     - https://github.com/id-Software/Quake-III-Arena
+    - https://github.com/ioquake/ioq3
     - http://www.icculus.org/triseism/
 
 Build VM/interpreter
