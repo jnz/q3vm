@@ -24,9 +24,11 @@ TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
+# add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
+LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
 CFLAGS += -O2 -ggdb -c
-CFLAGS += -flto -fno-builtin -fdata-sections -ffunction-sections
+CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -c: Compile without linking
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
@@ -39,7 +41,7 @@ CFLAGS += -Wall
 CFLAGS += -Wno-implicit-int -Wno-implicit-function-declaration -Wno-unused-result -Wno-return-type -Wno-unused-function
 # Header files
 INCLUDE_PATH := -I"src"
-LINK_FLAGS := -Wl,--gc-sections
+LINK_FLAGS := $(LTO_FLAGS) -Wl,--gc-sections
 
 # Source folders
 SRC_SUBDIRS := ./src
