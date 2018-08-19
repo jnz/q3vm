@@ -26,6 +26,7 @@ CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
 CFLAGS = -std=c99
 CFLAGS += -O2 -ggdb -c
+CFLAGS += -flto -fno-builtin -fdata-sections -ffunction-sections
 # -c: Compile without linking
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
@@ -38,6 +39,7 @@ CFLAGS += -Wall
 CFLAGS += -Wno-implicit-int -Wno-implicit-function-declaration -Wno-unused-result -Wno-return-type -Wno-unused-function
 # Header files
 INCLUDE_PATH := -I"src"
+LINK_FLAGS := -Wl,--gc-sections
 
 # Source folders
 SRC_SUBDIRS := ./src
@@ -61,7 +63,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'CFLAGS: '$(CFLAGS)
-	$(LINK) -o"$@" $(OBJS) $(LOCAL_LIBRARIES)
+	$(LINK) $(LINK_FLAGS) -o"$@" $(OBJS) $(LOCAL_LIBRARIES)
 	@echo 'Executable created: '$@
 
 clean:
