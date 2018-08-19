@@ -274,6 +274,7 @@ int q3vm_load_name (_THIS, const char *fname)
     return q3vm_load_file(self, qvmfile);
 }
 
+#ifndef _WIN32
 int q3vm_load_fd (_THIS, int fd)
 {
     FILE *qvmfile;
@@ -281,6 +282,7 @@ int q3vm_load_fd (_THIS, int fd)
         return 0;
     return q3vm_load_file(self, qvmfile);
 }
+#endif
 
 /* Stack operations. */
 vmword q3vm_fetch (_THIS)
