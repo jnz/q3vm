@@ -29,22 +29,19 @@ $bss is a large swatch of zeroes following in the VM RAM.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #define crumb printf
 
+#define STACKSIZE  0x10000
 
 /* VM data types represented in host memory. */
-typedef int vmI4;            /* signed 32-bit integer. */
-typedef unsigned int vmU4;   /* unsigned 32-bit integer. */
-typedef short vmI2;          /* signed 16-bit integer. */
-typedef unsigned short vmU2; /* unsigned 16-bit integer. */
-typedef signed char vmI1;    /* signed 8-bit integer. */
-typedef unsigned char vmU1;  /* unsigned 8-bit integer. */
-typedef float vmF4;          /* 32-bit floating-point */
-//typedef long long vmI8;
-//typedef unsigned long long vmU8;
-//typedef double vmF8;
-//typedef x86_cannot_do_128_bit_yet vmU6;
-
+typedef int32_t vmI4;   /* signed 32-bit integer. */
+typedef uint32_t vmU4;  /* unsigned 32-bit integer. */
+typedef int16_t vmI2;   /* signed 16-bit integer. */
+typedef uint16_t vmU2;  /* unsigned 16-bit integer. */
+typedef int8_t vmI1;    /* signed 8-bit integer. */
+typedef uint8_t vmU1;   /* unsigned 8-bit integer. */
+typedef float vmF4;     /* 32-bit floating-point */
 
 /* A word in VM memory. */
 union vmword {
@@ -143,7 +140,6 @@ int q3vm_load_name (_THIS, const char *fname);
 int q3vm_load_file (_THIS, FILE *qvmfile);
 int q3vm_load_fd (_THIS, int fd);
 void q3vm_destroy (_THIS);
-int q3vm_step (_THIS);      /* Run one cycle of VM */
 int q3vm_run (_THIS);       /* Run until machine halts. */
 
 /* Stack ops */  /* based on Forth */

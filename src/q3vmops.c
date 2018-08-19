@@ -33,7 +33,6 @@ TODO:
 #undef OP
 #define OP(n) q3vm_op##n (_THIS, vmword parm)
 
-//#define OPPARM (self->rom[self->PC].parm)
 #define OPPARM (parm)
 
 #define R0 (self->r[0])
@@ -459,18 +458,6 @@ int OP(CVFI)   /* [DP] <- [DP] */
   q3vm_push(self, R1);
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 /*
  opcode names.
