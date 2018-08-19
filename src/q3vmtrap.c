@@ -53,7 +53,7 @@ TRAP(Error) PARM
 /* void *memset (void *dest, int c, size_t count) */
 TRAP(memset) PARM
 {
-  int arg[3];
+  // int arg[3];
   char *dest;
   int c;
   size_t count;
@@ -69,7 +69,7 @@ TRAP(memset) PARM
 /* void *memcpy (void *dest, const void *src, size_t count) */
 TRAP(memcpy) PARM
 {
-  int arg[3];
+  // int arg[3];
   char *dest;
   char *src;
   size_t count;

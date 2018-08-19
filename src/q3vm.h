@@ -80,7 +80,7 @@ struct q3vm_t {
   int bigendian;  /* host is big-endian (requires byte-swapping). */
 
 /* Memory spaces. */
-  char *hunk;    /* hunk space (malloc'd). */
+  uint8_t *hunk;    /* hunk space (malloc'd). */
   int hunksize;  /* total hunk size. */
   int freehunk;  /* free pointer. */
   int romlen;    /* Read-Only Memory (code). */
@@ -138,9 +138,6 @@ Public interface
 q3vm_t *q3vm_init (_THIS, int hunkmegs);
 int q3vm_load_name (_THIS, const char *fname);
 int q3vm_load_file (_THIS, FILE *qvmfile);
-#ifndef _WIN32
-int q3vm_load_fd (_THIS, int fd);
-#endif
 void q3vm_destroy (_THIS);
 int q3vm_run (_THIS);       /* Run until machine halts. */
 

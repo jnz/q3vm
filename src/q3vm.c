@@ -188,7 +188,8 @@ int q3vm_load_file (_THIS, FILE *qvmfile)
 
     /* Code segment should follow... */
     /* XXX: use fseek with SEEK_CUR? */
-    crumb("Searching for .code @ %d from %d\n", qvminfo.codeoff, ftell(qvmfile));
+    crumb("Searching for .code @ %d from %u\n",
+          qvminfo.codeoff, (unsigned)ftell(qvmfile));
     //  self->rom = (q3vm_rom_t*)(self->hunk);  /* ROM-in-hunk */
     self->rom = (q3vm_rom_t*)calloc(qvminfo.inscount, sizeof(self->rom[0]));
     while (ftell(qvmfile) < qvminfo.codeoff)
@@ -207,12 +208,13 @@ int q3vm_load_file (_THIS, FILE *qvmfile)
         self->rom[self->romlen].parm = w;
         self->romlen++;
     }
-    crumb("After loading code: at %d, should be %d\n", ftell(qvmfile), qvminfo.codeoff + qvminfo.codelen);
+    crumb("After loading code: at %u, should be %d\n", (unsigned)ftell(qvmfile), qvminfo.codeoff + qvminfo.codelen);
 
     /* Then data segment. */
     //  self->ram = self->hunk + ((self->romlen + 3) & ~3);  /* RAM-in-hunk */
     self->ram = self->hunk;
-    crumb("Searching for .data @ %d from %d\n", qvminfo.dataoff, ftell(qvmfile));
+    crumb("Searching for .data @ %d from %d\n",
+          qvminfo.dataoff, (unsigned)ftell(qvmfile));
     while (ftell(qvmfile) < qvminfo.dataoff)
     {
         q3vm_read_octet(qvmfile);
@@ -273,16 +275,6 @@ int q3vm_load_name (_THIS, const char *fname)
     }
     return q3vm_load_file(self, qvmfile);
 }
-
-#ifndef _WIN32
-int q3vm_load_fd (_THIS, int fd)
-{
-    FILE *qvmfile;
-    if (!(qvmfile = fdopen(fd, "rb")))
-        return 0;
-    return q3vm_load_file(self, qvmfile);
-}
-#endif
 
 /* Stack operations. */
 vmword q3vm_fetch (_THIS)
@@ -455,7 +447,7 @@ int q3vm_call (_THIS, int addr, int arg0, int arg1, int arg2, int arg3, int
 vmword q3vm_get_word (_THIS, int addr)
 {
     vmword w;
-    vmU1 x[4];
+    // vmU1 x[4];
 
     if (addr < 0) addr = 0;
     if (addr > self->ramlen - 4) addr = self->ramlen - 4;
@@ -482,7 +474,7 @@ vmI4 q3vm_get_I4 (_THIS, int addr)
 
     w = q3vm_get_word(self, addr);
     retval = w.I4;
-    return w.I4;
+    return retval;
 }
 
 vmI4 q3vm_set_I4 (_THIS, int addr, vmI4 val)

@@ -157,7 +157,7 @@ int OP(CONST)  /* [DP] <- parm; DP++ */
 
 int OP(LOCAL)  /* [DP] <- [RP-n] */
 {
-  vmword w;
+  // vmword w;
 
   R0 = OPPARM;
 //  R1.I4 = q3vm_local(self, R0.I4);

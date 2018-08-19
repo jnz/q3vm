@@ -8,8 +8,6 @@ int main(int argc, char **argv)
 {
     const char *qvmfname;
     vmword w;
-    int i;
-    int stacktop;
 
     if (argc < 2)
     {
