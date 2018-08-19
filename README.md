@@ -23,12 +23,10 @@ Run:
 
     > q3vm.exe bytecode.qvm
 
-
-This is based on the Quake 3 VM, ioquake3 and Triseism:
+This is based on the Quake 3 and ioquake3 source:
 
  * https://github.com/id-Software/Quake-III-Arena
  * https://github.com/ioquake/ioq3
- * http://www.icculus.org/triseism/
 
 Build VM/interpreter
 --------------------
