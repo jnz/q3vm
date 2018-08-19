@@ -66,21 +66,20 @@ int main(int argc, char **argv)
 intptr_t systemCalls( intptr_t *args )
 {
     switch( args[0] ) {
-    case G_PRINT:
+    case 0: /* PRINTF */
         Com_Printf( "%s", (const char*)VMA(1) );
         return 0;
-    case G_ERROR:
+    case 1: /* ERROR */
         Com_Error( ERR_DROP, "%s", (const char*)VMA(1) );
         return 0;
 
-    case TRAP_MEMSET:
+    case 2: /* MEMSET */
         Com_Memset( VMA(1), args[2], args[3] );
         return 0;
 
-    case TRAP_MEMCPY:
+    case 3: /* MEMCPY */
         Com_Memcpy( VMA(1), VMA(2), args[3] );
         return 0;
-
 
     default:
         Com_Error( ERR_DROP, "Bad game system trap: %ld", (long int) args[0] );
