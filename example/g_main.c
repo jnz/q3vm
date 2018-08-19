@@ -7,7 +7,7 @@ void printf(const char *fmt, ...);
 vmMain
 
 This is the only way control passes into the module.
-This must be the very first function compiled into the .q3vm file
+This must be the very first function compiled into the .qvm file
 ================
 */
 int vmMain(int command,
@@ -15,19 +15,7 @@ int vmMain(int command,
            int arg4, int arg5, int arg6,  int arg7,
            int arg8, int arg9, int arg10, int arg11)
 {
-    int i;
-    char str[10] = "hiho";
-    char str2[10] = "janjan";
-
-    for (i=0;i<10;i++)
-    {
-        printf("Hello %s\n", "World");
-    }
-    memcpy(str, str2, 6);
-    memset(str2, 0, 4);
-    str[6] = 0;
-    printf("%s\n", str2);
-    printf("%s\n", str);
+    printf("Hello %s\n", "World");
 
     return 0;
 }
