@@ -16,13 +16,109 @@
 #include <string.h>
 
 #include "q3vm.h"
-#include "q3vmops.h"
 
+#define OP(n) VMOP_##n
+enum {
+  OP(UNDEF) = 0,
+  OP(IGNORE),  /* no-op */
+  OP(BREAK),   /* ??? */
+  OP(ENTER),   /* Begin subroutine. */
+  OP(LEAVE),   /* End subroutine. */
+  OP(CALL),    /* Call subroutine. */
+  OP(PUSH),    /* push to stack. */
+  OP(POP),     /* discard top-of-stack. */
+  OP(CONST),   /* load constant to stack. */
+  OP(LOCAL),   /* get local variable. */
+  OP(JUMP),    /* unconditional jump. */
+  OP(EQ),      /* compare integers, jump if equal. */
+  OP(NE),      /* compare integers, jump if not equal. */
+  OP(LTI),     /* compare integers, jump if less-than. */
+  OP(LEI),     /* compare integers, jump if less-than-or-equal. */
+  OP(GTI),     /* compare integers, jump if greater-than. */
+  OP(GEI),     /* compare integers, jump if greater-than-or-equal. */
+  OP(LTU),     /* compare unsigned integers, jump if less-than */
+  OP(LEU),     /* compare unsigned integers, jump if less-than-or-equal */
+  OP(GTU),     /* compare unsigned integers, jump if greater-than */
+  OP(GEU),     /* compare unsigned integers, jump if greater-than-or-equal */
+  OP(EQF),     /* compare floats, jump if equal */
+  OP(NEF),     /* compare floats, jump if not-equal */
+  OP(LTF),     /* compare floats, jump if less-than */
+  OP(LEF),     /* compare floats, jump if less-than-or-equal */
+  OP(GTF),     /* compare floats, jump if greater-than */
+  OP(GEF),     /* compare floats, jump if greater-than-or-equal */
+  OP(LOAD1),   /* load 1-byte from memory */
+  OP(LOAD2),   /* load 2-byte from memory */
+  OP(LOAD4),   /* load 4-byte from memory */
+  OP(STORE1),  /* store 1-byte to memory */
+  OP(STORE2),  /* store 2-byte to memory */
+  OP(STORE4),  /* store 4-byte to memory */
+  OP(ARG),     /* marshal argument */
+  OP(BLOCK_COPY), /* block copy... */
+  OP(SEX8),    /* Pedophilia */
+  OP(SEX16),   /* Sign-Extend 16-bit */
+  OP(NEGI),    /* Negate integer. */
+  OP(ADD),     /* Add integers (two's complement). */
+  OP(SUB),     /* Subtract integers (two's complement). */
+  OP(DIVI),    /* Divide signed integers. */
+  OP(DIVU),    /* Divide unsigned integers. */
+  OP(MODI),    /* Modulus (signed). */
+  OP(MODU),    /* Modulus (unsigned). */
+  OP(MULI),    /* Multiply signed integers. */
+  OP(MULU),    /* Multiply unsigned integers. */
+  OP(BAND),    /* Bitwise AND */
+  OP(BOR),     /* Bitwise OR */
+  OP(BXOR),    /* Bitwise eXclusive-OR */
+  OP(BCOM),    /* Bitwise COMplement */
+  OP(LSH),     /* Left-shift */
+  OP(RSHI),    /* Right-shift (algebraic; preserve sign) */
+  OP(RSHU),    /* Right-shift (bitwise; ignore sign) */
+  OP(NEGF),    /* Negate float */
+  OP(ADDF),    /* Add floats */
+  OP(SUBF),    /* Subtract floats */
+  OP(DIVF),    /* Divide floats */
+  OP(MULF),    /* Multiply floats */
+  OP(CVIF),    /* Convert to integer from float */
+  OP(CVFI),    /* Convert to float from integer */
+
+  OP(NUM_OPS),
+};
+
+static const char *opnames[OP(NUM_OPS)];
+typedef int (*opfunc)(struct q3vm_t *self, vmword parm);
+static const opfunc optable[OP(NUM_OPS)];
 
 const char *SEGMENT_CODE = "code";
 const char *SEGMENT_DATA = "data";
 const char *SEGMENT_LIT = "lit";
 const char *SEGMENT_BSS = "bss";
+
+/* Stack ops */  /* based on Forth */
+ /* data stack */
+static vmword q3vm_fetch (_THIS);
+static vmword q3vm_dup (_THIS);
+static vmword q3vm_nip (_THIS);
+ /* return stack */
+static vmword q3vm_to_r (_THIS);     /* >r */
+static vmword q3vm_r_from (_THIS);   /* r> */
+static vmword q3vm_rfetch (_THIS);   /* r@ */
+static vmword q3vm_rdrop (_THIS);    /* rdrop */
+static vmword q3vm_rpush (_THIS, vmword val);
+
+static vmword q3vm_get_word (_THIS, int addr);
+static vmword q3vm_set_word (_THIS, int addr, vmword val);
+static vmI4 q3vm_set_I4 (_THIS, int addr, vmI4 val);
+static vmU4 q3vm_get_U4 (_THIS, int addr);
+static vmU4 q3vm_set_U4 (_THIS, int addr, vmU4 val);
+static vmF4 q3vm_get_F4 (_THIS, int addr);
+static vmF4 q3vm_set_F4 (_THIS, int addr, vmF4 val);
+static vmI2 q3vm_get_I2 (_THIS, int addr);
+static vmI2 q3vm_set_I2 (_THIS, int addr, vmI2 val);
+static vmU2 q3vm_get_U2 (_THIS, int addr);
+static vmU2 q3vm_set_U2 (_THIS, int addr, vmU2 val);
+static vmI1 q3vm_get_I1 (_THIS, int addr);
+static vmI1 q3vm_set_I1 (_THIS, int addr, vmI1 val);
+static vmU1 q3vm_get_U1 (_THIS, int addr);
+static vmU1 q3vm_set_U1 (_THIS, int addr, vmU1 val);
 
 
 /* Read one octet from file. */
@@ -277,7 +373,7 @@ int q3vm_load_name (_THIS, const char *fname)
 }
 
 /* Stack operations. */
-vmword q3vm_fetch (_THIS)
+static vmword q3vm_fetch (_THIS)
 {
     vmword w;
     w.I4 = 0;
@@ -306,7 +402,7 @@ vmword q3vm_push (_THIS, vmword val)
     return val;
 }
 
-vmword q3vm_dup (_THIS)  /* w -- w w */
+static vmword q3vm_dup (_THIS)  /* w -- w w */
 {
     vmword w;
 
@@ -315,7 +411,7 @@ vmword q3vm_dup (_THIS)  /* w -- w w */
     return w;
 }
 
-vmword q3vm_nip (_THIS)
+static vmword q3vm_nip (_THIS)
 {
     vmword w;
 
@@ -325,7 +421,7 @@ vmword q3vm_nip (_THIS)
     return w;
 }
 
-vmword q3vm_to_r (_THIS)
+static vmword q3vm_to_r (_THIS)
 {
     vmword w;
 
@@ -334,8 +430,7 @@ vmword q3vm_to_r (_THIS)
     return w;
 }
 
-    vmword
-q3vm_r_from (_THIS)
+static vmword q3vm_r_from (_THIS)
 {
     vmword w;
 
@@ -344,8 +439,7 @@ q3vm_r_from (_THIS)
     return w;
 }
 
-    vmword
-q3vm_r_fetch (_THIS)
+static vmword q3vm_r_fetch (_THIS)
 {
     vmword w;
     w.I4 = 0;
@@ -355,8 +449,7 @@ q3vm_r_fetch (_THIS)
     return w;
 }
 
-    vmword
-q3vm_rdrop (_THIS)
+static vmword q3vm_rdrop (_THIS)
 {
     vmword w;
 
@@ -365,7 +458,7 @@ q3vm_rdrop (_THIS)
     return w;
 }
 
-vmword q3vm_rpush (_THIS, vmword val)
+static vmword q3vm_rpush (_THIS, vmword val)
 {
     self->RP -= sizeof(val);
     q3vm_set_word(self, self->RP, val);
@@ -392,7 +485,7 @@ int q3vm_marshal (_THIS, int addr, vmword arg)
 }
 
 /* Absolute address of `localnum'th local. */
-int q3vm_local (_THIS, int localnum)
+static int q3vm_local (_THIS, int localnum)
 {
     int localoff;
 
@@ -444,7 +537,7 @@ int q3vm_call (_THIS, int addr, int arg0, int arg1, int arg2, int arg3, int
 /* Memory access. */
 /******************/
 
-vmword q3vm_get_word (_THIS, int addr)
+static vmword q3vm_get_word (_THIS, int addr)
 {
     vmword w;
     // vmU1 x[4];
@@ -455,7 +548,7 @@ vmword q3vm_get_word (_THIS, int addr)
     return w;
 }
 
-vmword q3vm_set_word (_THIS, int addr, vmword val)
+static vmword q3vm_set_word (_THIS, int addr, vmword val)
 {
     if (addr < 0) addr = 0;
     if (addr > self->ramlen - 4) addr = self->ramlen - 4;
@@ -463,9 +556,6 @@ vmword q3vm_set_word (_THIS, int addr, vmword val)
     //crumb("Setting word [%d] = %d\n", addr, val.I4);
     return val;
 }
-
-
-
 
 vmI4 q3vm_get_I4 (_THIS, int addr)
 {
@@ -477,7 +567,7 @@ vmI4 q3vm_get_I4 (_THIS, int addr)
     return retval;
 }
 
-vmI4 q3vm_set_I4 (_THIS, int addr, vmI4 val)
+static vmI4 q3vm_set_I4 (_THIS, int addr, vmI4 val)
 {
     vmword w;
 
@@ -486,7 +576,7 @@ vmI4 q3vm_set_I4 (_THIS, int addr, vmI4 val)
     return val;
 }
 
-vmU4 q3vm_get_U4 (_THIS, int addr)
+static vmU4 q3vm_get_U4 (_THIS, int addr)
 {
     vmword w;
 
@@ -494,7 +584,7 @@ vmU4 q3vm_get_U4 (_THIS, int addr)
     return w.U4;
 }
 
-vmU4 q3vm_set_U4 (_THIS, int addr, vmU4 val)
+static vmU4 q3vm_set_U4 (_THIS, int addr, vmU4 val)
 {
     vmword w;
 
@@ -503,7 +593,7 @@ vmU4 q3vm_set_U4 (_THIS, int addr, vmU4 val)
     return val;
 }
 
-vmF4 q3vm_get_F4 (_THIS, int addr)
+static vmF4 q3vm_get_F4 (_THIS, int addr)
 {
     vmword w;
 
@@ -511,7 +601,7 @@ vmF4 q3vm_get_F4 (_THIS, int addr)
     return w.F4;
 }
 
-vmF4 q3vm_set_F4 (_THIS, int addr, vmF4 val)
+static vmF4 q3vm_set_F4 (_THIS, int addr, vmF4 val)
 {
     vmword w;
 
@@ -520,7 +610,7 @@ vmF4 q3vm_set_F4 (_THIS, int addr, vmF4 val)
     return val;
 }
 
-vmI2 q3vm_get_I2 (_THIS, int addr)
+static vmI2 q3vm_get_I2 (_THIS, int addr)
 {
     vmword w;
 
@@ -528,7 +618,7 @@ vmI2 q3vm_get_I2 (_THIS, int addr)
     return w.I2[0];
 }
 
-vmI2 q3vm_set_I2 (_THIS, int addr, vmI2 val)
+static vmI2 q3vm_set_I2 (_THIS, int addr, vmI2 val)
 {
     vmword w;
 
@@ -538,7 +628,7 @@ vmI2 q3vm_set_I2 (_THIS, int addr, vmI2 val)
     return w.I2[0];
 }
 
-vmU2 q3vm_get_U2 (_THIS, int addr)
+static vmU2 q3vm_get_U2 (_THIS, int addr)
 {
     vmword w;
 
@@ -546,7 +636,7 @@ vmU2 q3vm_get_U2 (_THIS, int addr)
     return w.U2[0];
 }
 
-vmU2 q3vm_set_U2 (_THIS, int addr, vmU2 val)
+static vmU2 q3vm_set_U2 (_THIS, int addr, vmU2 val)
 {
     vmword w;
 
@@ -556,7 +646,7 @@ vmU2 q3vm_set_U2 (_THIS, int addr, vmU2 val)
     return w.U2[0];
 }
 
-vmI1 q3vm_get_I1 (_THIS, int addr)
+static vmI1 q3vm_get_I1 (_THIS, int addr)
 {
     vmword w;
 
@@ -564,7 +654,7 @@ vmI1 q3vm_get_I1 (_THIS, int addr)
     return w.I1[0];
 }
 
-vmI1 q3vm_set_I1 (_THIS, int addr, vmI1 val)
+static vmI1 q3vm_set_I1 (_THIS, int addr, vmI1 val)
 {
     vmword w;
 
@@ -574,7 +664,7 @@ vmI1 q3vm_set_I1 (_THIS, int addr, vmI1 val)
     return w.I1[0];
 }
 
-vmU1 q3vm_get_U1 (_THIS, int addr)
+static vmU1 q3vm_get_U1 (_THIS, int addr)
 {
     vmword w;
 
@@ -586,7 +676,7 @@ vmU1 q3vm_get_U1 (_THIS, int addr)
     return w.U1[0];
 }
 
-vmU1 q3vm_set_U1 (_THIS, int addr, vmU1 val)
+static vmU1 q3vm_set_U1 (_THIS, int addr, vmU1 val)
 {
     vmword w;
 
@@ -626,4 +716,575 @@ int q3vm_disasm (_THIS)
     }
     return 0;
 }
+
+#undef _THIS
+#define _THIS q3vm_t *self
+
+#undef OP
+#define OP(n) q3vm_op##n (_THIS, vmword parm)
+
+#define OPPARM (parm)
+
+#define R0 (self->r[0])
+#define R1 (self->r[1])
+#define R2 (self->r[2])
+#define CMF (self->cm)
+
+
+int OP(UNDEF)
+{
+  /* Die horribly. */
+  return -1;
+}
+
+int OP(IGNORE)
+{
+  /* NOP */
+  return 0;
+}
+
+int OP(BREAK)
+{
+  /* Usage never spotted. */
+  /* Die horribly? */
+  return -1;
+}
+
+/*
+Stack on entering...
+
+no locals: ENTER 8
+1 words locals: ENTER 16
+2 words locals: ENTER 20
+3 words locals: ENTER 24
+ etc.
+
+address of argument:
+ ADDRFP4 v  =>  OP_LOCAL (16 + currentLocals + currentArgs + v)
+address of local:
+ ADDRLP4 v  =>  OP_LOCAL (8 + currentArgs + v)
+
+      RP [        ]   ??? (oldPC?)
+         [        ]   ???
+         [        ]  \
+            ...        > locals (args marshalling)
+         [        ]  /
+         [        ]  \
+            ...        > locals
+         [        ]  /     (ADDRLP4 v  =>  OP_LOCAL (8 + currentArgs + v))
+(oldRP?) [        ]   ???
+         [        ]   ???
+         [        ]   (my args?)
+            ...
+         [        ]
+*/
+
+int OP(ENTER)  /* ??? */
+{
+  R2.I4 = self->RP;
+  R1 = OPPARM;
+//crumb("ENTER with shift %d B (PC=%d, DP=%d, RP=%d)\n", R1.I4, self->PC, self->DP, self->RP);
+  R0.I4 = 0;
+  while (R1.I4 > (2 * sizeof(vmword)))
+    {
+      q3vm_rpush(self, R0);  /* init zero */
+      R1.I4 -= sizeof(vmword);
+    }
+//  R0.I4 = self->PC; q3vm_rpush(self, R0);  /* PC? */
+  q3vm_to_r(self);  /* return-PC */
+  R0.I4 = 0; q3vm_rpush(self, R0);  /* I dunno */
+//crumb("ENTER done with (PC=%d, DP=%d, RP=%d)\n", self->PC, self->DP, self->RP);
+  return 0;
+}
+
+int OP(LEAVE)  /* ??? */
+{
+  R1 = OPPARM;
+//crumb("LEAVE with unshift %d B (PC=%d, DP=%d, RP=%d)\n", R1.I4, self->PC, self->DP, self->RP);
+  R0 = q3vm_rdrop(self);  /* I dunno */
+  R1.I4 -= sizeof(vmword);
+  R0 = q3vm_rdrop(self);  /* PC? */
+  self->PC = R0.I4;
+  R1.I4 -= sizeof(vmword);
+  while (R1.I4 > 0)
+    {
+      q3vm_rdrop(self);
+      R1.I4 -= sizeof(vmword);
+    }
+//crumb(" LEAVE done (PC=%d, DP=%d, RP=%d)\n", self->PC, self->DP, self->RP);
+  return 0;
+}
+
+int OP(CALL)  /* Call subroutine. */
+{
+  R0 = q3vm_drop(self);   /* jump address. */
+  R1.I4 = self->PC;
+  q3vm_push(self, R1);    /* return address */
+//crumb("(PC=%d) Making procedure call to %d, will return to %d (DP=%d, RP=%d)\n", self->PC, R0.I4, R1.I4, self->DP, self->RP);
+  self->PC = R0.I4;
+  return 0;
+}
+
+int OP(PUSH)  /* [DP] <- 0; DP++ */
+{
+  R0.I4 = 0;
+  q3vm_push(self, R0);
+  return 0;
+}
+
+int OP(POP)  /* DP-- */
+{
+  q3vm_drop(self);
+  return 0;
+}
+
+int OP(CONST)  /* [DP] <- parm; DP++ */
+{
+  q3vm_push(self, OPPARM);
+//crumb("Pushing constant %08X\n", OPPARM.I4);
+  return 0;
+}
+
+int OP(LOCAL)  /* [DP] <- [RP-n] */
+{
+  // vmword w;
+
+  R0 = OPPARM;
+//  R1.I4 = q3vm_local(self, R0.I4);
+  R1.I4 = self->RP + R0.I4;
+//crumb("Getting local %d => [%d]\n", R0.I4, R1.I4);
+  q3vm_push(self, R1);
+  return 0;
+}
+
+int OP(JUMP)   /* PC <- [DP] */
+{
+  R0 = q3vm_drop(self);
+//  q3vm_jump(self, R0.I4);
+//crumb("JUMPing to %d (0x%08X)\n", R0.I4, R0.U4);
+  self->PC = R0.I4;
+  return 0;
+}
+
+#if 0
+int OP(EQ)     /* if [DP] == [DP-1] then PC <- parm; DP <- DP-2 */
+{
+  R1 = q3vm_drop(self);
+  R0 = q3vm_drop(self);
+  CMF = (R0.I4 == R1.I4);
+  if (CMF) self->PC = R0.I4; //q3vm_jump(self, OPPARM);
+  return 0;
+}
+#endif /* 0 */
+
+#if 0
+#define CMP(vmtype, op) { R1 = q3vm_drop(self); R0 = q3vm_drop(self); \
+  CMF = (R0.vmtype op R1.vmtype); if (CMF) self->PC = OPPARM.I4 /* q3vm_jump(self, OPPARM) */; crumb(" Comparison %s on %d vs %d, cond-jump %d\n", #op, R0.I4, R1.I4, OPPARM.I4); return 0; }
+#else
+#define CMP(vmtype, op) { R1 = q3vm_drop(self); R0 = q3vm_drop(self); \
+  CMF = (R0.vmtype op R1.vmtype); if (CMF) self->PC = OPPARM.I4; return 0; }
+#endif /* 0 */
+
+int OP(EQ)     /* if [DP] == [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, ==)
+
+int OP(NE)   /* if [DP] == [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, !=)
+
+int OP(LTI)  /* if [DP] < [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, <)
+
+int OP(LEI)  /* if [DP] <= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, <=)
+
+int OP(GTI)  /* if [DP] > [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, >)
+
+int OP(GEI)  /* if [DP] >= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(I4, >=)
+
+int OP(LTU)  /* if [DP] < [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(U4, <)
+
+int OP(LEU)  /* if [DP] <= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(U4, <=)
+
+int OP(GTU)  /* if [DP] > [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(U4, >)
+
+int OP(GEU)  /* if [DP] >= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(U4, >=)
+
+int OP(EQF)  /* if [DP] == [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, ==)
+
+int OP(NEF)  /* if [DP] != [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, !=)
+
+int OP(LTF)  /* if [DP] < [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, <)
+
+int OP(LEF)  /* if [DP] <= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, <=)
+
+int OP(GTF)  /* if [DP] > [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, >)
+
+int OP(GEF)  /* if [DP] >= [DP-1] then PC <- parm; DP <- DP-2 */
+  CMP(F4, >=)
+
+
+int OP(LOAD1)  /* [DP] <- [[DP]] */
+{
+  R1 = q3vm_drop(self);
+  R0.I4 = q3vm_get_U1(self, R1.I4);
+//crumb("Retrieving octet %d from [%d]\n", R0.I4, R1.I4);
+  q3vm_push(self, R0);
+  return 0;
+}
+
+int OP(LOAD2)  /* [DP] <- [[DP]] */
+{
+  R1 = q3vm_drop(self);
+  R0.I4 = q3vm_get_U2(self, R1.I4);
+//crumb("Retrieving short %d from [%d]\n", R0.I4, R1.I4);
+  q3vm_push(self, R0);
+  return 0;
+}
+
+int OP(LOAD4)  /* [DP] <- [[DP]] */
+{
+  R1 = q3vm_drop(self);
+  R0.I4 = q3vm_get_I4(self, R1.I4);
+//crumb("LOAD4 from [%d] => %d\n", R1.I4, R0.I4);
+  q3vm_push(self, R0);
+  return 0;
+}
+
+int OP(STORE1) /* [DP-1] <- [DP]; DP <- DP-2 */
+{
+  R1 = q3vm_drop(self); /* value */
+  R0 = q3vm_drop(self); /* destination */
+//crumb("Storing octet %d to [%d]\n", R1.U4, R0.U4);
+  q3vm_set_U1(self, R0.I4, (R1.U4 & 0xFF));
+  return 0;
+}
+
+int OP(STORE2) /* [DP-1] <- [DP]; DP <- DP-2 */
+{
+  R1 = q3vm_drop(self); /* value */
+  R0 = q3vm_drop(self); /* destination */
+//crumb("Storing short %d to [%d]\n", R1.U4, R0.U4);
+  q3vm_set_U2(self, R0.I4, (R1.U4 & 0xFFFF));
+  return 0;
+}
+
+int OP(STORE4) /* [DP-1] <- [DP]; DP <- DP-2 */
+{
+  R1 = q3vm_drop(self); /* value */
+  R0 = q3vm_drop(self); /* destination */
+//crumb("Storing word %d to [%d]\n", R1.I4, R0.I4);
+  q3vm_set_I4(self, R0.I4, R1.I4);
+  return 0;
+}
+
+int OP(ARG)    /* Marshal TOS to to-call argument list */
+{
+  R0 = q3vm_drop(self);
+//  q3vm_argument(self, R0);
+//  q3vm_set_word(self, self->AP, R0);
+//  self->AP++;
+//  R1.I4 = q3vm_argument(self, R0.I4);
+/*
+  R1.I4 = (2 + R0.I4) * sizeof(vmword);
+  q3vm_set_word(self, R1.I4, R0);
+*/
+  q3vm_marshal(self, OPPARM.I4, R0);
+  return 0;
+}
+
+int OP(BLOCK_COPY)  /* XXX */
+{
+  R2 = OPPARM;  /* Number of octets to copy */
+  R1 = q3vm_drop(self);  /* From */
+  R0 = q3vm_drop(self);  /* To */
+#if 1 /* cute */
+//crumb("Copying into [%d] from [%d] for %d octets\n", R0.I4, R1.I4, R2.I4);
+  memcpy((char*)self->ram + R0.I4, (char*)self->ram + R1.I4, R2.I4);
+#else /* straightforward */
+  while (R2.I4 > 0)
+    {
+      q3vm_set_U1(self, R0.I4, q3vm_get_U1(self, R1.I4));
+      R0.I4++;
+      R1.I4++;
+      R2.I4--;  /* counter decrement */
+    }
+#endif /* 0 */
+  return -1;
+}
+
+int OP(SEX8)   /* Sign-extend 8-bit */
+{
+  R0 = q3vm_drop(self);
+  if (R0.U4 & 0x80) R0.U4 |= 0xFFFFFF80;
+  q3vm_push(self, R0);
+  return 0;
+}
+
+int OP(SEX16)  /* Sign-extend 16-bit */
+{
+  R0 = q3vm_drop(self);
+  if (R0.U4 & 0x8000) R0.U4 |= 0xFFFF8000;
+  q3vm_push(self, R0);
+  return 0;
+}
+
+/* unary operator. */
+#define UNOP(vmtype, op) { R1 = q3vm_drop(self); \
+  R0.vmtype = op (R1.vmtype); q3vm_push(self, R0); }
+
+/* binary operator. */
+#if 0
+#define BINOP(vmtype, op) { R1 = q3vm_drop(self); R0 = q3vm_drop(self); \
+ R2.vmtype = R0.vmtype op R1.vmtype; \
+ crumb("Op %s with %d and %d => %d\n", #op, R0.I4, R1.I4, R2.I4); \
+ q3vm_push(self, R2); return 0; }
+#else
+#define BINOP(vmtype, op) { R1 = q3vm_drop(self); R0 = q3vm_drop(self); \
+ R2.vmtype = R0.vmtype op R1.vmtype; \
+ q3vm_push(self, R2); return 0; }
+#endif /* 0 */
+
+int OP(NEGI)  /* [DP] <- -[DP] */
+  UNOP(I4, -)
+
+int OP(ADD)   /* [DP-1] <- [DP-1] + [DP]; DP <- DP-1 */
+  BINOP(I4, +)
+
+int OP(SUB)   /* [DP-1] <- [DP-1] - [DP]; DP <- DP-1 */
+  BINOP(I4, -)
+
+int OP(DIVI)   /* [DP-1] <- [DP-1] / [DP]; DP <- DP-1 */
+  BINOP(I4, /)
+
+int OP(DIVU)   /* [DP-1] <- [DP-1] / [DP]; DP <- DP-1 */
+  BINOP(U4, /)
+
+int OP(MODI)   /* [DP-1] <- [DP-1] % [DP]; DP <- DP-1 */
+  BINOP(I4, %)
+
+int OP(MODU)   /* [DP-1] <- [DP-1] % [DP]; DP <- DP-1 */
+  BINOP(U4, %)
+
+int OP(MULI)   /* [DP-1] <- [DP-1] * [DP]; DP <- DP-1 */
+  BINOP(I4, *)
+
+int OP(MULU)   /* [DP-1] <- [DP-1] * [DP]; DP <- OP-1 */
+  BINOP(U4, *)
+
+int OP(BAND)   /* [DP-1] <- [DP-1] & [DP]; DP <- DP-1 */
+  BINOP(U4, &)
+
+int OP(BOR)   /* [DP-1] <- [DP-1] | [DP]; DP <- DP-1 */
+  BINOP(U4, |)
+
+int OP(BXOR)   /* [DP-1] <- [DP-1] ^ [DP]; DP <- DP-1 */
+  BINOP(U4, ^)
+
+int OP(BCOM)   /* [DP] <- ~[DP] */
+  UNOP(U4, ~)
+
+int OP(LSH)   /* [DP-1] <- [DP-1] << [DP]; DP <- DP-1 */
+  BINOP(U4, <<)
+
+int OP(RSHI)  /* [DP-1] <- [DP-1] >> [DP]; DP <- DP-1 */
+/*
+  BINOP(I4, >>)
+*/
+{
+  R1 = q3vm_drop(self);
+  R0 = q3vm_drop(self);
+#if 0
+  while (R1.I4-- > 0)
+      R0.I4 /= 2;
+  R2 = R0;
+#else
+  R2.I4 = R0.I4 >> R1.I4;
+#endif /* 0 */
+  q3vm_push(self, R2);
+  return 0;
+}
+
+int OP(RSHU)   /* [DP-1] <- [DP-1] >> [DP]; DP <- DP-1 */
+  BINOP(U4, >>)
+
+int OP(NEGF)   /* [DP] <- -[DP] */
+  UNOP(F4, -)
+
+int OP(ADDF)   /* [DP-1] <- [DP-1] + [DP]; DP <- DP-1 */
+  BINOP(F4, +)
+
+int OP(SUBF)   /* [DP-1] <- [DP-1] - [DP]; DP <- DP-1 */
+  BINOP(F4, -)
+
+int OP(DIVF)   /* [DP-1] <- [DP-1] / [DP]; DP <- DP-1 */
+  BINOP(F4, /)
+
+int OP(MULF)   /* [DP-1] <- [DP-1] / [DP]; DP <- DP-1 */
+  BINOP(F4, *)
+
+int OP(CVIF)   /* [DP] <- [DP] */
+{
+  R0 = q3vm_drop(self);
+  R1.I4 = (vmI4)(R0.F4);
+  q3vm_push(self, R1);
+  return 0;
+}
+
+int OP(CVFI)   /* [DP] <- [DP] */
+{
+  R0 = q3vm_drop(self);
+  R1.I4 = (vmF4)(R0.I4);
+  q3vm_push(self, R1);
+  return 0;
+}
+
+/*
+ opcode names.
+*/
+
+#undef OP
+#define OP(n) #n
+
+static const char *opnames[] = {
+  OP(UNDEF),
+  OP(IGNORE),  /* no-op */
+  OP(BREAK),   /* ??? */
+  OP(ENTER),   /* Begin subroutine. */
+  OP(LEAVE),   /* End subroutine. */
+  OP(CALL),    /* Call subroutine. */
+  OP(PUSH),    /* push to stack. */
+  OP(POP),     /* discard top-of-stack. */
+  OP(CONST),   /* load constant to stack. */
+  OP(LOCAL),   /* get local variable. */
+  OP(JUMP),    /* unconditional jump. */
+  OP(EQ),      /* compare integers, jump if equal. */
+  OP(NE),      /* compare integers, jump if not equal. */
+  OP(LTI),     /* compare integers, jump if less-than. */
+  OP(LEI),     /* compare integers, jump if less-than-or-equal. */
+  OP(GTI),     /* compare integers, jump if greater-than. */
+  OP(GEI),     /* compare integers, jump if greater-than-or-equal. */
+  OP(LTU),     /* compare unsigned integers, jump if less-than */
+  OP(LEU),     /* compare unsigned integers, jump if less-than-or-equal */
+  OP(GTU),     /* compare unsigned integers, jump if greater-than */
+  OP(GEU),     /* compare unsigned integers, jump if greater-than-or-equal */
+  OP(EQF),     /* compare floats, jump if equal */
+  OP(NEF),     /* compare floats, jump if not-equal */
+  OP(LTF),     /* compare floats, jump if less-than */
+  OP(LEF),     /* compare floats, jump if less-than-or-equal */
+  OP(GTF),     /* compare floats, jump if greater-than */
+  OP(GEF),     /* compare floats, jump if greater-than-or-equal */
+  OP(LOAD1),   /* load 1-byte from memory */
+  OP(LOAD2),   /* load 2-byte from memory */
+  OP(LOAD4),   /* load 4-byte from memory */
+  OP(STORE1),  /* store 1-byte to memory */
+  OP(STORE2),  /* store 2-byte to memory */
+  OP(STORE4),  /* store 4-byte to memory */
+  OP(ARG),     /* marshal argument */
+  OP(BLOCK_COPY), /* block copy... */
+  OP(SEX8),    /* Pedophilia */
+  OP(SEX16),   /* Sign-Extend 16-bit */
+  OP(NEGI),    /* Negate integer. */
+  OP(ADD),     /* Add integers (two's complement). */
+  OP(SUB),     /* Subtract integers (two's complement). */
+  OP(DIVI),    /* Divide signed integers. */
+  OP(DIVU),    /* Divide unsigned integers. */
+  OP(MODI),    /* Modulus (signed). */
+  OP(MODU),    /* Modulus (unsigned). */
+  OP(MULI),    /* Multiply signed integers. */
+  OP(MULU),    /* Multiply unsigned integers. */
+  OP(BAND),    /* Bitwise AND */
+  OP(BOR),     /* Bitwise OR */
+  OP(BXOR),    /* Bitwise eXclusive-OR */
+  OP(BCOM),    /* Bitwise COMplement */
+  OP(LSH),     /* Left-shift */
+  OP(RSHI),    /* Right-shift (algebraic; preserve sign) */
+  OP(RSHU),    /* Right-shift (bitwise; ignore sign) */
+  OP(NEGF),    /* Negate float */
+  OP(ADDF),    /* Add floats */
+  OP(SUBF),    /* Subtract floats */
+  OP(DIVF),    /* Divide floats */
+  OP(MULF),    /* Multiply floats */
+  OP(CVIF),    /* Convert to integer from float */
+  OP(CVFI),    /* Convert to float from integer */
+};
+
+
+
+/* Opcode lookup table. */
+#undef OP
+#define OP(n) q3vm_op##n
+
+static const opfunc optable[] = {
+  OP(UNDEF),
+  OP(IGNORE),  /* no-op */
+  OP(BREAK),   /* ??? */
+  OP(ENTER),   /* Begin subroutine. */
+  OP(LEAVE),   /* End subroutine. */
+  OP(CALL),    /* Call subroutine. */
+  OP(PUSH),    /* push to stack. */
+  OP(POP),     /* discard top-of-stack. */
+  OP(CONST),   /* load constant to stack. */
+  OP(LOCAL),   /* get local variable. */
+  OP(JUMP),    /* unconditional jump. */
+  OP(EQ),      /* compare integers, jump if equal. */
+  OP(NE),      /* compare integers, jump if not equal. */
+  OP(LTI),     /* compare integers, jump if less-than. */
+  OP(LEI),     /* compare integers, jump if less-than-or-equal. */
+  OP(GTI),     /* compare integers, jump if greater-than. */
+  OP(GEI),     /* compare integers, jump if greater-than-or-equal. */
+  OP(LTU),     /* compare unsigned integers, jump if less-than */
+  OP(LEU),     /* compare unsigned integers, jump if less-than-or-equal */
+  OP(GTU),     /* compare unsigned integers, jump if greater-than */
+  OP(GEU),     /* compare unsigned integers, jump if greater-than-or-equal */
+  OP(EQF),     /* compare floats, jump if equal */
+  OP(NEF),     /* compare floats, jump if not-equal */
+  OP(LTF),     /* compare floats, jump if less-than */
+  OP(LEF),     /* compare floats, jump if less-than-or-equal */
+  OP(GTF),     /* compare floats, jump if greater-than */
+  OP(GEF),     /* compare floats, jump if greater-than-or-equal */
+  OP(LOAD1),   /* load 1-byte from memory */
+  OP(LOAD2),   /* load 2-byte from memory */
+  OP(LOAD4),   /* load 4-byte from memory */
+  OP(STORE1),  /* store 1-byte to memory */
+  OP(STORE2),  /* store 2-byte to memory */
+  OP(STORE4),  /* store 4-byte to memory */
+  OP(ARG),     /* marshal argument */
+  OP(BLOCK_COPY), /* block copy... */
+  OP(SEX8),    /* Pedophilia */
+  OP(SEX16),   /* Sign-Extend 16-bit */
+  OP(NEGI),    /* Negate integer. */
+  OP(ADD),     /* Add integers (two's complement). */
+  OP(SUB),     /* Subtract integers (two's complement). */
+  OP(DIVI),    /* Divide signed integers. */
+  OP(DIVU),    /* Divide unsigned integers. */
+  OP(MODI),    /* Modulus (signed). */
+  OP(MODU),    /* Modulus (unsigned). */
+  OP(MULI),    /* Multiply signed integers. */
+  OP(MULU),    /* Multiply unsigned integers. */
+  OP(BAND),    /* Bitwise AND */
+  OP(BOR),     /* Bitwise OR */
+  OP(BXOR),    /* Bitwise eXclusive-OR */
+  OP(BCOM),    /* Bitwise COMplement */
+  OP(LSH),     /* Left-shift */
+  OP(RSHI),    /* Right-shift (algebraic; preserve sign) */
+  OP(RSHU),    /* Right-shift (bitwise; ignore sign) */
+  OP(NEGF),    /* Negate float */
+  OP(ADDF),    /* Add floats */
+  OP(SUBF),    /* Subtract floats */
+  OP(DIVF),    /* Divide floats */
+  OP(MULF),    /* Multiply floats */
+  OP(CVIF),    /* Convert to integer from float */
+  OP(CVFI),    /* Convert to float from integer */
+};
 

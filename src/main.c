@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "q3vm.h"
-#include "q3vmops.h"
 
 q3vm_t vm;
 

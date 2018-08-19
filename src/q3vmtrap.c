@@ -121,3 +121,4 @@ q3vm_syscall (q3vm_t *self, int trap)
   q3vm_push(self, w);
   return 1;
 }
+

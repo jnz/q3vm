@@ -35,8 +35,7 @@ CFLAGS += -O2 -ggdb -c
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
 # disable some warnings...
-CFLAGS += -Wno-implicit-int -Wno-implicit-function-declaration -Wno-unused-result -Wno-return-type
-
+CFLAGS += -Wno-implicit-int -Wno-implicit-function-declaration -Wno-unused-result -Wno-return-type -Wno-unused-function
 # Header files
 INCLUDE_PATH := -I"src"
 
