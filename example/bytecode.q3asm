@@ -1,5 +1,5 @@
--o ".\bytecode"
-g_main
-..\g_syscalls
-bg_lib
+-o "bytecode"
+build/g_main
+g_syscalls
+build/bg_lib
 

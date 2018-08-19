@@ -1,6 +1,3 @@
-Q3VM
-====
-
       ___   _______     ____  __
      / _ \ |___ /\ \   / /  \/  |
     | | | |  |_ \ \ \ / /| |\/| |
@@ -11,9 +8,20 @@ Q3VM
 Jan Zwiener, 2018
 Mail: jan@zwiener.org
 
-Standalone interpreter for Quake 3 Virtual machine bytecode files (.qvm files).
+Q3VM
+====
 
-Based on Quake 3, ioquake3 and Triseism:
+Standalone interpreter for Quake 3 Virtual machine bytecode files (.qvm files).
+Two things are required:
+    - The interpreter (q3vm / q3vm.exe)
+    - A bytecode binary .qvm file (e.g. bytecode.qvm)
+
+Run:
+
+    > q3vm.exe bytecode.qvm
+
+
+This is based on the Quake 3 VM, ioquake3 and Triseism:
 
     - https://github.com/id-Software/Quake-III-Arena
     - https://github.com/ioquake/ioq3
@@ -40,13 +48,38 @@ Build bytecode firmware
 -----------------------
 
 Windows:
-    
+The LCC compiler (lcc.exe) is saved in the ./bin/win32 directory.
+
     cd example
     make.bat
+    cp bytecode.qvm ..
+    cd ..
 
 Linux:
 
-    Not done yet, sorry
+Build LCC
+
+    > cd lcc
+    > make BUILDDIR=build all lcc
+    > cd build
+    > cp lcc ../../bin/linux/lcc
+    > cp cpp ../../bin/linux/q3cpp
+    > cp rcc ../../bin/linux/q3rcc
+    > cd ../..
+
+Build q3asm
+
+    > cd q3asm
+    > make
+    > cp q3asm ../bin/linux/
+    > cd ..
+
+Build the example bytecode:
+
+    > cd example
+    > make
+    > cp bytecode.qvm ..
+    > cd ..
 
 Run the bytecode firmware
 -------------------------

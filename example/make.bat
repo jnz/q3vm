@@ -3,13 +3,12 @@
 set curpath=%CD%
 setlocal
 REM Add LCC.exe to path
-cd ..\lcc\bin
+cd ..\bin\win32
 set path=%PATH%;%CD%
 cd %curpath%
 
 set cc=lcc -DQ3_VM -S -Wf-target=bytecode -Wf-g %1
 
-mkdir build
 cd build
 
 %cc%  ../g_main.c
@@ -19,6 +18,7 @@ cd build
 @if errorlevel 1 goto quit
 
 q3asm -f ../bytecode
+mv bytecode.qvm ..
 :quit
 cd ..
 
