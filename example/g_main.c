@@ -2,6 +2,13 @@
 
 void printf(const char *fmt, ...);
 
+
+/** @brief Simple function to sum up character values.
+  This is used for a test in the makefile.
+  @param[in] f pointer to string.
+  @return test number. */
+int testCase(const char* f);
+
 /*
 ================
 vmMain
@@ -15,9 +22,10 @@ int vmMain(int command,
            int arg4, int arg5, int arg6,  int arg7,
            int arg8, int arg9, int arg10, int arg11)
 {
-    printf("Hello %s\n", "World");
+    char str[] = "Hello %s\n";
+    printf(str, "World");
 
-    return 0;
+    return testCase(str) - 694;
 }
 
 void printf(const char *fmt, ...)
@@ -30,5 +38,16 @@ void printf(const char *fmt, ...)
     va_end (argptr);
 
     trap_Printf( text );
+}
+
+int testCase(const char* f)
+{
+    int sum=0;
+    while(*f)
+    {
+        sum += *f;
+        f++;
+    }
+    return sum;
 }
 

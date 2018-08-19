@@ -58,7 +58,7 @@ post-build:
 
 .FORCE:
 
-.PHONY: all tests .FORCE
+.PHONY: all .FORCE
 
 .SECONDARY: post-build
 

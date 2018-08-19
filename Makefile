@@ -71,6 +71,13 @@ clean:
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) ./$(TARGET)
 
+test: $(TARGET) example/bytecode.qvm
+	./q3vm example/bytecode.qvm
+
+# Test
+example/bytecode.qvm:
+	$(MAKE) -C example
+
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)
 
@@ -78,7 +85,7 @@ post-build:
 
 .FORCE:
 
-.PHONY: all tests .FORCE
+.PHONY: all test example/bytecode.qvm .FORCE
 
 .SECONDARY: post-build
 

@@ -23,12 +23,12 @@ int main(int argc, char **argv)
     if (!q3vm_load_name(&vm, qvmfname))
     {
         printf("Could not open file.\n");
-        return 0;
+        return -1;
     }
 
     //  q3vm_disasm(&vm);
-
     //  vm.PC = vm.romlen + 1;  /* Terminate.  Return to Termination. */
+
     printf("Running VM @ %d...\n", vm.PC);
     q3vm_call(&vm, 0, 0, 88, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);  /* vmMain */
     printf("vmMain finished, stack size %d\n", vm.datastack - vm.DP);
