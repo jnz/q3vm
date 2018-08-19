@@ -22,8 +22,17 @@ int vmMain(int command,
            int arg4, int arg5, int arg6,  int arg7,
            int arg8, int arg9, int arg10, int arg11)
 {
+    int i;
     char str[] = "Hello %s\n";
+    volatile float f = 0.0f;
+    volatile float df = 0.0001f;
+
     printf(str, "World");
+
+    for (i=0;i<20000000;i++)
+    {
+        f += df;
+    }
 
     return testCase(str) - 694;
 }

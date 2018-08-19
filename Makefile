@@ -72,7 +72,7 @@ clean:
 	$(CLEANUP) ./$(TARGET)
 
 test: $(TARGET) example/bytecode.qvm
-	./q3vm example/bytecode.qvm
+	time ./q3vm example/bytecode.qvm
 
 # Test
 example/bytecode.qvm:
