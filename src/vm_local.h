@@ -27,6 +27,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <stdint.h>
 #include <string.h>
 
+// #define DEBUG_VM
+
 #define Q3_LITTLE_ENDIAN
 
 // Max number of arguments to pass from engine to vm's vmMain function.

@@ -80,7 +80,8 @@ void Q_strncpyz( char *dest, const char *src, int destsize ) {
 
 void Com_Error( int level, const char *error, ... )
 {
-    printf("%s\n", error);
+    fprintf(stderr, "%s\n", error);
+    exit(-1);
 }
 
 /*
@@ -350,7 +351,7 @@ VM_LoadQVM
 Load a .qvm file
 =================
 */
-// static uint8_t fileTmp[5*1024*1024];
+static uint8_t imageTemp[5*1024*1024];
 vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
 {
     int  dataLength;
@@ -360,15 +361,36 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
         vmHeader_t *h;
         void *v;
     } header;
+    FILE* f;
+    size_t sz;
 
     // load the image
-    snprintf( filename, sizeof(filename), "%s.qvm", vm->name );
+    snprintf( filename, sizeof(filename), "%s", vm->name );
     Com_Printf( "Loading vm file %s...\n", filename );
 
-    /*
-     *FS_ReadFileDir(filename, vm->searchPath, unpure, &header.v);
-     */
-    return NULL;
+    f = fopen(filename, "rb");
+    if (!f)
+    {
+        Com_Printf("Failed to open file %s.\n", filename);
+        return NULL;
+    }
+
+    fseek(f, 0L, SEEK_END);
+    sz = ftell(f);
+    rewind(f);
+    if (sz > sizeof(imageTemp))
+    {
+        fclose(f);
+        return NULL;
+    }
+    size_t result = fread(imageTemp, 1, sz, f);
+    if (result != sz)
+    {
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+    header.v = imageTemp;
 
     if ( !header.h ) {
         Com_Printf( "Failed.\n" );
@@ -379,28 +401,7 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
         return NULL;
     }
 
-    if( LittleLong( header.h->vmMagic ) == VM_MAGIC_VER2 ) {
-        Com_Printf( "...which has vmMagic VM_MAGIC_VER2\n" );
-
-        // byte swap the header
-        for ( i = 0 ; i < sizeof( vmHeader_t ) / 4 ; i++ ) {
-            ((int *)header.h)[i] = LittleLong( ((int *)header.h)[i] );
-        }
-
-        // validate
-        if ( header.h->jtrgLength < 0
-            || header.h->bssLength < 0
-            || header.h->dataLength < 0
-            || header.h->litLength < 0
-            || header.h->codeLength <= 0 )
-        {
-            VM_Free(vm);
-            FS_FreeFile(header.v);
-
-            Com_Printf("Warning: %s has bad header\n", filename);
-            return NULL;
-        }
-    } else if( LittleLong( header.h->vmMagic ) == VM_MAGIC ) {
+    if( LittleLong( header.h->vmMagic ) == VM_MAGIC ) {
         // byte swap the header
         // sizeof( vmHeader_t ) - sizeof( int ) is the 1.32b vm header size
         for ( i = 0 ; i < ( sizeof( vmHeader_t ) - sizeof( int ) ) / 4 ; i++ ) {
@@ -413,16 +414,10 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
             || header.h->litLength < 0
             || header.h->codeLength <= 0 )
         {
-            VM_Free(vm);
-            FS_FreeFile(header.v);
-
             Com_Printf("Warning: %s has bad header\n", filename);
             return NULL;
         }
     } else {
-        VM_Free( vm );
-        FS_FreeFile(header.v);
-
         Com_Printf("Warning: %s does not have a recognisable "
                 "magic number in its header\n", filename);
         return NULL;
@@ -449,9 +444,6 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
         // clear the data, but make sure we're not clearing more than allocated
         if(vm->dataAlloc != dataLength + 4)
         {
-            VM_Free(vm);
-            FS_FreeFile(header.v);
-
             Com_Printf("Warning: Data region size of %s not matching after "
                     "VM_Restart()\n", filename);
             return NULL;
@@ -469,42 +461,6 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
         *(int *)(vm->dataBase + i) = LittleLong( *(int *)(vm->dataBase + i ) );
     }
 
-    if(header.h->vmMagic == VM_MAGIC_VER2)
-    {
-        int previousNumJumpTableTargets = vm->numJumpTableTargets;
-
-        header.h->jtrgLength &= ~0x03;
-
-        vm->numJumpTableTargets = header.h->jtrgLength >> 2;
-        Com_Printf("Loading %d jump table targets\n", vm->numJumpTableTargets);
-
-        if(alloc)
-        {
-            vm->jumpTableTargets = (uint8_t*)malloc(header.h->jtrgLength);
-        }
-        else
-        {
-            if(vm->numJumpTableTargets != previousNumJumpTableTargets)
-            {
-                VM_Free(vm);
-                FS_FreeFile(header.v);
-
-                Com_Printf("Warning: Jump table size of %s not matching after "
-                        "VM_Restart()\n", filename);
-                return NULL;
-            }
-
-            Com_Memset(vm->jumpTableTargets, 0, header.h->jtrgLength);
-        }
-
-        Com_Memcpy(vm->jumpTableTargets, (uint8_t *) header.h + header.h->dataOffset +
-                header.h->dataLength + header.h->litLength, header.h->jtrgLength);
-
-        // byte swap the longs
-        for ( i = 0 ; i < header.h->jtrgLength ; i += 4 ) {
-            *(int *)(vm->jumpTableTargets + i) = LittleLong( *(int *)(vm->jumpTableTargets + i ) );
-        }
-    }
 
     return header.h;
 }
@@ -530,7 +486,6 @@ vm_t *VM_Restart(vm_t *vm, qboolean unpure)
     if(!(header = VM_LoadQVM(vm, qfalse, unpure)))
     {
         Com_Error(ERR_DROP, "VM_Restart failed");
-        return NULL;
     }
 
     // free the original file
@@ -551,7 +506,6 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     vm_t        *vm;
     vmHeader_t  *header;
     // int i;
-    int retval;
     // char filename[MAX_OSPATH];
 
     if ( !module || !module[0] ) {
@@ -563,13 +517,12 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     Q_strncpyz(vm->name, module, sizeof(vm->name));
     header = VM_LoadQVM(vm, qtrue, qfalse);
     if (!header)
-        return NULL;
+    {
+        Com_Error( ERR_FATAL, "Failed to load bytecode.\n");
+    }
 
     // VM_Free overwrites the name on failed load
     Q_strncpyz(vm->name, module, sizeof(vm->name));
-
-    if (retval < 0)
-        return NULL;
 
     vm->systemCall = SV_GameSystemCalls;
 
@@ -724,10 +677,11 @@ intptr_t QDECL VM_Call( vm_t *vm, int callnum, ... )
 {
     vm_t    *oldVM;
     intptr_t r;
-    // int i;
 
     if(!vm || !vm->name[0])
+    {
         Com_Error(ERR_FATAL, "VM_Call with NULL vm");
+    }
 
     oldVM = currentVM;
     currentVM = vm;

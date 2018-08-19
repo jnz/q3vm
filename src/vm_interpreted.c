@@ -153,7 +153,7 @@ void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
     int     *codeBase;
 
     vm->codeBase = (uint8_t*)malloc( vm->codeLength*4 );          // we're now int aligned
-//  memcpy( vm->codeBase, (byte *)header + header->codeOffset, vm->codeLength );
+    memcpy( vm->codeBase, (uint8_t *)header + header->codeOffset, vm->codeLength );
 
     // we don't need to translate the instructions, but we still need
     // to find each instructions starting point for jumps

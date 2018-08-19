@@ -1,51 +1,17 @@
 #include <stdio.h>
-
 #include "vm_local.h"
 
 int main(int argc, char **argv)
 {
-    vm_t* vm = VM_Create("bytecode", VMI_BYTECODE);
-    VM_Call(vm, 0);
-
-    return 0;
-}
-
-#if 0
-#include "q3vm.h"
-
-q3vm_t vm;
-
-int main(int argc, char **argv)
-{
-    const char *qvmfname;
-    vmword w;
-
     if (argc < 2)
     {
         printf("No virtual machine supplied. Example: q3vm bytecode.qvm\n");
         return -1;
     }
 
-    q3vm_init (&vm, 56);
+    vm_t* vm = VM_Create(argv[1], VMI_BYTECODE);
+    VM_Call(vm, 0);
 
-    qvmfname = argv[1];
-    printf("Using file: %s\n", qvmfname);
-
-    if (!q3vm_load_name(&vm, qvmfname))
-    {
-        printf("Could not open file.\n");
-        return -1;
-    }
-
-    //  q3vm_disasm(&vm);
-    //  vm.PC = vm.romlen + 1;  /* Terminate.  Return to Termination. */
-
-    printf("Running VM @ %d...\n", vm.PC);
-    q3vm_call(&vm, 0, 0, 88, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);  /* vmMain */
-    printf("vmMain finished, stack size %d\n", vm.datastack - vm.DP);
-    w = q3vm_drop(&vm);
-    printf("Return value = %08X\n", w.U4);
-
-    return w.U4;
+    return 0;
 }
-#endif
+
