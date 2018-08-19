@@ -189,7 +189,7 @@ void _printf( const char *format, ... ) {
 	vsprintf (text, format, argptr);
 	va_end (argptr);
 
-  printf(text);
+  printf("%s", text);
 
 #ifdef WIN32
   if (!lookedForServer) {
@@ -316,8 +316,10 @@ char *ExpandArg (const char *path)
 char *ExpandPath (const char *path)
 {
 	static char full[1024];
+/*
 	if (!qdir)
 		Error ("ExpandPath called without qdir set");
+*/
 	if (path[0] == '/' || path[0] == '\\' || path[1] == ':') {
 		strcpy( full, path );
 		return full;
@@ -329,8 +331,10 @@ char *ExpandPath (const char *path)
 char *ExpandGamePath (const char *path)
 {
 	static char full[1024];
+/*
 	if (!qdir)
 		Error ("ExpandGamePath called without qdir set");
+*/
 	if (path[0] == '/' || path[0] == '\\' || path[1] == ':') {
 		strcpy( full, path );
 		return full;
