@@ -1,69 +1,69 @@
 /*
-===========================================================================
-Copyright (C) 1999-2005 Id Software, Inc.
+      ___   _______     ____  __
+     / _ \ |___ /\ \   / /  \/  |
+    | | | |  |_ \ \ \ / /| |\/| |
+    | |_| |____) | \ V / | |  | |
+     \__\_______/   \_/  |_|  |_|
 
-This file is part of Quake III Arena source code.
 
-Quake III Arena source code is free software; you can redistribute it
-and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of the License,
-or (at your option) any later version.
-
-Quake III Arena source code is distributed in the hope that it will be
-useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Quake III Arena source code; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-===========================================================================
+   Quake III Arena Virtual Machine
 */
-// vm.c -- virtual machine
 
-/*
-
-
-intermix code and data
-symbol table
-
-a dll has one imported function: VM_SystemCall
-and one exported function: Perform
-
-*/
+/******************************************************************************
+ * SYSTEM INCLUDE FILES
+ ******************************************************************************/
 
 #include <string.h>
-#include "vm_local.h"
 
-vm_t    *currentVM = NULL;
-vm_t    *lastVM    = NULL;
-int     vm_debugLevel;
+/******************************************************************************
+ * PROJECT INCLUDE FILES
+ ******************************************************************************/
 
-// used by Com_Error to get rid of running vm's before longjmp
-// static int forced_unload;
+#include "vm.h"
+
+/******************************************************************************
+ * DEFINES
+ ******************************************************************************/
 
 #define MAX_VM      3
-vm_t    vmTable[MAX_VM];
 
+/******************************************************************************
+ * TYPEDEFS
+ ******************************************************************************/
 
-void VM_VmInfo_f( void );
-void VM_VmProfile_f( void );
+/******************************************************************************
+ * GLOBAL DATA DEFINITIONS
+ ******************************************************************************/
 
+int vm_debugLevel;
 
-void VM_Debug( int level ) {
-    vm_debugLevel = level;
-}
+/******************************************************************************
+ * LOCAL DATA DEFINITIONS
+ ******************************************************************************/
 
-intptr_t SV_GameSystemCalls( intptr_t *args );
+static vm_t    *currentVM = NULL;
+static vm_t    *lastVM    = NULL;
+vm_t vmTable[MAX_VM];
 
-/*
-=============
-Q_strncpyz
- 
-Safe strncpy that ensures a trailing zero
-=============
-*/
-void Q_strncpyz( char *dest, const char *src, int destsize ) {
+/******************************************************************************
+ * LOCAL FUNCTION PROTOTYPES
+ ******************************************************************************/
+
+intptr_t systemCalls( intptr_t *args );
+static void VM_VmInfo_f( void );
+static void VM_VmProfile_f( void );
+static void Q_strncpyz( char *dest, const char *src, int destsize );
+
+/******************************************************************************
+ * LOCAL INLINE FUNCTIONS AND FUNCTION MACROS
+ ******************************************************************************/
+
+/******************************************************************************
+ * FUNCTION BODIES
+ ******************************************************************************/
+
+/* @brief Safe strncpy that ensures a trailing zero */
+static void Q_strncpyz( char *dest, const char *src, int destsize ) {
     if ( !dest ) {
         return;
     }
@@ -83,17 +83,6 @@ void Com_Error( int level, const char *error, ... )
     fprintf(stderr, "%s\n", error);
     exit(-1);
 }
-
-/*
-==============
-VM_Init
-==============
-*/
-void VM_Init( void ) {
-
-    memset( vmTable, 0, sizeof( vmTable ) );
-}
-
 
 /*
 ===============
@@ -351,53 +340,23 @@ VM_LoadQVM
 Load a .qvm file
 =================
 */
-static uint8_t imageTemp[5*1024*1024];
-vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
+vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
 {
     int  dataLength;
     int  i;
-    char filename[MAX_QPATH];
     union {
         vmHeader_t *h;
         void *v;
     } header;
-    FILE* f;
-    size_t sz;
 
     // load the image
-    snprintf( filename, sizeof(filename), "%s", vm->name );
-    Com_Printf( "Loading vm file %s...\n", filename );
+    Com_Printf( "Loading vm file %s...\n", vm->name );
 
-    f = fopen(filename, "rb");
-    if (!f)
-    {
-        Com_Printf("Failed to open file %s.\n", filename);
-        return NULL;
-    }
-
-    fseek(f, 0L, SEEK_END);
-    sz = ftell(f);
-    rewind(f);
-    if (sz > sizeof(imageTemp))
-    {
-        fclose(f);
-        return NULL;
-    }
-    size_t result = fread(imageTemp, 1, sz, f);
-    if (result != sz)
-    {
-        fclose(f);
-        return NULL;
-    }
-    fclose(f);
-    header.v = imageTemp;
+    header.v = bytecode;
 
     if ( !header.h ) {
         Com_Printf( "Failed.\n" );
         VM_Free( vm );
-
-        Com_Printf("Warning: Couldn't open VM file %s\n", filename);
-
         return NULL;
     }
 
@@ -414,12 +373,12 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
             || header.h->litLength < 0
             || header.h->codeLength <= 0 )
         {
-            Com_Printf("Warning: %s has bad header\n", filename);
+            Com_Printf("Warning: %s has bad header\n", vm->name);
             return NULL;
         }
     } else {
         Com_Printf("Warning: %s does not have a recognisable "
-                "magic number in its header\n", filename);
+                "magic number in its header\n", vm->name);
         return NULL;
     }
 
@@ -431,26 +390,11 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
     }
     dataLength = 1 << i;
 
-    if(alloc)
-    {
-        // allocate zero filled space for initialized and uninitialized data
-        // leave some space beyond data mask so we can secure all mask operations
-        vm->dataAlloc = dataLength + 4;
-        vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
-        vm->dataMask = dataLength - 1;
-    }
-    else
-    {
-        // clear the data, but make sure we're not clearing more than allocated
-        if(vm->dataAlloc != dataLength + 4)
-        {
-            Com_Printf("Warning: Data region size of %s not matching after "
-                    "VM_Restart()\n", filename);
-            return NULL;
-        }
-
-        Com_Memset(vm->dataBase, 0, vm->dataAlloc);
-    }
+    // allocate zero filled space for initialized and uninitialized data
+    // leave some space beyond data mask so we can secure all mask operations
+    vm->dataAlloc = dataLength + 4;
+    vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
+    vm->dataMask = dataLength - 1;
 
     // copy the intialized data
     Com_Memcpy( vm->dataBase, (uint8_t *)header.h + header.h->dataOffset,
@@ -465,34 +409,6 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, qboolean alloc, qboolean unpure)
     return header.h;
 }
 
-/*
-=================
-VM_Restart
-
-Reload the data, but leave everything else in place
-This allows a server to do a map_restart without changing memory allocation
-
-We need to make sure that servers can access unpure QVMs (not contained in any pak)
-even if the client is pure, so take "unpure" as argument.
-=================
-*/
-vm_t *VM_Restart(vm_t *vm, qboolean unpure)
-{
-    vmHeader_t  *header;
-
-    // load the image
-    Com_Printf("VM_Restart()\n");
-
-    if(!(header = VM_LoadQVM(vm, qfalse, unpure)))
-    {
-        Com_Error(ERR_DROP, "VM_Restart failed");
-    }
-
-    // free the original file
-    // FS_FreeFile(header);
-
-    return vm;
-}
 
 /*
 ================
@@ -502,11 +418,12 @@ If image ends in .qvm it will be interpreted, otherwise
 it will attempt to load as a system dll
 ================
 */
-vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
+vm_t *VM_Create(const char *module,
+                uint8_t* bytecode,
+                intptr_t (*systemCalls)(intptr_t *))
+{
     vm_t        *vm;
     vmHeader_t  *header;
-    // int i;
-    // char filename[MAX_OSPATH];
 
     if ( !module || !module[0] ) {
         Com_Error( ERR_FATAL, "VM_Create: bad parms" );
@@ -515,7 +432,7 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     vm = &vmTable[0];
 
     Q_strncpyz(vm->name, module, sizeof(vm->name));
-    header = VM_LoadQVM(vm, qtrue, qfalse);
+    header = VM_LoadQVM(vm, bytecode);
     if (!header)
     {
         Com_Error( ERR_FATAL, "Failed to load bytecode.\n");
@@ -524,7 +441,7 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     // VM_Free overwrites the name on failed load
     Q_strncpyz(vm->name, module, sizeof(vm->name));
 
-    vm->systemCall = SV_GameSystemCalls;
+    vm->systemCall = systemCalls;
 
     // allocate space for the jump targets, which will be filled in by the compile/prep functions
     vm->instructionCount = header->instructionCount;
@@ -551,7 +468,6 @@ vm_t *VM_Create( const char *module, vmInterpret_t interpret ) {
     return vm;
 }
 
-#if 0
 /*
 ==============
 VM_Free
@@ -564,32 +480,20 @@ void VM_Free( vm_t *vm ) {
     }
 
     if(vm->callLevel) {
-        if(!forced_unload) {
-            Com_Error( ERR_FATAL, "VM_Free(%s) on running vm", vm->name );
-            return;
-        } else {
-            Com_Printf( "forcefully unloading %s vm\n", vm->name );
-        }
+        Com_Error( ERR_FATAL, "VM_Free(%s) on running vm", vm->name );
+        return;
     }
 
-    if(vm->destroy)
-        vm->destroy(vm);
-
-    if ( vm->dllHandle ) {
-        Sys_UnloadDll( vm->dllHandle );
-        Com_Memset( vm, 0, sizeof( *vm ) );
-    }
-#if 0   // now automatically freed by hunk
     if ( vm->codeBase ) {
-        Z_Free( vm->codeBase );
+        free( vm->codeBase );
     }
     if ( vm->dataBase ) {
-        Z_Free( vm->dataBase );
+        free( vm->dataBase );
     }
     if ( vm->instructionPointers ) {
-        Z_Free( vm->instructionPointers );
+        free( vm->instructionPointers );
     }
-#endif
+
     Com_Memset( vm, 0, sizeof( *vm ) );
 
     currentVM = NULL;
@@ -603,15 +507,6 @@ void VM_Clear(void) {
     }
 }
 
-void VM_Forced_Unload_Start(void) {
-    forced_unload = 1;
-}
-
-void VM_Forced_Unload_Done(void) {
-    forced_unload = 0;
-}
-#endif
-
 void *VM_ArgPtr( intptr_t intValue ) {
     if ( !intValue ) {
         return NULL;
@@ -620,12 +515,7 @@ void *VM_ArgPtr( intptr_t intValue ) {
     if ( currentVM==NULL )
       return NULL;
 
-    if ( currentVM->entryPoint ) {
-        return (void *)(currentVM->dataBase + intValue);
-    }
-    else {
-        return (void *)(currentVM->dataBase + (intValue & currentVM->dataMask));
-    }
+    return (void *)(currentVM->dataBase + (intValue & currentVM->dataMask));
 }
 #if 0
 
@@ -783,10 +673,6 @@ void VM_VmInfo_f( void ) {
             break;
         }
         Com_Printf( "%s : ", vm->name );
-        if ( vm->dllHandle ) {
-            Com_Printf( "native\n" );
-            continue;
-        }
         if ( vm->compiled ) {
             Com_Printf( "compiled on load\n" );
         } else {
@@ -898,125 +784,7 @@ float FloatSwap (const float *f) {
     return out.f;
 }
 
-float FloatNoSwap (const float *f)
-{
-    return *f;
+void VM_Debug( int level ) {
+    vm_debugLevel = level;
 }
 
-
-intptr_t SV_GameSystemCalls( intptr_t *args ) {
-    switch( args[0] ) {
-    case G_PRINT:
-        Com_Printf( "%s", (const char*)VMA(1) );
-        return 0;
-    case G_ERROR:
-        Com_Error( ERR_DROP, "%s", (const char*)VMA(1) );
-        return 0;
-    case G_MILLISECONDS:
-        return 0;
-    case G_CVAR_REGISTER:
-        return 0;
-    case G_CVAR_UPDATE:
-        return 0;
-    case G_CVAR_SET:
-        return 0;
-    case G_CVAR_VARIABLE_INTEGER_VALUE:
-        return 0;
-    case G_CVAR_VARIABLE_STRING_BUFFER:
-        return 0;
-    case G_ARGC:
-        return 0;
-    case G_ARGV:
-        return 0;
-    case G_SEND_CONSOLE_COMMAND:
-        return 0;
-    case G_FS_FOPEN_FILE:
-        return 0;
-    case G_FS_READ:
-        return 0;
-    case G_FS_WRITE:
-        return 0;
-    case G_FS_FCLOSE_FILE:
-        return 0;
-    case G_FS_GETFILELIST:
-        return 0;
-    case G_FS_SEEK:
-        return 0;
-    case G_LOCATE_GAME_DATA:
-        return 0;
-    case G_DROP_CLIENT:
-        return 0;
-    case G_SEND_SERVER_COMMAND:
-        return 0;
-    case G_LINKENTITY:
-        return 0;
-    case G_UNLINKENTITY:
-        return 0;
-    case G_ENTITIES_IN_BOX:
-        return 0;
-    case G_ENTITY_CONTACT:
-        return 0;
-    case G_ENTITY_CONTACTCAPSULE:
-        return 0;
-    case G_TRACE:
-        return 0;
-    case G_TRACECAPSULE:
-        return 0;
-    case G_POINT_CONTENTS:
-        return 0;
-    case G_SET_BRUSH_MODEL:
-        return 0;
-    case G_IN_PVS:
-        return 0;
-    case G_IN_PVS_IGNORE_PORTALS:
-        return 0;
-    case G_SET_CONFIGSTRING:
-        return 0;
-    case G_GET_CONFIGSTRING:
-        return 0;
-    case G_SET_USERINFO:
-        return 0;
-    case G_GET_USERINFO:
-        return 0;
-    case G_GET_SERVERINFO:
-        return 0;
-    case G_ADJUST_AREA_PORTAL_STATE:
-        return 0;
-    case G_AREAS_CONNECTED:
-        return 0;
-
-    case TRAP_MEMSET:
-        Com_Memset( VMA(1), args[2], args[3] );
-        return 0;
-
-    case TRAP_MEMCPY:
-        Com_Memcpy( VMA(1), VMA(2), args[3] );
-        return 0;
-
-    case TRAP_STRNCPY:
-        strncpy( VMA(1), VMA(2), args[3] );
-        return args[1];
-
-    case TRAP_SIN:
-        return 0;
-
-    case TRAP_COS:
-        return 0;
-
-    case TRAP_ATAN2:
-        return 0;
-
-    case TRAP_SQRT:
-        return 0;
-
-    case TRAP_MATRIXMULTIPLY:
-        return 0;
-
-    case TRAP_ANGLEVECTORS:
-        return 0;
-
-    default:
-        Com_Error( ERR_DROP, "Bad game system trap: %ld", (long int) args[0] );
-    }
-    return 0;
-}

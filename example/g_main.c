@@ -34,7 +34,9 @@ int vmMain(int command,
         f += df;
     }
 
-    return testCase(str) - 694;
+    printf("Result: %f\n", f);
+
+    return 0;
 }
 
 void printf(const char *fmt, ...)
@@ -47,16 +49,5 @@ void printf(const char *fmt, ...)
     va_end (argptr);
 
     trap_Printf( text );
-}
-
-int testCase(const char* f)
-{
-    int sum=0;
-    while(*f)
-    {
-        sum += *f;
-        f++;
-    }
-    return sum;
 }
 

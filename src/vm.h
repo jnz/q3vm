@@ -1,31 +1,38 @@
 /*
-===========================================================================
-Copyright (C) 1999-2005 Id Software, Inc.
+      ___   _______     ____  __
+     / _ \ |___ /\ \   / /  \/  |
+    | | | |  |_ \ \ \ / /| |\/| |
+    | |_| |____) | \ V / | |  | |
+     \__\_______/   \_/  |_|  |_|
 
-This file is part of Quake III Arena source code.
 
-Quake III Arena source code is free software; you can redistribute it
-and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation; either version 2 of the License,
-or (at your option) any later version.
-
-Quake III Arena source code is distributed in the hope that it will be
-useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Quake III Arena source code; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-===========================================================================
+   Quake III Arena Virtual Machine
 */
 
-// #include "q_shared.h"
-// #include "qcommon.h"
+/******************************************************************************
+ * SYSTEM INCLUDE FILES
+ ******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+
+/******************************************************************************
+ * PROJECT INCLUDE FILES
+ ******************************************************************************/
+
+/******************************************************************************
+ * DEFINES
+ ******************************************************************************/
+
+/******************************************************************************
+ * TYPEDEFS
+ ******************************************************************************/
+
+/******************************************************************************
+ * FUNCTION PROTOTYPES
+ ******************************************************************************/
 
 // #define DEBUG_VM
 
@@ -49,7 +56,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define OPSTACK_SIZE    1024
 #define OPSTACK_MASK    (OPSTACK_SIZE-1)
 
-// #define QDECL __cdecl
 #define QDECL
 
 #define PAD(base, alignment)    (((base)+(alignment)-1) & ~((alignment)-1))
@@ -235,7 +241,6 @@ typedef struct vm_s vm_t;
 typedef enum {qfalse, qtrue}    qboolean;
 
 #define VM_MAGIC        0x12721444
-#define VM_MAGIC_VER2   0x12721445
 
 typedef struct {
     int     vmMagic;
@@ -250,25 +255,18 @@ typedef struct {
     int     litLength;          // ( dataLength - litLength ) should be byteswapped on load
     int     bssLength;          // zero filled memory appended to datalength
 
-    //!!! below here is VM_MAGIC_VER2 !!!
-    int     jtrgLength;         // number of jump table targets
 } vmHeader_t;
 
 struct vm_s {
     // DO NOT MOVE OR CHANGE THESE WITHOUT CHANGING THE VM_OFFSET_* DEFINES
     // USED BY THE ASM CODE
     int         programStack;       // the vm may be recursively entered
-    intptr_t            (*systemCall)( intptr_t *parms );
+    intptr_t    (*systemCall)( intptr_t *parms );
 
     //------------------------------------
    
     char        name[MAX_QPATH];
-    void    *searchPath;                // hint for FS_ReadFileDir()
-
-    // for dynamic linked modules
-    void        *dllHandle;
-    intptr_t            (QDECL *entryPoint)( int callNum, ... );
-    void (*destroy)(vm_t* self);
+    void        *searchPath;                // hint for FS_ReadFileDir()
 
     // for interpreted modules
     qboolean    currentlyInterpreting;
@@ -293,9 +291,6 @@ struct vm_s {
     int         callLevel;      // counts recursive VM_Call
     int         breakFunction;      // increment breakCount on function entry to this
     int         breakCount;
-
-    uint8_t     *jumpTableTargets;
-    int         numJumpTableTargets;
 };
 
 typedef enum {
@@ -322,16 +317,16 @@ typedef enum {
     TRAP_TESTPRINTFLOAT
 } sharedTraps_t;
 
-void    VM_Init( void );
-vm_t    *VM_Create( const char *module, vmInterpret_t interpret );
+vm_t *VM_Create(const char *module,
+                uint8_t* bytecode,
+                intptr_t (*systemCalls)(intptr_t *));
 
 void    VM_Free( vm_t *vm );
 void    VM_Clear(void);
 void    VM_Forced_Unload_Start(void);
 void    VM_Forced_Unload_Done(void);
-vm_t    *VM_Restart(vm_t *vm, qboolean unpure);
 
-intptr_t        QDECL VM_Call( vm_t *vm, int callNum, ... );
+intptr_t QDECL VM_Call( vm_t *vm, int callNum, ... );
 
 void    VM_Debug( int level );
 
@@ -349,8 +344,7 @@ static ID_INLINE float _vmf(intptr_t x)
 
 
 
-extern  vm_t    *currentVM;
-extern  int     vm_debugLevel;
+extern  int vm_debugLevel;
 
 void VM_Compile( vm_t *vm, vmHeader_t *header );
 int VM_CallCompiled( vm_t *vm, int *args );
@@ -366,130 +360,12 @@ void VM_LogSyscalls( int *args );
 void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 
 typedef enum {
-    //============== general Quake services ==================
-
     G_PRINT,        // ( const char *string );
     // print message on the local console
 
     G_ERROR,        // ( const char *string );
     // abort the game
 
-    G_MILLISECONDS, // ( void );
-    // get current time for profiling reasons
-    // this should NOT be used for any game related tasks,
-    // because it is not journaled
 
-    // console variable interaction
-    G_CVAR_REGISTER,    // ( vmCvar_t *vmCvar, const char *varName, const char *defaultValue, int flags );
-    G_CVAR_UPDATE,  // ( vmCvar_t *vmCvar );
-    G_CVAR_SET,     // ( const char *var_name, const char *value );
-    G_CVAR_VARIABLE_INTEGER_VALUE,  // ( const char *var_name );
-
-    G_CVAR_VARIABLE_STRING_BUFFER,  // ( const char *var_name, char *buffer, int bufsize );
-
-    G_ARGC,         // ( void );
-    // ClientCommand and ServerCommand parameter access
-
-    G_ARGV,         // ( int n, char *buffer, int bufferLength );
-
-    G_FS_FOPEN_FILE,    // ( const char *qpath, fileHandle_t *file, fsMode_t mode );
-    G_FS_READ,      // ( void *buffer, int len, fileHandle_t f );
-    G_FS_WRITE,     // ( const void *buffer, int len, fileHandle_t f );
-    G_FS_FCLOSE_FILE,       // ( fileHandle_t f );
-
-    G_SEND_CONSOLE_COMMAND, // ( const char *text );
-    // add commands to the console as if they were typed in
-    // for map changing, etc
-
-
-    //=========== server specific functionality =============
-
-    G_LOCATE_GAME_DATA,     // ( gentity_t *gEnts, int numGEntities, int sizeofGEntity_t,
-    //                          playerState_t *clients, int sizeofGameClient );
-    // the game needs to let the server system know where and how big the gentities
-    // are, so it can look at them directly without going through an interface
-
-    G_DROP_CLIENT,      // ( int clientNum, const char *reason );
-    // kick a client off the server with a message
-
-    G_SEND_SERVER_COMMAND,  // ( int clientNum, const char *fmt, ... );
-    // reliably sends a command string to be interpreted by the given
-    // client.  If clientNum is -1, it will be sent to all clients
-
-    G_SET_CONFIGSTRING, // ( int num, const char *string );
-    // config strings hold all the index strings, and various other information
-    // that is reliably communicated to all clients
-    // All of the current configstrings are sent to clients when
-    // they connect, and changes are sent to all connected clients.
-    // All confgstrings are cleared at each level start.
-
-    G_GET_CONFIGSTRING, // ( int num, char *buffer, int bufferSize );
-
-    G_GET_USERINFO,     // ( int num, char *buffer, int bufferSize );
-    // userinfo strings are maintained by the server system, so they
-    // are persistant across level loads, while all other game visible
-    // data is completely reset
-
-    G_SET_USERINFO,     // ( int num, const char *buffer );
-
-    G_GET_SERVERINFO,   // ( char *buffer, int bufferSize );
-    // the serverinfo info string has all the cvars visible to server browsers
-
-    G_SET_BRUSH_MODEL,  // ( gentity_t *ent, const char *name );
-    // sets mins and maxs based on the brushmodel name
-
-    G_TRACE,    // ( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask );
-    // collision detection against all linked entities
-
-    G_POINT_CONTENTS,   // ( const vec3_t point, int passEntityNum );
-    // point contents against all linked entities
-
-    G_IN_PVS,           // ( const vec3_t p1, const vec3_t p2 );
-
-    G_IN_PVS_IGNORE_PORTALS,    // ( const vec3_t p1, const vec3_t p2 );
-
-    G_ADJUST_AREA_PORTAL_STATE, // ( gentity_t *ent, qboolean open );
-
-    G_AREAS_CONNECTED,  // ( int area1, int area2 );
-
-    G_LINKENTITY,       // ( gentity_t *ent );
-    // an entity will never be sent to a client or used for collision
-    // if it is not passed to linkentity.  If the size, position, or
-    // solidity changes, it must be relinked.
-
-    G_UNLINKENTITY,     // ( gentity_t *ent );      
-    // call before removing an interactive entity
-
-    G_ENTITIES_IN_BOX,  // ( const vec3_t mins, const vec3_t maxs, gentity_t **list, int maxcount );
-    // EntitiesInBox will return brush models based on their bounding box,
-    // so exact determination must still be done with EntityContact
-
-    G_ENTITY_CONTACT,   // ( const vec3_t mins, const vec3_t maxs, const gentity_t *ent );
-    // perform an exact check against inline brush models of non-square shape
-
-    // access for bots to get and free a server client (FIXME?)
-    G_BOT_ALLOCATE_CLIENT,  // ( void );
-
-    G_BOT_FREE_CLIENT,  // ( int clientNum );
-
-    G_GET_USERCMD,  // ( int clientNum, usercmd_t *cmd )
-
-    G_GET_ENTITY_TOKEN, // qboolean ( char *buffer, int bufferSize )
-    // Retrieves the next string token from the entity spawn text, returning
-    // false when all tokens have been parsed.
-    // This should only be done at GAME_INIT time.
-
-    G_FS_GETFILELIST,
-    G_DEBUG_POLYGON_CREATE,
-    G_DEBUG_POLYGON_DELETE,
-    G_REAL_TIME,
-    G_SNAPVECTOR,
-
-    G_TRACECAPSULE, // ( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentmask );
-    G_ENTITY_CONTACTCAPSULE,    // ( const vec3_t mins, const vec3_t maxs, const gentity_t *ent );
-    
-    // 1.32
-    G_FS_SEEK,
-
-} gameImport_t;
+} syscallId_t;
 

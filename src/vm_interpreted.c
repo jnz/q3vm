@@ -19,11 +19,12 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
-#include "vm_local.h"
+
+#include "vm.h"
 
 //#define   DEBUG_VM
 #ifdef DEBUG_VM
-static char *opnames[256] = {
+const static char *opnames[256] = {
     "OP_UNDEF",
 
     "OP_IGNORE",
