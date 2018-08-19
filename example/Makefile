@@ -9,6 +9,7 @@ ifeq ($(OS),Windows_NT)
 	CLEANUP = rm -f
 	MKDIR = mkdir
 	TOOLCHAIN=
+	export PATH := ../bin/win32:$(PATH)
 else
 	TOOLCHAIN=
 	CLEANUP = rm -f
