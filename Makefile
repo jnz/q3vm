@@ -71,6 +71,9 @@ clean:
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) ./$(TARGET)
 
+# Make sure that we recompile if a header file was changed
+-include $(C_DEPS)
+
 post-build:
 
 .FORCE:
