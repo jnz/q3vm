@@ -113,14 +113,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\main.c" />
-    <ClCompile Include="..\..\..\src\q3vm.c" />
-    <ClCompile Include="..\..\..\src\q3vmops.c" />
-    <ClCompile Include="..\..\..\src\q3vmtrap.c" />
+    <ClCompile Include="..\..\..\src\vm.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\src\q3vm.h" />
-    <ClInclude Include="..\..\..\src\q3vmops.h" />
-    <ClInclude Include="..\..\..\src\q3vmtrap.h" />
+    <ClInclude Include="..\..\..\src\vm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
