@@ -26,7 +26,7 @@
  * DEFINES
  ******************************************************************************/
 
-// #define   DEBUG_VM
+// #define DEBUG_VM
 #define ID_INLINE           inline
 #define MAX_QPATH           64      // max length of a pathname
 

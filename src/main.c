@@ -86,20 +86,22 @@ uint8_t* loadImage(const char* filepath)
 
 intptr_t systemCalls( intptr_t *args )
 {
-    switch (args[0])
+	int id = -1 - args[0];
+
+    switch (id)
 	{
-    case 0: /* PRINTF */
+    case -1: /* PRINTF */
         printf("%s", (const char*)VMA(1));
         return 0;
-    case 1: /* ERROR */
+    case -2: /* ERROR */
         fprintf(stderr, "%s", (const char*)VMA(1));
         return 0;
 
-    case 2: /* MEMSET */
+    case -3: /* MEMSET */
         memset(VMA(1), args[2], args[3]);
         return 0;
 
-    case 3: /* MEMCPY */
+    case -4: /* MEMCPY */
         memcpy(VMA(1), VMA(2), args[3]);
         return 0;
 

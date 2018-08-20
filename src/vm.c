@@ -333,6 +333,13 @@ static int ParseHex( const char *text ) {
     return value;
 }
 
+void COM_StripExtension(const char *in, char *out) {
+    while (*in && *in != '.') {
+        *out++ = *in++;
+    }
+    *out = 0;
+}
+
 /*
 ===============
 VM_LoadSymbols
@@ -353,13 +360,8 @@ void VM_LoadSymbols( vm_t *vm ) {
     int     segment;
     int     numInstructions;
 
-    // don't load symbols if not developer
-    if ( !com_developer->integer ) {
-        return;
-    }
-
     COM_StripExtension(vm->name, name, sizeof(name));
-    sprintf( symbols, sizeof( symbols ), "vm/%s.map", name );
+    snprintf( symbols, sizeof( symbols ), "%s.map", name );
     FS_ReadFile( symbols, &mapfile.v );
     if ( !mapfile.c ) {
         Com_Printf( "Couldn't load symbol file: %s\n", symbols );
@@ -607,11 +609,11 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
     vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
     vm->dataMask = dataLength - 1;
 
-	if (vm->dataBase == NULL)
-	{
-		Com_Printf("Out of memory\n");
-		return NULL;
-	}
+    if (vm->dataBase == NULL)
+    {
+        Com_Printf("Out of memory\n");
+        return NULL;
+    }
 
     // copy the intialized data
     Com_Memcpy( vm->dataBase, (uint8_t *)header.h + header.h->dataOffset,
@@ -652,7 +654,7 @@ vm_t *VM_Create(const char *module,
     if (!header)
     {
         Com_Error(-1, "Failed to load bytecode.\n");
-		return NULL;
+        return NULL;
     }
 
     // VM_Free overwrites the name on failed load
@@ -721,7 +723,7 @@ void *VM_ArgPtr(intptr_t intValue)
 {
     // currentVM is missing on reconnect
     if ( !intValue || currentVM == NULL)
-	{
+    {
         return NULL;
     }
     return (void *)(currentVM->dataBase + (intValue & currentVM->dataMask));
@@ -759,7 +761,7 @@ intptr_t VM_Call( vm_t *vm, int callnum, ... )
     if(!vm || !vm->name[0])
     {
         Com_Error(-1, "VM_Call with NULL vm");
-		return 0;
+        return 0;
     }
 
     oldVM = currentVM;
@@ -933,11 +935,11 @@ static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
 
         op = (int)code[ byte_pc ];
         codeBase[int_pc] = op;
-		if (byte_pc > header->codeLength)
-		{
-			Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
-			return;
-		}
+        if (byte_pc > header->codeLength)
+        {
+            Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
+            return;
+        }
 
         byte_pc++;
         int_pc++;
@@ -1007,11 +1009,11 @@ static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
         case OP_LEF:
         case OP_GTF:
         case OP_GEF:
-			if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
-			{
-				Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid instruction number");
-				return;
-			}
+            if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
+            {
+                Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid instruction number");
+                return;
+            }
 
             // codeBase[pc] is the instruction index. Convert that into an offset into
             //the int-aligned codeBase[] by the lookup table.
@@ -1636,10 +1638,10 @@ nextInstruction2:
 done:
     vm->currentlyInterpreting = qfalse;
 
-	if (opStackOfs != 1 || *opStack != 0xDEADBEEF)
-	{
-		Com_Error(-1, "Interpreter stack error");
-	}
+    if (opStackOfs != 1 || *opStack != 0xDEADBEEF)
+    {
+        Com_Error(-1, "Interpreter stack error");
+    }
 
     vm->programStack = stackOnEntry;
 
