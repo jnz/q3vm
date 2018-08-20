@@ -105,7 +105,7 @@ struct vm_s {
     int         stackBottom;        // if programStack < stackBottom, error
 
     int         numSymbols;
-    struct vmSymbol_s   *symbols;
+    vmSymbol_t  *symbols;
 
     int         callLevel;          // counts recursive VM_Call
     int         breakFunction;      // increment breakCount on function entry to this
