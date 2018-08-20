@@ -607,6 +607,12 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
     vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
     vm->dataMask = dataLength - 1;
 
+	if (vm->dataBase == NULL)
+	{
+		Com_Printf("Out of memory\n");
+		return NULL;
+	}
+
     // copy the intialized data
     Com_Memcpy( vm->dataBase, (uint8_t *)header.h + header.h->dataOffset,
         header.h->dataLength + header.h->litLength );
@@ -646,6 +652,7 @@ vm_t *VM_Create(const char *module,
     if (!header)
     {
         Com_Error(-1, "Failed to load bytecode.\n");
+		return NULL;
     }
 
     // VM_Free overwrites the name on failed load
@@ -752,6 +759,7 @@ intptr_t VM_Call( vm_t *vm, int callnum, ... )
     if(!vm || !vm->name[0])
     {
         Com_Error(-1, "VM_Call with NULL vm");
+		return 0;
     }
 
     oldVM = currentVM;
@@ -925,8 +933,11 @@ static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
 
         op = (int)code[ byte_pc ];
         codeBase[int_pc] = op;
-        if(byte_pc > header->codeLength)
-            Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
+		if (byte_pc > header->codeLength)
+		{
+			Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
+			return;
+		}
 
         byte_pc++;
         int_pc++;
@@ -996,8 +1007,11 @@ static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
         case OP_LEF:
         case OP_GTF:
         case OP_GEF:
-            if(codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
-                Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid instruction number");
+			if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
+			{
+				Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid instruction number");
+				return;
+			}
 
             // codeBase[pc] is the instruction index. Convert that into an offset into
             //the int-aligned codeBase[] by the lookup table.
