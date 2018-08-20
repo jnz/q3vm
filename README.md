@@ -51,9 +51,11 @@ Build bytecode firmware
 Windows:
 
 The LCC compiler (lcc.exe) is saved in the ./bin/win32 directory.
+You need make (mingw32-make) from the MinGW64 installation in
+your path. The compiler in the repository as .exe file.
 
     cd example
-    make.bat
+    mingw32-make
     cp bytecode.qvm ..
     cd ..
 
