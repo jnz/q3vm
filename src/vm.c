@@ -25,7 +25,6 @@
  * DEFINES
  ******************************************************************************/
 
-#define MAX_VM                      3
 #define VM_MAGIC                    0x12721444
 #define VM_OFFSET_PROGRAM_STACK     0
 #define VM_OFFSET_SYSTEM_CALL       4
@@ -173,7 +172,6 @@ typedef enum
  ******************************************************************************/
 
 int vm_debugLevel;
-vm_t vmTable[MAX_VM];
 
 /******************************************************************************
  * LOCAL DATA DEFINITIONS
@@ -202,8 +200,6 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 #define PADLEN(base, alignment) (PAD((base), (alignment)) - (base))
 #define PADP(base, alignment)   ((void *) PAD((intptr_t) (base), (alignment)))
 #define Q_ftol(v)               ((long) (v))
-
-
 
 /******************************************************************************
  * FUNCTION BODIES
@@ -624,7 +620,6 @@ vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
         *(int *)(vm->dataBase + i) = LittleLong( *(int *)(vm->dataBase + i ) );
     }
 
-
     return header.h;
 }
 
@@ -634,31 +629,26 @@ VM_Create
 
 If image ends in .qvm it will be interpreted, otherwise
 it will attempt to load as a system dll
+return 0 if everything is ok.
+return -1 if something went wrong.
 ================
 */
-vm_t *VM_Create(const char *module,
-                uint8_t* bytecode,
-                intptr_t (*systemCalls)(intptr_t *))
+int VM_Create(vm_t* vm,
+              const char *name,
+              uint8_t* bytecode,
+              intptr_t (*systemCalls)(intptr_t *))
 {
-    vm_t        *vm;
     vmHeader_t  *header;
 
-    if ( !module || !module[0] ) {
-        Com_Error(-1, "VM_Create: bad parms" );
-    }
+	Com_Memset(vm, 0, sizeof(vm_t));
 
-    vm = &vmTable[0];
-
-    Q_strncpyz(vm->name, module, sizeof(vm->name));
+    Q_strncpyz(vm->name, name, sizeof(vm->name));
     header = VM_LoadQVM(vm, bytecode);
     if (!header)
     {
         Com_Error(-1, "Failed to load bytecode.\n");
-        return NULL;
+        return -1;
     }
-
-    // VM_Free overwrites the name on failed load
-    Q_strncpyz(vm->name, module, sizeof(vm->name));
 
     vm->systemCall = systemCalls;
 
@@ -684,7 +674,7 @@ vm_t *VM_Create(const char *module,
     vm->programStack = vm->dataMask + 1;
     vm->stackBottom = vm->programStack - PROGRAM_STACK_SIZE;
 
-    return vm;
+    return 0;
 }
 
 /*

@@ -117,7 +117,8 @@ struct vm_s {
  ******************************************************************************/
 
 void		Com_Error(int level, const char *error);
-vm_t*		VM_Create(const char *module,
+int  		VM_Create(vm_t* vm,
+					  const char *module,
 					  uint8_t* bytecode,
 					  intptr_t (*systemCalls)(intptr_t *));
 void		VM_Free(vm_t *vm);
