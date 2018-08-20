@@ -34,10 +34,13 @@
 #define Com_Printf          printf
 #define Com_Memset          memset
 #define Com_Memcpy          memcpy
+#define Com_malloc          malloc
+#define Com_free            free
 
 /* stack macros (used in system calls) */
 #define VMA(x) VM_ArgPtr(args[x])
-#define VMF(x)  _vmf(args[x])
+#define VMF(x) _vmf(args[x])
+void *VM_ArgPtr(intptr_t intValue); /* for VMA macro */
 
 /* Define endianess of target platform */
 #define Q3VM_LITTLE_ENDIAN
@@ -60,7 +63,6 @@ typedef struct vmSymbol_s {
 } vmSymbol_t;
 
 typedef struct vm_s vm_t;
-typedef enum {qfalse, qtrue}    qboolean;
 
 typedef struct {
     int     vmMagic;
@@ -88,9 +90,9 @@ struct vm_s {
     void        *searchPath;        // hint for FS_ReadFileDir()
 
     // for interpreted modules
-    qboolean    currentlyInterpreting;
+    int         currentlyInterpreting;
 
-    qboolean    compiled;
+    int         compiled;
     uint8_t     *codeBase;
     int         entryOfs;
     int         codeLength;
@@ -116,16 +118,15 @@ struct vm_s {
  * FUNCTION PROTOTYPES
  ******************************************************************************/
 
+/* implement this error callback function */
 void		Com_Error(int level, const char *error);
+
 int  		VM_Create(vm_t* vm,
 					  const char *module,
 					  uint8_t* bytecode,
 					  intptr_t (*systemCalls)(intptr_t *));
 void		VM_Free(vm_t *vm);
-intptr_t	VM_Call(vm_t *vm, int callNum, ...);
-void		VM_Debug(int level);
-
-void        *VM_ArgPtr(intptr_t intValue);
+intptr_t	VM_Call(vm_t *vm, int callNum);
 
 /******************************************************************************
  * INLINE

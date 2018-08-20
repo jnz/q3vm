@@ -43,7 +43,6 @@
 // syscall number + 15 arguments
 #define MAX_VMSYSCALL_ARGS          16
 
-
 // Max number of arguments to pass from engine to vm's vmMain function.
 // command number + 12 arguments
 #define MAX_VMMAIN_ARGS             13
@@ -184,12 +183,17 @@ static vm_t *lastVM    = NULL;
  * LOCAL FUNCTION PROTOTYPES
  ******************************************************************************/
 
-static void VM_VmInfo_f( void );
-static void VM_VmProfile_f( void );
 static void Q_strncpyz( char *dest, const char *src, int destsize );
 static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header );
 static int VM_CallInterpreted( vm_t *vm, int *args );
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
+
+#ifdef DEBUG_VM
+static void VM_VmInfo_f( void );
+static void VM_VmProfile_f( void );
+void VM_Debug(int level);
+
+#endif
 
 /******************************************************************************
  * LOCAL INLINE FUNCTIONS AND FUNCTION MACROS
@@ -602,7 +606,7 @@ static vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
     // allocate zero filled space for initialized and uninitialized data
     // leave some space beyond data mask so we can secure all mask operations
     vm->dataAlloc = dataLength + 4;
-    vm->dataBase = (uint8_t*)malloc(vm->dataAlloc);
+    vm->dataBase = (uint8_t*)Com_malloc(vm->dataAlloc);
     vm->dataMask = dataLength - 1;
 
     if (vm->dataBase == NULL)
@@ -654,12 +658,12 @@ int VM_Create(vm_t* vm,
 
     // allocate space for the jump targets, which will be filled in by the compile/prep functions
     vm->instructionCount = header->instructionCount;
-    vm->instructionPointers = (intptr_t*)malloc(vm->instructionCount * sizeof(*vm->instructionPointers));
+    vm->instructionPointers = (intptr_t*)Com_malloc(vm->instructionCount * sizeof(*vm->instructionPointers));
 
     // copy or compile the instructions
     vm->codeLength = header->codeLength;
 
-    vm->compiled = qfalse;
+    vm->compiled = 0;
 
     // VM_Compile may have reset vm->compiled if compilation failed
     if (!vm->compiled)
@@ -694,13 +698,13 @@ void VM_Free( vm_t *vm ) {
     }
 
     if ( vm->codeBase ) {
-        free( vm->codeBase );
+        Com_free( vm->codeBase );
     }
     if ( vm->dataBase ) {
-        free( vm->dataBase );
+        Com_free( vm->dataBase );
     }
     if ( vm->instructionPointers ) {
-        free( vm->instructionPointers );
+        Com_free( vm->instructionPointers );
     }
 
     Com_Memset( vm, 0, sizeof( *vm ) );
@@ -743,7 +747,7 @@ locals from sp
 ==============
 */
 
-intptr_t VM_Call( vm_t *vm, int callnum, ... )
+intptr_t VM_Call( vm_t *vm, int callnum )
 {
     vm_t    *oldVM;
     intptr_t r;
@@ -788,11 +792,11 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
     || ((src + n) & dataMask) != src + n)
     {
         Com_Error(-1, "OP_BLOCK_COPY out of range!");
+		return;
     }
 
     Com_Memcpy(currentVM->dataBase + dest, currentVM->dataBase + src, n);
 }
-
 
 void VM_Debug( int level )
 {
@@ -908,7 +912,7 @@ static void VM_PrepareInterpreter( vm_t *vm, vmHeader_t *header ) {
     int     instruction;
     int     *codeBase;
 
-    vm->codeBase = (uint8_t*)malloc( vm->codeLength*4 );          // we're now int aligned
+    vm->codeBase = (uint8_t*)Com_malloc( vm->codeLength*4 );          // we're now int aligned
     Com_Memcpy( vm->codeBase, (uint8_t *)header + header->codeOffset, vm->codeLength );
 
     // we don't need to translate the instructions, but we still need
@@ -1069,7 +1073,7 @@ static int VM_CallInterpreted( vm_t *vm, int *args ) {
 #endif
 
     // interpret the code
-    vm->currentlyInterpreting = qtrue;
+    vm->currentlyInterpreting = 1;
 
     // we might be called recursively, so this might not be the very top
     programStack = stackOnEntry = vm->programStack;
@@ -1626,7 +1630,7 @@ nextInstruction2:
     }
 
 done:
-    vm->currentlyInterpreting = qfalse;
+    vm->currentlyInterpreting = 0;
 
     if (opStackOfs != 1 || *opStack != 0xDEADBEEF)
     {
@@ -1638,4 +1642,3 @@ done:
     // return the result
     return opStack[opStackOfs];
 }
-
