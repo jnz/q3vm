@@ -549,7 +549,7 @@ VM_LoadQVM
 Load a .qvm file
 =================
 */
-vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
+static vmHeader_t *VM_LoadQVM(vm_t *vm, uint8_t* bytecode)
 {
     int  dataLength;
     int  i;
