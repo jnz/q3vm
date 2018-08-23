@@ -5,7 +5,7 @@
      \__\_______/   \_/  |_|  |_|
 
 
-Standalone and embeddable interpreter for Quake 3 Virtual machine bytecode files (.qvm files). A compiler to generate `.qvm` files (LCC) is included.
+Standalone and embeddable interpreter for Quake 3 Virtual machine bytecode files (.qvm files). A compiler to generate `.qvm` files (LCC) is included. Computed gotos are used to speed up the interpreter if you compile with GCC.
 
 Jan Zwiener, 2018
 
@@ -114,3 +114,8 @@ This project is based on the Quake 3 and ioquake3 source:
 
  * https://github.com/id-Software/Quake-III-Arena (id Software)
  * https://github.com/ioquake/ioq3
+
+Computed gotos are used:
+
+ * https://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables
+ 
