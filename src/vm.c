@@ -1114,6 +1114,13 @@ static int VM_CallInterpreted( vm_t *vm, int *args ) {
 
 #define r2 codeImage[programCounter]
 
+  static const void* dispatch_table[] =
+  {
+        &&do_halt, &&do_inc, &&do_dec, &&do_mul2,
+        &&do_div2, &&do_add7, &&do_neg
+  };
+#define DISPATCH() goto *dispatch_table[code[pc++]]
+
     while ( 1 ) {
         int     opcode, r0, r1;
 //      unsigned int    r2;
