@@ -46,11 +46,11 @@ to implement in the bytecode. Again check `main.c` for an example.
 Build VM/interpreter
 --------------------
 
-On Linux:
+On **Linux**:
 
     > make
 
-On Windows:
+On **Windows**:
 Install MinGW64 from and add the bin\ directory it to your path.
 So that you have gcc.exe available.
 
@@ -60,10 +60,12 @@ Compile with:
 
     > mingw32-make
 
+Or use the Visual Studio 2015 project `q3vm.sln` in the `msvc` subfolder.
+
 Build bytecode firmware
 -----------------------
 
-Windows:
+**Windows**:
 
 The LCC compiler (lcc.exe) is saved in the ./bin/win32 directory.
 You need make (mingw32-make) from the MinGW64 installation in
@@ -74,7 +76,7 @@ your path. The compiler in the repository as .exe file.
     cp bytecode.qvm ..
     cd ..
 
-Linux:
+**Linux**:
 
 Build LCC (and copy the executables to ./bin/linux directory).
 
