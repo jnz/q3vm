@@ -66,6 +66,13 @@ static ID_INLINE int LongSwap (int l)
 
 #define DEBUGSTR va("%s%i", VM_Indent(vm), opStackOfs)
 
+/* GCC can do computed gotos */
+#ifdef __GNUC__
+  #ifndef DEBUG_VM /* can't use computed gotos in debug mode */
+    #define USE_COMPUTED_GOTOS
+  #endif
+#endif
+
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
@@ -158,6 +165,70 @@ typedef enum
     OP_CVFI
 } opcode_t;
 
+#ifndef USE_COMPUTED_GOTOS
+    /* for the the computed gotos we need labels,
+     * but for the normal switch case we need the cases */
+    #define goto_OP_BREAK case OP_BREAK
+    #define goto_OP_BREAK case OP_BREAK
+    #define goto_OP_ENTER case OP_ENTER
+    #define goto_OP_LEAVE case OP_LEAVE
+    #define goto_OP_CALL case OP_CALL
+    #define goto_OP_PUSH case OP_PUSH
+    #define goto_OP_POP case OP_POP
+    #define goto_OP_CONST case OP_CONST
+    #define goto_OP_LOCAL case OP_LOCAL
+    #define goto_OP_JUMP case OP_JUMP
+    #define goto_OP_EQ case OP_EQ
+    #define goto_OP_NE case OP_NE
+    #define goto_OP_LTI case OP_LTI
+    #define goto_OP_LEI case OP_LEI
+    #define goto_OP_GTI case OP_GTI
+    #define goto_OP_GEI case OP_GEI
+    #define goto_OP_LTU case OP_LTU
+    #define goto_OP_LEU case OP_LEU
+    #define goto_OP_GTU case OP_GTU
+    #define goto_OP_GEU case OP_GEU
+    #define goto_OP_EQF case OP_EQF
+    #define goto_OP_NEF case OP_NEF
+    #define goto_OP_LTF case OP_LTF
+    #define goto_OP_LEF case OP_LEF
+    #define goto_OP_GTF case OP_GTF
+    #define goto_OP_GEF case OP_GEF
+    #define goto_OP_LOAD1 case OP_LOAD1
+    #define goto_OP_LOAD2 case OP_LOAD2
+    #define goto_OP_LOAD4 case OP_LOAD4
+    #define goto_OP_STORE1 case OP_STORE1
+    #define goto_OP_STORE2 case OP_STORE2
+    #define goto_OP_STORE4 case OP_STORE4
+    #define goto_OP_ARG case OP_ARG
+    #define goto_OP_BLOCK_COPY case OP_BLOCK_COPY
+    #define goto_OP_SEX8 case OP_SEX8
+    #define goto_OP_SEX16 case OP_SEX16
+    #define goto_OP_NEGI case OP_NEGI
+    #define goto_OP_ADD case OP_ADD
+    #define goto_OP_SUB case OP_SUB
+    #define goto_OP_DIVI case OP_DIVI
+    #define goto_OP_DIVU case OP_DIVU
+    #define goto_OP_MODI case OP_MODI
+    #define goto_OP_MODU case OP_MODU
+    #define goto_OP_MULI case OP_MULI
+    #define goto_OP_MULU case OP_MULU
+    #define goto_OP_BAND case OP_BAND
+    #define goto_OP_BOR case OP_BOR
+    #define goto_OP_BXOR case OP_BXOR
+    #define goto_OP_BCOM case OP_BCOM
+    #define goto_OP_LSH case OP_LSH
+    #define goto_OP_RSHI case OP_RSHI
+    #define goto_OP_RSHU case OP_RSHU
+    #define goto_OP_NEGF case OP_NEGF
+    #define goto_OP_ADDF case OP_ADDF
+    #define goto_OP_SUBF case OP_SUBF
+    #define goto_OP_DIVF case OP_DIVF
+    #define goto_OP_MULF case OP_MULF
+    #define goto_OP_CVIF case OP_CVIF
+    #define goto_OP_CVFI case OP_CVFI
+#endif
+
 /******************************************************************************
  * GLOBAL DATA DEFINITIONS
  ******************************************************************************/
@@ -184,7 +255,6 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 static void VM_VmInfo_f( void );
 static void VM_VmProfile_f( void );
 void VM_Debug(int level);
-
 #endif
 
 /******************************************************************************
@@ -1104,82 +1174,74 @@ static int VM_CallInterpreted( vm_t *vm, int *args ) {
     // main interpreter loop, will exit when a LEAVE instruction
     // grabs the -1 program counter
 
+    int opcode, r0, r1;
 #define r2 codeImage[programCounter]
 
+#ifdef USE_COMPUTED_GOTOS
     static const void* dispatch_table[] =
     {
         &&goto_OP_LEAVE, /* OP_UNDEF */
         &&goto_OP_LEAVE, /* OP_IGNORE */
-        &&goto_OP_BREAK,
-        &&goto_OP_ENTER,
-        &&goto_OP_LEAVE,
-        &&goto_OP_CALL,
-        &&goto_OP_PUSH,
-        &&goto_OP_POP,
-        &&goto_OP_CONST,
-        &&goto_OP_LOCAL,
-        &&goto_OP_JUMP,
-        &&goto_OP_EQ,
-        &&goto_OP_NE,
-        &&goto_OP_LTI,
-        &&goto_OP_LEI,
-        &&goto_OP_GTI,
-        &&goto_OP_GEI,
-        &&goto_OP_LTU,
-        &&goto_OP_LEU,
-        &&goto_OP_GTU,
-        &&goto_OP_GEU,
-        &&goto_OP_EQF,
-        &&goto_OP_NEF,
-        &&goto_OP_LTF,
-        &&goto_OP_LEF,
-        &&goto_OP_GTF,
-        &&goto_OP_GEF,
-        &&goto_OP_LOAD1,
-        &&goto_OP_LOAD2,
-        &&goto_OP_LOAD4,
-        &&goto_OP_STORE1,
-        &&goto_OP_STORE2,
-        &&goto_OP_STORE4,
-        &&goto_OP_ARG,
-        &&goto_OP_BLOCK_COPY,
-        &&goto_OP_SEX8,
-        &&goto_OP_SEX16,
-        &&goto_OP_NEGI,
-        &&goto_OP_ADD,
-        &&goto_OP_SUB,
-        &&goto_OP_DIVI,
-        &&goto_OP_DIVU,
-        &&goto_OP_MODI,
-        &&goto_OP_MODU,
-        &&goto_OP_MULI,
-        &&goto_OP_MULU,
-        &&goto_OP_BAND,
-        &&goto_OP_BOR,
-        &&goto_OP_BXOR,
-        &&goto_OP_BCOM,
-        &&goto_OP_LSH,
-        &&goto_OP_RSHI,
-        &&goto_OP_RSHU,
-        &&goto_OP_NEGF,
-        &&goto_OP_ADDF,
-        &&goto_OP_SUBF,
-        &&goto_OP_DIVF,
-        &&goto_OP_MULF,
-        &&goto_OP_CVIF,
-        &&goto_OP_CVFI,
+        &&goto_OP_BREAK,      &&goto_OP_ENTER,  &&goto_OP_LEAVE,  &&goto_OP_CALL,
+        &&goto_OP_PUSH,       &&goto_OP_POP,    &&goto_OP_CONST,  &&goto_OP_LOCAL,
+        &&goto_OP_JUMP,       &&goto_OP_EQ,     &&goto_OP_NE,     &&goto_OP_LTI,
+        &&goto_OP_LEI,        &&goto_OP_GTI,    &&goto_OP_GEI,    &&goto_OP_LTU,
+        &&goto_OP_LEU,        &&goto_OP_GTU,    &&goto_OP_GEU,    &&goto_OP_EQF,
+        &&goto_OP_NEF,        &&goto_OP_LTF,    &&goto_OP_LEF,    &&goto_OP_GTF,
+        &&goto_OP_GEF,        &&goto_OP_LOAD1,  &&goto_OP_LOAD2,  &&goto_OP_LOAD4,
+        &&goto_OP_STORE1,     &&goto_OP_STORE2, &&goto_OP_STORE4, &&goto_OP_ARG,
+        &&goto_OP_BLOCK_COPY, &&goto_OP_SEX8,   &&goto_OP_SEX16,  &&goto_OP_NEGI,
+        &&goto_OP_ADD,        &&goto_OP_SUB,    &&goto_OP_DIVI,   &&goto_OP_DIVU,
+        &&goto_OP_MODI,       &&goto_OP_MODU,   &&goto_OP_MULI,   &&goto_OP_MULU,
+        &&goto_OP_BAND,       &&goto_OP_BOR,    &&goto_OP_BXOR,   &&goto_OP_BCOM,
+        &&goto_OP_LSH,        &&goto_OP_RSHI,   &&goto_OP_RSHU,   &&goto_OP_NEGF,
+        &&goto_OP_ADDF,       &&goto_OP_SUBF,   &&goto_OP_DIVF,   &&goto_OP_MULF,
+        &&goto_OP_CVIF,       &&goto_OP_CVFI,
     };
+    #define DISPATCH2() opcode = codeImage[ programCounter++ ]; \
+                        goto *dispatch_table[opcode]
+    #define DISPATCH() r0 = opStack[opStackOfs]; \
+                       r1 = opStack[(uint8_t) (opStackOfs - 1)]; \
+                       DISPATCH2()
+    DISPATCH(); /* initial jump into the loop */
+#else
+    #define DISPATCH2() goto nextInstruction2
+    #define DISPATCH() goto nextInstruction
+#endif
 
-#define DISPATCH2() opcode = codeImage[ programCounter++ ]; \
-                    goto *dispatch_table[opcode]
-#define DISPATCH() r0 = opStack[opStackOfs]; \
-                   r1 = opStack[(uint8_t) (opStackOfs - 1)]; \
-                   DISPATCH2()
-
-    int opcode, r0, r1;
-    DISPATCH();
     while ( 1 )
     {
+#ifndef USE_COMPUTED_GOTOS
+nextInstruction:
+        r0 = opStack[opStackOfs];
+        r1 = opStack[(uint8_t) (opStackOfs - 1)];
+nextInstruction2:
+        opcode = codeImage[ programCounter++ ];
+
+#ifdef DEBUG_VM
+        if ( (unsigned)programCounter >= vm->codeLength ) {
+            Com_Error(-1, "VM pc out of range" );
+            return 0;
+        }
+
+        if ( programStack <= vm->stackBottom ) {
+            Com_Error(-1, "VM stack overflow" );
+            return 0;
+        }
+
+        if ( programStack & 3 ) {
+            Com_Error(-1, "VM program stack misaligned" );
+            return 0;
+        }
+
+        if ( vm_debugLevel > 1 ) {
+            Com_Printf( "%s %s\n", DEBUGSTR, opnames[opcode] );
+        }
+        profileSymbol->profileCount++;
+#endif /* DEBUG_VM */
+        switch ( opcode )
+#endif /* !USE_COMPUTED_GOTOS */
+        {
 goto_OP_BREAK:
         vm->breakCount++;
         DISPATCH2();
@@ -1197,7 +1259,6 @@ goto_OP_LOCAL:
 
         programCounter += 1;
         DISPATCH2();
-
 goto_OP_LOAD4:
 #ifdef DEBUG_VM
         if(opStack[opStackOfs] & 3)
@@ -1227,20 +1288,17 @@ goto_OP_STORE1:
         image[ r1 & dataMask ] = r0;
         opStackOfs -= 2;
         DISPATCH();
-
 goto_OP_ARG:
         // single byte offset from programStack
         *(int *)&image[ (codeImage[programCounter] + programStack) & dataMask ] = r0;
         opStackOfs--;
         programCounter += 1;
         DISPATCH();
-
 goto_OP_BLOCK_COPY:
         VM_BlockCopy(r1, r0, r2);
         programCounter += 1;
         opStackOfs -= 2;
         DISPATCH();
-
 goto_OP_CALL:
         // save current program counter
         *(int *)&image[ programStack ] = programCounter;
@@ -1308,7 +1366,6 @@ goto_OP_CALL:
             programCounter = vm->instructionPointers[ programCounter ];
         }
         DISPATCH();
-
         // push and pop are only needed for discarded or bad function return values
 goto_OP_PUSH:
         opStackOfs++;
@@ -1316,7 +1373,6 @@ goto_OP_PUSH:
 goto_OP_POP:
         opStackOfs--;
         DISPATCH();
-
 goto_OP_ENTER:
 #ifdef DEBUG_VM
         profileSymbol = VM_ValueToFunctionSymbol( vm, programCounter );
@@ -1382,7 +1438,6 @@ goto_OP_JUMP:
 
         opStackOfs--;
         DISPATCH();
-
 goto_OP_EQ:
         opStackOfs -= 2;
         if ( r1 == r0 ) {
@@ -1392,7 +1447,6 @@ goto_OP_EQ:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_NE:
         opStackOfs -= 2;
         if ( r1 != r0 ) {
@@ -1402,7 +1456,6 @@ goto_OP_NE:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LTI:
         opStackOfs -= 2;
         if ( r1 < r0 ) {
@@ -1412,7 +1465,6 @@ goto_OP_LTI:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LEI:
         opStackOfs -= 2;
         if ( r1 <= r0 ) {
@@ -1422,7 +1474,6 @@ goto_OP_LEI:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GTI:
         opStackOfs -= 2;
         if ( r1 > r0 ) {
@@ -1432,7 +1483,6 @@ goto_OP_GTI:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GEI:
         opStackOfs -= 2;
         if ( r1 >= r0 ) {
@@ -1442,7 +1492,6 @@ goto_OP_GEI:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LTU:
         opStackOfs -= 2;
         if ( ((unsigned)r1) < ((unsigned)r0) ) {
@@ -1452,7 +1501,6 @@ goto_OP_LTU:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LEU:
         opStackOfs -= 2;
         if ( ((unsigned)r1) <= ((unsigned)r0) ) {
@@ -1462,7 +1510,6 @@ goto_OP_LEU:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GTU:
         opStackOfs -= 2;
         if ( ((unsigned)r1) > ((unsigned)r0) ) {
@@ -1472,7 +1519,6 @@ goto_OP_GTU:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GEU:
         opStackOfs -= 2;
         if ( ((unsigned)r1) >= ((unsigned)r0) ) {
@@ -1482,7 +1528,6 @@ goto_OP_GEU:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_EQF:
         opStackOfs -= 2;
 
@@ -1494,7 +1539,6 @@ goto_OP_EQF:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_NEF:
         opStackOfs -= 2;
 
@@ -1506,7 +1550,6 @@ goto_OP_NEF:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LTF:
         opStackOfs -= 2;
 
@@ -1518,7 +1561,6 @@ goto_OP_LTF:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_LEF:
         opStackOfs -= 2;
 
@@ -1530,7 +1572,6 @@ goto_OP_LEF:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GTF:
         opStackOfs -= 2;
 
@@ -1542,7 +1583,6 @@ goto_OP_GTF:
             programCounter += 1;
             DISPATCH();
         }
-
 goto_OP_GEF:
         opStackOfs -= 2;
 
@@ -1554,7 +1594,6 @@ goto_OP_GEF:
             programCounter += 1;
             DISPATCH();
         }
-
 
         //===================================================================
 
@@ -1593,7 +1632,6 @@ goto_OP_MULU:
         opStackOfs--;
         opStack[opStackOfs] = ((unsigned) r1) * ((unsigned) r0);
         DISPATCH();
-
 goto_OP_BAND:
         opStackOfs--;
         opStack[opStackOfs] = ((unsigned) r1) & ((unsigned) r0);
@@ -1609,7 +1647,6 @@ goto_OP_BXOR:
 goto_OP_BCOM:
         opStack[opStackOfs] = ~((unsigned) r0);
         DISPATCH();
-
 goto_OP_LSH:
         opStackOfs--;
         opStack[opStackOfs] = r1 << r0;
@@ -1622,7 +1659,6 @@ goto_OP_RSHU:
         opStackOfs--;
         opStack[opStackOfs] = ((unsigned) r1) >> r0;
         DISPATCH();
-
 goto_OP_NEGF:
         ((float *) opStack)[opStackOfs] =  -((float *) opStack)[opStackOfs];
         DISPATCH();
@@ -1642,7 +1678,6 @@ goto_OP_MULF:
         opStackOfs--;
         ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] * ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
         DISPATCH();
-
 goto_OP_CVIF:
         ((float *) opStack)[opStackOfs] = (float) opStack[opStackOfs];
         DISPATCH();
@@ -1655,6 +1690,7 @@ goto_OP_SEX8:
 goto_OP_SEX16:
         opStack[opStackOfs] = (short) opStack[opStackOfs];
         DISPATCH();
+        }
     }
 
 done:
