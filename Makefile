@@ -28,7 +28,7 @@ LINK := $(CC)
 # LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
 # CFLAGS += -Og -ggdb -fno-omit-frame-pointer
-CFLAGS += -O3
+CFLAGS += -O2
 CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
