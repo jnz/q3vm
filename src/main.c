@@ -110,7 +110,7 @@ intptr_t systemCalls( intptr_t *args )
         return 0;
 
     default:
-        fprintf(stderr, "Bad game system trap: %ld", (long int) args[0] );
+        fprintf(stderr, "Bad system call: %ld", (long int) args[0] );
     }
     return 0;
 }
