@@ -27,9 +27,9 @@ LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
 # LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
-CFLAGS += -O2 -ggdb -c
+# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
+CFLAGS += -O3
 CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
-# -c: Compile without linking
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
 # -MF: When used with the driver options -MD or -MMD, -MF overrides the default dependency output file.
@@ -56,9 +56,10 @@ C_DEPS           = $(OBJS:%.o=%.d)
 C_INCLUDES       = $(INCLUDE_PATH)
 LOCAL_LIBRARIES = -lm
 
+# flag -c: Compile without linking
 $(OBJDIR)/%.o: %.c
 	@echo 'CC: $<'
-	@$(CC) $(CFLAGS) -o"$@" "$<"
+	@$(CC) $(CFLAGS) -c -o"$@" "$<"
 
 all: $(TARGET)
 
@@ -75,6 +76,9 @@ clean:
 
 test: $(TARGET) example/bytecode.qvm
 	./q3vm example/bytecode.qvm
+
+dump:
+	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
 
 # Test
 example/bytecode.qvm:
