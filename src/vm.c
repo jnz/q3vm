@@ -26,18 +26,12 @@
  ******************************************************************************/
 
 #define VM_MAGIC                    0x12721444
-#define VM_OFFSET_PROGRAM_STACK     0
-#define VM_OFFSET_SYSTEM_CALL       4
 
-// don't change
-// Hardcoded in q3asm a reserved at end of bss
+/** Don't change stack size: Hardcoded in q3asm a reserved at end of bss */
 #define PROGRAM_STACK_SIZE          0x10000
 #define PROGRAM_STACK_MASK          (PROGRAM_STACK_SIZE-1)
 
-// don't change, this is hardcoded into x86 VMs, opStack protection relies
-// on this
 #define OPSTACK_SIZE                1024
-#define OPSTACK_MASK                (OPSTACK_SIZE-1)
 
 // Max number of arguments to pass from a vm to engine's syscall handler function for the vm.
 // syscall number + 15 arguments
@@ -48,8 +42,6 @@
 #define MAX_VMMAIN_ARGS             13
 
 #define MAX_TOKEN_CHARS             1024    // max length of an individual token
-
-#define MAX_OSPATH                  256
 
 #if defined( Q3VM_BIG_ENDIAN ) && defined( Q3VM_LITTLE_ENDIAN )
 #error "Endianness defined as both big and little"
@@ -73,6 +65,13 @@ static ID_INLINE int LongSwap (int l)
 #endif
 
 #define DEBUGSTR va("%s%i", VM_Indent(vm), opStackOfs)
+
+/* GCC can do computed gotos */
+#ifdef __GNUC__
+  #ifndef DEBUG_VM /* can't use computed gotos in debug mode */
+    #define USE_COMPUTED_GOTOS
+  #endif
+#endif
 
 /******************************************************************************
  * TYPEDEFS
@@ -166,6 +165,70 @@ typedef enum
     OP_CVFI
 } opcode_t;
 
+#ifndef USE_COMPUTED_GOTOS
+    /* for the the computed gotos we need labels,
+     * but for the normal switch case we need the cases */
+    #define goto_OP_BREAK case OP_BREAK
+    #define goto_OP_BREAK case OP_BREAK
+    #define goto_OP_ENTER case OP_ENTER
+    #define goto_OP_LEAVE case OP_LEAVE
+    #define goto_OP_CALL case OP_CALL
+    #define goto_OP_PUSH case OP_PUSH
+    #define goto_OP_POP case OP_POP
+    #define goto_OP_CONST case OP_CONST
+    #define goto_OP_LOCAL case OP_LOCAL
+    #define goto_OP_JUMP case OP_JUMP
+    #define goto_OP_EQ case OP_EQ
+    #define goto_OP_NE case OP_NE
+    #define goto_OP_LTI case OP_LTI
+    #define goto_OP_LEI case OP_LEI
+    #define goto_OP_GTI case OP_GTI
+    #define goto_OP_GEI case OP_GEI
+    #define goto_OP_LTU case OP_LTU
+    #define goto_OP_LEU case OP_LEU
+    #define goto_OP_GTU case OP_GTU
+    #define goto_OP_GEU case OP_GEU
+    #define goto_OP_EQF case OP_EQF
+    #define goto_OP_NEF case OP_NEF
+    #define goto_OP_LTF case OP_LTF
+    #define goto_OP_LEF case OP_LEF
+    #define goto_OP_GTF case OP_GTF
+    #define goto_OP_GEF case OP_GEF
+    #define goto_OP_LOAD1 case OP_LOAD1
+    #define goto_OP_LOAD2 case OP_LOAD2
+    #define goto_OP_LOAD4 case OP_LOAD4
+    #define goto_OP_STORE1 case OP_STORE1
+    #define goto_OP_STORE2 case OP_STORE2
+    #define goto_OP_STORE4 case OP_STORE4
+    #define goto_OP_ARG case OP_ARG
+    #define goto_OP_BLOCK_COPY case OP_BLOCK_COPY
+    #define goto_OP_SEX8 case OP_SEX8
+    #define goto_OP_SEX16 case OP_SEX16
+    #define goto_OP_NEGI case OP_NEGI
+    #define goto_OP_ADD case OP_ADD
+    #define goto_OP_SUB case OP_SUB
+    #define goto_OP_DIVI case OP_DIVI
+    #define goto_OP_DIVU case OP_DIVU
+    #define goto_OP_MODI case OP_MODI
+    #define goto_OP_MODU case OP_MODU
+    #define goto_OP_MULI case OP_MULI
+    #define goto_OP_MULU case OP_MULU
+    #define goto_OP_BAND case OP_BAND
+    #define goto_OP_BOR case OP_BOR
+    #define goto_OP_BXOR case OP_BXOR
+    #define goto_OP_BCOM case OP_BCOM
+    #define goto_OP_LSH case OP_LSH
+    #define goto_OP_RSHI case OP_RSHI
+    #define goto_OP_RSHU case OP_RSHU
+    #define goto_OP_NEGF case OP_NEGF
+    #define goto_OP_ADDF case OP_ADDF
+    #define goto_OP_SUBF case OP_SUBF
+    #define goto_OP_DIVF case OP_DIVF
+    #define goto_OP_MULF case OP_MULF
+    #define goto_OP_CVIF case OP_CVIF
+    #define goto_OP_CVFI case OP_CVFI
+#endif
+
 /******************************************************************************
  * GLOBAL DATA DEFINITIONS
  ******************************************************************************/
@@ -192,7 +255,6 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 static void VM_VmInfo_f( void );
 static void VM_VmProfile_f( void );
 void VM_Debug(int level);
-
 #endif
 
 /******************************************************************************
@@ -1108,20 +1170,54 @@ static int VM_CallInterpreted( vm_t *vm, int *args ) {
     *opStack = 0xDEADBEEF;
     opStackOfs = 0;
 
-//  vm_debugLevel=2;
+    // vm_debugLevel=2;
     // main interpreter loop, will exit when a LEAVE instruction
     // grabs the -1 program counter
 
+    int opcode, r0, r1;
 #define r2 codeImage[programCounter]
 
-    while ( 1 ) {
-        int     opcode, r0, r1;
-//      unsigned int    r2;
+#ifdef USE_COMPUTED_GOTOS
+    static const void* dispatch_table[] =
+    {
+        &&goto_OP_LEAVE, /* OP_UNDEF */
+        &&goto_OP_LEAVE, /* OP_IGNORE */
+        &&goto_OP_BREAK,      &&goto_OP_ENTER,  &&goto_OP_LEAVE,  &&goto_OP_CALL,
+        &&goto_OP_PUSH,       &&goto_OP_POP,    &&goto_OP_CONST,  &&goto_OP_LOCAL,
+        &&goto_OP_JUMP,       &&goto_OP_EQ,     &&goto_OP_NE,     &&goto_OP_LTI,
+        &&goto_OP_LEI,        &&goto_OP_GTI,    &&goto_OP_GEI,    &&goto_OP_LTU,
+        &&goto_OP_LEU,        &&goto_OP_GTU,    &&goto_OP_GEU,    &&goto_OP_EQF,
+        &&goto_OP_NEF,        &&goto_OP_LTF,    &&goto_OP_LEF,    &&goto_OP_GTF,
+        &&goto_OP_GEF,        &&goto_OP_LOAD1,  &&goto_OP_LOAD2,  &&goto_OP_LOAD4,
+        &&goto_OP_STORE1,     &&goto_OP_STORE2, &&goto_OP_STORE4, &&goto_OP_ARG,
+        &&goto_OP_BLOCK_COPY, &&goto_OP_SEX8,   &&goto_OP_SEX16,  &&goto_OP_NEGI,
+        &&goto_OP_ADD,        &&goto_OP_SUB,    &&goto_OP_DIVI,   &&goto_OP_DIVU,
+        &&goto_OP_MODI,       &&goto_OP_MODU,   &&goto_OP_MULI,   &&goto_OP_MULU,
+        &&goto_OP_BAND,       &&goto_OP_BOR,    &&goto_OP_BXOR,   &&goto_OP_BCOM,
+        &&goto_OP_LSH,        &&goto_OP_RSHI,   &&goto_OP_RSHU,   &&goto_OP_NEGF,
+        &&goto_OP_ADDF,       &&goto_OP_SUBF,   &&goto_OP_DIVF,   &&goto_OP_MULF,
+        &&goto_OP_CVIF,       &&goto_OP_CVFI,
+    };
+    #define DISPATCH2() opcode = codeImage[ programCounter++ ]; \
+                        goto *dispatch_table[opcode]
+    #define DISPATCH() r0 = opStack[opStackOfs]; \
+                       r1 = opStack[(uint8_t) (opStackOfs - 1)]; \
+                       DISPATCH2()
+    DISPATCH(); /* initial jump into the loop */
+#else
+    #define DISPATCH2() goto nextInstruction2
+    #define DISPATCH() goto nextInstruction
+#endif
 
+    while ( 1 )
+    {
+#ifndef USE_COMPUTED_GOTOS
 nextInstruction:
         r0 = opStack[opStackOfs];
         r1 = opStack[(uint8_t) (opStackOfs - 1)];
 nextInstruction2:
+        opcode = codeImage[ programCounter++ ];
+
 #ifdef DEBUG_VM
         if ( (unsigned)programCounter >= vm->codeLength ) {
             Com_Error(-1, "VM pc out of range" );
@@ -1142,490 +1238,458 @@ nextInstruction2:
             Com_Printf( "%s %s\n", DEBUGSTR, opnames[opcode] );
         }
         profileSymbol->profileCount++;
-#endif
-        opcode = codeImage[ programCounter++ ];
+#endif /* DEBUG_VM */
+        switch ( opcode )
+#endif /* !USE_COMPUTED_GOTOS */
+        {
+goto_OP_BREAK:
+        vm->breakCount++;
+        DISPATCH2();
+goto_OP_CONST:
+        opStackOfs++;
+        r1 = r0;
+        r0 = opStack[opStackOfs] = r2;
 
-        switch ( opcode ) {
+        programCounter += 1;
+        DISPATCH2();
+goto_OP_LOCAL:
+        opStackOfs++;
+        r1 = r0;
+        r0 = opStack[opStackOfs] = r2+programStack;
+
+        programCounter += 1;
+        DISPATCH2();
+goto_OP_LOAD4:
 #ifdef DEBUG_VM
-        default:
-            Com_Error(-1, "Bad VM instruction" );  // this should be scanned on load!
+        if(opStack[opStackOfs] & 3)
+        {
+            Com_Error(-1, "OP_LOAD4 misaligned" );
             return 0;
+        }
 #endif
-        case OP_BREAK:
-            vm->breakCount++;
-            goto nextInstruction2;
-        case OP_CONST:
-            opStackOfs++;
-            r1 = r0;
-            r0 = opStack[opStackOfs] = r2;
+        r0 = opStack[opStackOfs] = *(int *) &image[ r0 & dataMask ];
+        DISPATCH2();
+goto_OP_LOAD2:
+        r0 = opStack[opStackOfs] = *(unsigned short *)&image[ r0 & dataMask ];
+        DISPATCH2();
+goto_OP_LOAD1:
+        r0 = opStack[opStackOfs] = image[ r0 & dataMask ];
+        DISPATCH2();
 
-            programCounter += 1;
-            goto nextInstruction2;
-        case OP_LOCAL:
-            opStackOfs++;
-            r1 = r0;
-            r0 = opStack[opStackOfs] = r2+programStack;
+goto_OP_STORE4:
+        *(int *)&image[ r1 & dataMask ] = r0;
+        opStackOfs -= 2;
+        DISPATCH();
+goto_OP_STORE2:
+        *(short *)&image[ r1 & dataMask ] = r0;
+        opStackOfs -= 2;
+        DISPATCH();
+goto_OP_STORE1:
+        image[ r1 & dataMask ] = r0;
+        opStackOfs -= 2;
+        DISPATCH();
+goto_OP_ARG:
+        // single byte offset from programStack
+        *(int *)&image[ (codeImage[programCounter] + programStack) & dataMask ] = r0;
+        opStackOfs--;
+        programCounter += 1;
+        DISPATCH();
+goto_OP_BLOCK_COPY:
+        VM_BlockCopy(r1, r0, r2);
+        programCounter += 1;
+        opStackOfs -= 2;
+        DISPATCH();
+goto_OP_CALL:
+        // save current program counter
+        *(int *)&image[ programStack ] = programCounter;
 
-            programCounter += 1;
-            goto nextInstruction2;
-
-        case OP_LOAD4:
+        // jump to the location on the stack
+        programCounter = r0;
+        opStackOfs--;
+        if ( programCounter < 0 ) {
+            // system call
+            int     r;
+            //              int     temp;
 #ifdef DEBUG_VM
-            if(opStack[opStackOfs] & 3)
+            int     stomped;
+
+            if ( vm_debugLevel ) {
+                Com_Printf( "%s---> systemcall(%i)\n", DEBUGSTR, -1 - programCounter );
+            }
+#endif
+            // save the stack to allow recursive VM entry
+            //              temp = vm->callLevel;
+            vm->programStack = programStack - 4;
+#ifdef DEBUG_VM
+            stomped = *(int *)&image[ programStack + 4 ];
+#endif
+            *(int *)&image[ programStack + 4 ] = -1 - programCounter;
+
+            //VM_LogSyscalls( (int *)&image[ programStack + 4 ] );
             {
-                Com_Error(-1, "OP_LOAD4 misaligned" );
-                return 0;
-            }
-#endif
-            r0 = opStack[opStackOfs] = *(int *) &image[ r0 & dataMask ];
-            goto nextInstruction2;
-        case OP_LOAD2:
-            r0 = opStack[opStackOfs] = *(unsigned short *)&image[ r0 & dataMask ];
-            goto nextInstruction2;
-        case OP_LOAD1:
-            r0 = opStack[opStackOfs] = image[ r0 & dataMask ];
-            goto nextInstruction2;
-
-        case OP_STORE4:
-            *(int *)&image[ r1 & dataMask ] = r0;
-            opStackOfs -= 2;
-            goto nextInstruction;
-        case OP_STORE2:
-            *(short *)&image[ r1 & dataMask ] = r0;
-            opStackOfs -= 2;
-            goto nextInstruction;
-        case OP_STORE1:
-            image[ r1 & dataMask ] = r0;
-            opStackOfs -= 2;
-            goto nextInstruction;
-
-        case OP_ARG:
-            // single byte offset from programStack
-            *(int *)&image[ (codeImage[programCounter] + programStack) & dataMask ] = r0;
-            opStackOfs--;
-            programCounter += 1;
-            goto nextInstruction;
-
-        case OP_BLOCK_COPY:
-            VM_BlockCopy(r1, r0, r2);
-            programCounter += 1;
-            opStackOfs -= 2;
-            goto nextInstruction;
-
-        case OP_CALL:
-            // save current program counter
-            *(int *)&image[ programStack ] = programCounter;
-
-            // jump to the location on the stack
-            programCounter = r0;
-            opStackOfs--;
-            if ( programCounter < 0 ) {
-                // system call
-                int     r;
-//              int     temp;
-#ifdef DEBUG_VM
-                int     stomped;
-
-                if ( vm_debugLevel ) {
-                    Com_Printf( "%s---> systemcall(%i)\n", DEBUGSTR, -1 - programCounter );
-                }
-#endif
-                // save the stack to allow recursive VM entry
-//              temp = vm->callLevel;
-                vm->programStack = programStack - 4;
-#ifdef DEBUG_VM
-                stomped = *(int *)&image[ programStack + 4 ];
-#endif
-                *(int *)&image[ programStack + 4 ] = -1 - programCounter;
-
-//VM_LogSyscalls( (int *)&image[ programStack + 4 ] );
-                {
-                    // the vm has ints on the stack, we expect
-                    // pointers so we might have to convert it
-                    if (sizeof(intptr_t) != sizeof(int)) {
-                        intptr_t argarr[ MAX_VMSYSCALL_ARGS ];
-                        int *imagePtr = (int *)&image[ programStack ];
-                        int i;
-                        for (i = 0; i < ARRAY_LEN(argarr); ++i) {
-                            argarr[i] = *(++imagePtr);
-                        }
-                        r = vm->systemCall( argarr );
-                    } else {
-                        intptr_t* argptr = (intptr_t *)&image[ programStack + 4 ];
-                        r = vm->systemCall( argptr );
+                // the vm has ints on the stack, we expect
+                // pointers so we might have to convert it
+                if (sizeof(intptr_t) != sizeof(int)) {
+                    intptr_t argarr[ MAX_VMSYSCALL_ARGS ];
+                    int *imagePtr = (int *)&image[ programStack ];
+                    int i;
+                    for (i = 0; i < ARRAY_LEN(argarr); ++i) {
+                        argarr[i] = *(++imagePtr);
                     }
+                    r = vm->systemCall( argarr );
+                } else {
+                    intptr_t* argptr = (intptr_t *)&image[ programStack + 4 ];
+                    r = vm->systemCall( argptr );
                 }
-
-#ifdef DEBUG_VM
-                // this is just our stack frame pointer, only needed
-                // for debugging
-                *(int *)&image[ programStack + 4 ] = stomped;
-#endif
-
-                // save return value
-                opStackOfs++;
-                opStack[opStackOfs] = r;
-                programCounter = *(int *)&image[ programStack ];
-//              vm->callLevel = temp;
-#ifdef DEBUG_VM
-                if ( vm_debugLevel ) {
-                    Com_Printf( "%s<--- %s\n", DEBUGSTR, VM_ValueToSymbol( vm, programCounter ) );
-                }
-#endif
-            } else if ( (unsigned)programCounter >= vm->instructionCount ) {
-                Com_Error(-1, "VM program counter out of range in OP_CALL" );
-                return 0;
-            } else {
-                programCounter = vm->instructionPointers[ programCounter ];
             }
-            goto nextInstruction;
 
-        // push and pop are only needed for discarded or bad function return values
-        case OP_PUSH:
+#ifdef DEBUG_VM
+            // this is just our stack frame pointer, only needed
+            // for debugging
+            *(int *)&image[ programStack + 4 ] = stomped;
+#endif
+
+            // save return value
             opStackOfs++;
-            goto nextInstruction;
-        case OP_POP:
-            opStackOfs--;
-            goto nextInstruction;
-
-        case OP_ENTER:
-#ifdef DEBUG_VM
-            profileSymbol = VM_ValueToFunctionSymbol( vm, programCounter );
-#endif
-            // get size of stack frame
-            v1 = r2;
-
-            programCounter += 1;
-            programStack -= v1;
-#ifdef DEBUG_VM
-            // save old stack frame for debugging traces
-            *(int *)&image[programStack+4] = programStack + v1;
-            if ( vm_debugLevel ) {
-                Com_Printf( "%s---> %s\n", DEBUGSTR, VM_ValueToSymbol( vm, programCounter - 5 ) );
-                if ( vm->breakFunction && programCounter - 5 == vm->breakFunction ) {
-                    // this is to allow setting breakpoints here in the debugger
-                    vm->breakCount++;
-//                  vm_debugLevel = 2;
-//                  VM_StackTrace( vm, programCounter, programStack );
-                }
-//              vm->callLevel++;
-            }
-#endif
-            goto nextInstruction;
-        case OP_LEAVE:
-            // remove our stack frame
-            v1 = r2;
-
-            programStack += v1;
-
-            // grab the saved program counter
+            opStack[opStackOfs] = r;
             programCounter = *(int *)&image[ programStack ];
+            //              vm->callLevel = temp;
 #ifdef DEBUG_VM
-            profileSymbol = VM_ValueToFunctionSymbol( vm, programCounter );
             if ( vm_debugLevel ) {
-//              vm->callLevel--;
                 Com_Printf( "%s<--- %s\n", DEBUGSTR, VM_ValueToSymbol( vm, programCounter ) );
             }
 #endif
-            // check for leaving the VM
-            if ( programCounter == -1 ) {
-                goto done;
-            } else if ( (unsigned)programCounter >= vm->codeLength ) {
-                Com_Error(-1, "VM program counter out of range in OP_LEAVE" );
-                return 0;
+        } else if ( (unsigned)programCounter >= vm->instructionCount ) {
+            Com_Error(-1, "VM program counter out of range in OP_CALL" );
+            return 0;
+        } else {
+            programCounter = vm->instructionPointers[ programCounter ];
+        }
+        DISPATCH();
+        // push and pop are only needed for discarded or bad function return values
+goto_OP_PUSH:
+        opStackOfs++;
+        DISPATCH();
+goto_OP_POP:
+        opStackOfs--;
+        DISPATCH();
+goto_OP_ENTER:
+#ifdef DEBUG_VM
+        profileSymbol = VM_ValueToFunctionSymbol( vm, programCounter );
+#endif
+        // get size of stack frame
+        v1 = r2;
+
+        programCounter += 1;
+        programStack -= v1;
+#ifdef DEBUG_VM
+        // save old stack frame for debugging traces
+        *(int *)&image[programStack+4] = programStack + v1;
+        if ( vm_debugLevel ) {
+            Com_Printf( "%s---> %s\n", DEBUGSTR, VM_ValueToSymbol( vm, programCounter - 5 ) );
+            if ( vm->breakFunction && programCounter - 5 == vm->breakFunction ) {
+                // this is to allow setting breakpoints here in the debugger
+                vm->breakCount++;
+                //                  vm_debugLevel = 2;
+                //                  VM_StackTrace( vm, programCounter, programStack );
             }
-            goto nextInstruction;
+            //              vm->callLevel++;
+        }
+#endif
+        DISPATCH();
+goto_OP_LEAVE:
+        // remove our stack frame
+        v1 = r2;
+
+        programStack += v1;
+
+        // grab the saved program counter
+        programCounter = *(int *)&image[ programStack ];
+#ifdef DEBUG_VM
+        profileSymbol = VM_ValueToFunctionSymbol( vm, programCounter );
+        if ( vm_debugLevel ) {
+            //              vm->callLevel--;
+            Com_Printf( "%s<--- %s\n", DEBUGSTR, VM_ValueToSymbol( vm, programCounter ) );
+        }
+#endif
+        // check for leaving the VM
+        if ( programCounter == -1 ) {
+            goto done;
+        } else if ( (unsigned)programCounter >= vm->codeLength ) {
+            Com_Error(-1, "VM program counter out of range in OP_LEAVE" );
+            return 0;
+        }
+        DISPATCH();
 
         /*
-        ===================================================================
-        BRANCHES
-        ===================================================================
-        */
+           ===================================================================
+           BRANCHES
+           ===================================================================
+           */
 
-        case OP_JUMP:
-            if ( (unsigned)r0 >= vm->instructionCount )
-            {
-                Com_Error(-1, "VM program counter out of range in OP_JUMP" );
-                return 0;
-            }
+goto_OP_JUMP:
+        if ( (unsigned)r0 >= vm->instructionCount )
+        {
+            Com_Error(-1, "VM program counter out of range in OP_JUMP" );
+            return 0;
+        }
 
-            programCounter = vm->instructionPointers[ r0 ];
+        programCounter = vm->instructionPointers[ r0 ];
 
-            opStackOfs--;
-            goto nextInstruction;
+        opStackOfs--;
+        DISPATCH();
+goto_OP_EQ:
+        opStackOfs -= 2;
+        if ( r1 == r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_NE:
+        opStackOfs -= 2;
+        if ( r1 != r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LTI:
+        opStackOfs -= 2;
+        if ( r1 < r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LEI:
+        opStackOfs -= 2;
+        if ( r1 <= r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GTI:
+        opStackOfs -= 2;
+        if ( r1 > r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GEI:
+        opStackOfs -= 2;
+        if ( r1 >= r0 ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LTU:
+        opStackOfs -= 2;
+        if ( ((unsigned)r1) < ((unsigned)r0) ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LEU:
+        opStackOfs -= 2;
+        if ( ((unsigned)r1) <= ((unsigned)r0) ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GTU:
+        opStackOfs -= 2;
+        if ( ((unsigned)r1) > ((unsigned)r0) ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GEU:
+        opStackOfs -= 2;
+        if ( ((unsigned)r1) >= ((unsigned)r0) ) {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_EQF:
+        opStackOfs -= 2;
 
-        case OP_EQ:
-            opStackOfs -= 2;
-            if ( r1 == r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
+        if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] == ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_NEF:
+        opStackOfs -= 2;
 
-        case OP_NE:
-            opStackOfs -= 2;
-            if ( r1 != r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
+        if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] != ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LTF:
+        opStackOfs -= 2;
 
-        case OP_LTI:
-            opStackOfs -= 2;
-            if ( r1 < r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
+        if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] < ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_LEF:
+        opStackOfs -= 2;
 
-        case OP_LEI:
-            opStackOfs -= 2;
-            if ( r1 <= r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
+        if(((float *) opStack)[(uint8_t) ((uint8_t) (opStackOfs + 1))] <= ((float *) opStack)[(uint8_t) ((uint8_t) (opStackOfs + 2))])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GTF:
+        opStackOfs -= 2;
 
-        case OP_GTI:
-            opStackOfs -= 2;
-            if ( r1 > r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
+        if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] > ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
+goto_OP_GEF:
+        opStackOfs -= 2;
 
-        case OP_GEI:
-            opStackOfs -= 2;
-            if ( r1 >= r0 ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_LTU:
-            opStackOfs -= 2;
-            if ( ((unsigned)r1) < ((unsigned)r0) ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_LEU:
-            opStackOfs -= 2;
-            if ( ((unsigned)r1) <= ((unsigned)r0) ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_GTU:
-            opStackOfs -= 2;
-            if ( ((unsigned)r1) > ((unsigned)r0) ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_GEU:
-            opStackOfs -= 2;
-            if ( ((unsigned)r1) >= ((unsigned)r0) ) {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_EQF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] == ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_NEF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] != ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_LTF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] < ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_LEF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) ((uint8_t) (opStackOfs + 1))] <= ((float *) opStack)[(uint8_t) ((uint8_t) (opStackOfs + 2))])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_GTF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] > ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
-        case OP_GEF:
-            opStackOfs -= 2;
-
-            if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] >= ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
-            {
-                programCounter = r2;    //vm->instructionPointers[r2];
-                goto nextInstruction;
-            } else {
-                programCounter += 1;
-                goto nextInstruction;
-            }
-
+        if(((float *) opStack)[(uint8_t) (opStackOfs + 1)] >= ((float *) opStack)[(uint8_t) (opStackOfs + 2)])
+        {
+            programCounter = r2;    //vm->instructionPointers[r2];
+            DISPATCH();
+        } else {
+            programCounter += 1;
+            DISPATCH();
+        }
 
         //===================================================================
 
-        case OP_NEGI:
-            opStack[opStackOfs] = -r0;
-            goto nextInstruction;
-        case OP_ADD:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 + r0;
-            goto nextInstruction;
-        case OP_SUB:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 - r0;
-            goto nextInstruction;
-        case OP_DIVI:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 / r0;
-            goto nextInstruction;
-        case OP_DIVU:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) / ((unsigned) r0);
-            goto nextInstruction;
-        case OP_MODI:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 % r0;
-            goto nextInstruction;
-        case OP_MODU:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) % ((unsigned) r0);
-            goto nextInstruction;
-        case OP_MULI:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 * r0;
-            goto nextInstruction;
-        case OP_MULU:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) * ((unsigned) r0);
-            goto nextInstruction;
-
-        case OP_BAND:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) & ((unsigned) r0);
-            goto nextInstruction;
-        case OP_BOR:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) | ((unsigned) r0);
-            goto nextInstruction;
-        case OP_BXOR:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) ^ ((unsigned) r0);
-            goto nextInstruction;
-        case OP_BCOM:
-            opStack[opStackOfs] = ~((unsigned) r0);
-            goto nextInstruction;
-
-        case OP_LSH:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 << r0;
-            goto nextInstruction;
-        case OP_RSHI:
-            opStackOfs--;
-            opStack[opStackOfs] = r1 >> r0;
-            goto nextInstruction;
-        case OP_RSHU:
-            opStackOfs--;
-            opStack[opStackOfs] = ((unsigned) r1) >> r0;
-            goto nextInstruction;
-
-        case OP_NEGF:
-            ((float *) opStack)[opStackOfs] =  -((float *) opStack)[opStackOfs];
-            goto nextInstruction;
-        case OP_ADDF:
-            opStackOfs--;
-            ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] + ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
-            goto nextInstruction;
-        case OP_SUBF:
-            opStackOfs--;
-            ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] - ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
-            goto nextInstruction;
-        case OP_DIVF:
-            opStackOfs--;
-            ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] / ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
-            goto nextInstruction;
-        case OP_MULF:
-            opStackOfs--;
-            ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] * ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
-            goto nextInstruction;
-
-        case OP_CVIF:
-            ((float *) opStack)[opStackOfs] = (float) opStack[opStackOfs];
-            goto nextInstruction;
-        case OP_CVFI:
-            opStack[opStackOfs] = Q_ftol(((float *) opStack)[opStackOfs]);
-            goto nextInstruction;
-        case OP_SEX8:
-            opStack[opStackOfs] = (signed char) opStack[opStackOfs];
-            goto nextInstruction;
-        case OP_SEX16:
-            opStack[opStackOfs] = (short) opStack[opStackOfs];
-            goto nextInstruction;
+goto_OP_NEGI:
+        opStack[opStackOfs] = -r0;
+        DISPATCH();
+goto_OP_ADD:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 + r0;
+        DISPATCH();
+goto_OP_SUB:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 - r0;
+        DISPATCH();
+goto_OP_DIVI:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 / r0;
+        DISPATCH();
+goto_OP_DIVU:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) / ((unsigned) r0);
+        DISPATCH();
+goto_OP_MODI:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 % r0;
+        DISPATCH();
+goto_OP_MODU:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) % ((unsigned) r0);
+        DISPATCH();
+goto_OP_MULI:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 * r0;
+        DISPATCH();
+goto_OP_MULU:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) * ((unsigned) r0);
+        DISPATCH();
+goto_OP_BAND:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) & ((unsigned) r0);
+        DISPATCH();
+goto_OP_BOR:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) | ((unsigned) r0);
+        DISPATCH();
+goto_OP_BXOR:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) ^ ((unsigned) r0);
+        DISPATCH();
+goto_OP_BCOM:
+        opStack[opStackOfs] = ~((unsigned) r0);
+        DISPATCH();
+goto_OP_LSH:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 << r0;
+        DISPATCH();
+goto_OP_RSHI:
+        opStackOfs--;
+        opStack[opStackOfs] = r1 >> r0;
+        DISPATCH();
+goto_OP_RSHU:
+        opStackOfs--;
+        opStack[opStackOfs] = ((unsigned) r1) >> r0;
+        DISPATCH();
+goto_OP_NEGF:
+        ((float *) opStack)[opStackOfs] =  -((float *) opStack)[opStackOfs];
+        DISPATCH();
+goto_OP_ADDF:
+        opStackOfs--;
+        ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] + ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
+        DISPATCH();
+goto_OP_SUBF:
+        opStackOfs--;
+        ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] - ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
+        DISPATCH();
+goto_OP_DIVF:
+        opStackOfs--;
+        ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] / ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
+        DISPATCH();
+goto_OP_MULF:
+        opStackOfs--;
+        ((float *) opStack)[opStackOfs] = ((float *) opStack)[opStackOfs] * ((float *) opStack)[(uint8_t) (opStackOfs + 1)];
+        DISPATCH();
+goto_OP_CVIF:
+        ((float *) opStack)[opStackOfs] = (float) opStack[opStackOfs];
+        DISPATCH();
+goto_OP_CVFI:
+        opStack[opStackOfs] = Q_ftol(((float *) opStack)[opStackOfs]);
+        DISPATCH();
+goto_OP_SEX8:
+        opStack[opStackOfs] = (signed char) opStack[opStackOfs];
+        DISPATCH();
+goto_OP_SEX16:
+        opStack[opStackOfs] = (short) opStack[opStackOfs];
+        DISPATCH();
         }
     }
 
