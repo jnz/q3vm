@@ -5,6 +5,8 @@
      \__\_______/   \_/  |_|  |_|
 
 
+Standalone and embeddable interpreter for Quake 3 Virtual machine bytecode files (.qvm files). A compiler to generate `.qvm` files (LCC) is included.
+
 Jan Zwiener, 2018
 
 Mail: jan@zwiener.org
@@ -12,21 +14,40 @@ Mail: jan@zwiener.org
 Q3VM
 ====
 
-Standalone interpreter for Quake 3 Virtual machine bytecode files (.qvm files).
+This project is based on the Quake 3 and ioquake3 source:
+
+ * https://github.com/id-Software/Quake-III-Arena (id Software)
+ * https://github.com/ioquake/ioq3
 
 Two things are required:
 
- * The interpreter (q3vm / q3vm.exe)
+ * The interpreter (standalone q3vm / q3vm.exe)
  * A bytecode binary .qvm file (e.g. bytecode.qvm)
 
 Run:
 
     > q3vm.exe bytecode.qvm
 
-This is based on the Quake 3 and ioquake3 source:
+The q3vm interpreter is not required. You can easily add
+a single .c file to your project (''vm.c'' and ''vm.h'').
+Call ''VM_Create'' and ''VM_Call'' to run the bytecode in your
+application:
 
- * https://github.com/id-Software/Quake-III-Arena
- * https://github.com/ioquake/ioq3
+    vm_t vm;
+    VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
+    VM_Call(&vm, 0);
+    VM_Free(&vm);
+    
+The `pointerToByteCodeBuffer` is some memory location where the
+bytecode is located. You can e.g. load it from a file and store it
+in an uint8_t array. See `main.c` for an example implementation.
+
+The `sysCall` is a callback function that you define so that
+the interpreter can call native functions from your code. E.g. a
+logging function or some time critical function that you don't want
+to implement in the bytecode.
+
+
 
 Build VM/interpreter
 --------------------
