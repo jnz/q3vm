@@ -2,8 +2,8 @@ language: c
 addons:
   - clang
 script:
-  - make
   - scan-build make
+  - make clean
   - make GCOV=on test
 after_success:
   - bash <(curl -s https://codecov.io/bash)
