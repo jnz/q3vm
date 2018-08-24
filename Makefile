@@ -23,14 +23,15 @@ endif
 TARGET_BASE=q3vm
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 
+# Linker settings
+LINK_FLAGS := $(LTO_FLAGS) -Wl,--gc-sections
+
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
 # LTO_FLAGS := -flto -fno-builtin
 CFLAGS = -std=c99
-# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
-CFLAGS += -O2
 CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
@@ -41,12 +42,16 @@ CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
 ifeq ($(GCOV),on)
 	CFLAGS += -fprofile-arcs -ftest-coverage
+	CFLAGS += -O0 -ggdb
+else
+	# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
+	CFLAGS += -O2
+	LINK_FLAGS += -lgcov --coverage
 endif
 
 # disable some warnings...
 # Header files
 INCLUDE_PATH := -I"src"
-LINK_FLAGS := $(LTO_FLAGS) -Wl,--gc-sections
 
 # Source folders
 SRC_SUBDIRS := ./src
