@@ -12,10 +12,12 @@ ifeq ($(OS),Windows_NT)
 	CLEANUP = rm -f
 	MKDIR = mkdir
 	TARGET_EXTENSION=.exe
+	LCCTOOLPATH=bin/win32/
 else
 	CLEANUP = rm -f
 	MKDIR = mkdir -p
 	TARGET_EXTENSION=
+	LCCTOOLPATH=bin/linux/
 endif
 # Target executable configuration
 TARGET_BASE=q3vm
@@ -73,6 +75,9 @@ clean:
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) ./$(TARGET)
+	$(MAKE) -C example clean
+	$(MAKE) -C lcc clean
+	$(MAKE) -C q3asm clean
 
 test: $(TARGET) example/bytecode.qvm
 	./q3vm example/bytecode.qvm
@@ -81,8 +86,22 @@ dump:
 	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
 
 # Test
-example/bytecode.qvm:
+example/bytecode.qvm: q3asm lcc
 	$(MAKE) -C example
+
+$(LCCTOOLPATH)lcc:
+	$(MAKE) -C lcc BUILDDIR=build all
+	cp lcc/build/lcc$(TARGET_EXTENSION) $(LCCTOOLPATH)
+	cp lcc/build/cpp$(TARGET_EXTENSION) $(LCCTOOLPATH)q3cpp$(TARGET_EXTENSION)
+	cp lcc/build/rcc$(TARGET_EXTENSION) $(LCCTOOLPATH)q3rcc$(TARGET_EXTENSION)
+
+lcc: $(LCCTOOLPATH)lcc
+
+q3asm/q3asm$(TARGET_EXTENSION):
+	$(MAKE) -C q3asm
+	cp q3asm/q3asm$(TARGET_EXTENSION) $(LCCTOOLPATH)
+
+q3asm: q3asm/q3asm$(TARGET_EXTENSION)
 
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)
