@@ -40,14 +40,6 @@ int vmMain(int command,
 
     printf("Result: %f\n", f);
 
-    /* double */
-    for (i=0:i<100;i++)
-    {
-        dd += 0.1f;
-    }
-
-    printf("Result: %f\n", dd);
-
     /* memcpy/memset */
     memset(mem1, 0, sizeof(mem1));
     memcpy(mem1, mem2, sizeof(mem2));
