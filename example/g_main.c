@@ -26,9 +26,8 @@ int vmMain(int command,
     char str[] = "Hello %s\n";
     volatile float f = 0.0f;
     volatile float df = 0.0001f;
-    volatile double dd = 0.0;
-    volatile uint8_t mem1[16];
-    volatile uint8_t mem2[16] = "Hello World";
+    volatile unsigned char mem1[16];
+    volatile unsigned char mem2[16] = "Hello World";
     volatile unsigned xi = 128;
 
     printf(str, "World");
