@@ -27,15 +27,20 @@ int vmMain(int command,
     volatile float f = 0.0f;
     volatile float df = 0.0001f;
     volatile int xi = 128;
+    volatile int j;
     unsigned char mem1[16];
     unsigned char mem2[16] = "Hello World";
 
     printf(str, "World");
+    trap_Error("Test Error");
 
     /* float */
     for (i=0;i<20000000;i++)
     {
         f += df;
+        f = -f; f = -f;
+        f /= 2.0f;
+        f *= 2.0f;
     }
 
     printf("Result: %f\n", f);
@@ -45,11 +50,17 @@ int vmMain(int command,
     memcpy(mem1, mem2, sizeof(mem2));
 
     /* integer stuff */
-    xi = 1;
-    for (i=0;i<32;i++)
+    for (j=0;j<32;j++)
     {
+        xi = j;
+        xi = xi << 3;
         xi = xi >> 2;
-        xi = xi << 1;
+        xi = xi*3;
+        xi = xi/3;
+        xi = xi%2;
+        xi = xi&3;
+        xi = xi|4;
+        xi = xi^4;
         if (i > 0)
         {
             xi = -xi;
