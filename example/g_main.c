@@ -26,6 +26,10 @@ int vmMain(int command,
     char str[] = "Hello %s\n";
     volatile float f = 0.0f;
     volatile float df = 0.0001f;
+    volatile double dd = 0.0;
+    volatile uint8_t mem1[16];
+    volatile uint8_t mem2[16] = "Hello World";
+    volatile unsigned xi = 128;
 
     printf(str, "World");
 
@@ -38,7 +42,6 @@ int vmMain(int command,
     printf("Result: %f\n", f);
 
     /* double */
-    volatile double dd = 0.0;
     for (i=0:i<100;i++)
     {
         dd += 0.1f;
@@ -47,22 +50,31 @@ int vmMain(int command,
     printf("Result: %f\n", dd);
 
     /* memcpy/memset */
-    volatile uint8_t mem1[16];
-    volatile uint8_t mem2[16] = "Hello World";
     memset(mem1, 0, sizeof(mem1));
     memcpy(mem1, mem2, sizeof(mem2));
 
     /* integer stuff */
-    volatile unsigned xi = 128;
-    xi = xi << 8;
-    xi = xi >> 4;
-    if (xi > 0)
+    xi = 1;
+    for (i=0;i<32;i++)
     {
-        xi = -xi;
-    }
-    if (xi < 999999)
-    {
-        xi = -xi;
+        xi = xi >> 2;
+        xi = xi << 1;
+        if (i > 0)
+        {
+            xi = -xi;
+        }
+        if (i >= 0)
+        {
+            xi = -xi;
+        }
+        if (i < 1)
+        {
+            xi = -xi;
+        }
+        if (i <= 1)
+        {
+            xi = -xi;
+        }
     }
 
     return 0;
