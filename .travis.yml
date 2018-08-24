@@ -1,7 +1,10 @@
 language: c
+addons:
+- clang
 script:
 - make
 - make test
+- scan-build make
 
 
 
