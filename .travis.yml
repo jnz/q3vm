@@ -1,0 +1,7 @@
+language: c
+script:
+- make
+- make test
+
+
+
