@@ -39,6 +39,10 @@ CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
+ifeq ($(GCOV),on)
+	CFLAGS += -fprofile-arcs -ftest-coverage
+endif
+
 # disable some warnings...
 # Header files
 INCLUDE_PATH := -I"src"
