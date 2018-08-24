@@ -43,10 +43,10 @@ CFLAGS += -Wall
 ifeq ($(GCOV),on)
 	CFLAGS += -fprofile-arcs -ftest-coverage
 	CFLAGS += -O0 -ggdb
+	LINK_FLAGS += -lgcov --coverage
 else
 	# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
 	CFLAGS += -O2
-	LINK_FLAGS += -lgcov --coverage
 endif
 
 # disable some warnings...
