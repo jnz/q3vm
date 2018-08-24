@@ -9,6 +9,7 @@ A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode 
 Computed gotos are used to speed up the interpreter if you compile with GCC. 
 
 [![Build Status](https://travis-ci.org/jnz/q3vm.svg?branch=master)](https://travis-ci.org/jnz/q3vm)
+[![codecov](https://codecov.io/gh/jnz/q3vm/branch/master/graph/badge.svg)](https://codecov.io/gh/jnz/q3vm)
 
 Jan Zwiener, 2018
 
