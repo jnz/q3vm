@@ -29,12 +29,41 @@ int vmMain(int command,
 
     printf(str, "World");
 
+    /* float */
     for (i=0;i<20000000;i++)
     {
         f += df;
     }
 
     printf("Result: %f\n", f);
+
+    /* double */
+    volatile double dd = 0.0;
+    for (i=0:i<100;i++)
+    {
+        dd += 0.1f;
+    }
+
+    printf("Result: %f\n", dd);
+
+    /* memcpy/memset */
+    volatile uint8_t mem1[16];
+    volatile uint8_t mem2[16] = "Hello World";
+    memset(mem1, 0, sizeof(mem1));
+    memcpy(mem1, mem2, sizeof(mem2));
+
+    /* integer stuff */
+    volatile unsigned xi = 128;
+    xi = xi << 8;
+    xi = xi >> 4;
+    if (xi > 0)
+    {
+        xi = -xi;
+    }
+    if (xi < 999999)
+    {
+        xi = -xi;
+    }
 
     return 0;
 }
