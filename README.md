@@ -9,6 +9,7 @@ A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode 
 
 [![Build Status](https://travis-ci.org/jnz/q3vm.svg?branch=master)](https://travis-ci.org/jnz/q3vm)
 [![codecov](https://codecov.io/gh/jnz/q3vm/branch/master/graph/badge.svg)](https://codecov.io/gh/jnz/q3vm)
+[![Coverity](https://scan.coverity.com/projects/16570/badge.svg)](https://scan.coverity.com/projects/jnz-q3vm)
 
 Jan Zwiener, 2018. Mail: jan@zwiener.org
 
