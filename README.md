@@ -5,15 +5,12 @@
      \__\_______/   \_/  |_|  |_|
 
 
-A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files based on good old C-language input. A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project.
-Computed gotos are used to speed up the interpreter if you compile with GCC. 
+A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files (`.qvm`) based on good old C-language input (`.c`). A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project. Computed gotos are used to speed up the interpreter if you compile with GCC. 
 
 [![Build Status](https://travis-ci.org/jnz/q3vm.svg?branch=master)](https://travis-ci.org/jnz/q3vm)
 [![codecov](https://codecov.io/gh/jnz/q3vm/branch/master/graph/badge.svg)](https://codecov.io/gh/jnz/q3vm)
 
-Jan Zwiener, 2018
-
-Mail: jan@zwiener.org
+Jan Zwiener, 2018. Mail: jan@zwiener.org
 
 Q3VM
 ====
