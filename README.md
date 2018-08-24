@@ -5,7 +5,10 @@
      \__\_______/   \_/  |_|  |_|
 
 
-Standalone and embeddable interpreter for Quake 3 Virtual machine bytecode files (.qvm files). A compiler to generate `.qvm` files (LCC) is included. Computed gotos are used to speed up the interpreter if you compile with GCC.
+A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files based on good old C-language input. A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project.
+Computed gotos are used to speed up the interpreter if you compile with GCC. 
+
+[![Build Status](https://travis-ci.org/jnz/q3vm.svg?branch=master)](https://travis-ci.org/jnz/q3vm)
 
 Jan Zwiener, 2018
 
@@ -24,7 +27,7 @@ Run:
     > q3vm.exe bytecode.qvm
 
 The q3vm.exe standalone interpreter is not required. You can
-easily add a single .c file to your project (''vm.c'' and ''vm.h'').
+easily add the interpreter as a single .c file to your project (''vm.c'' and the header ''vm.h'').
 Call ''VM_Create'' and ''VM_Call'' to run the bytecode in your
 application:
 
@@ -40,7 +43,7 @@ in an uint8_t array. See `main.c` for an example implementation.
 The `sysCall` is a callback function that you define so that
 the interpreter can call native functions from your code. E.g. a
 logging function or some time critical function that you don't want
-to implement in the bytecode. Again check `main.c` for an example.
+to implement in the bytecode. Again, check `main.c` for an example.
 
 
 Build VM/interpreter
@@ -67,9 +70,9 @@ Build bytecode firmware
 
 **Windows**:
 
-The LCC compiler (lcc.exe) is saved in the ./bin/win32 directory.
+The LCC compiler (lcc.exe) is included in the ./bin/win32 directory.
 You need make (mingw32-make) from the MinGW64 installation in
-your path. The compiler in the repository as .exe file.
+your path.
 
     cd example
     mingw32-make
