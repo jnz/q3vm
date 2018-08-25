@@ -30,7 +30,10 @@ easily add the interpreter as a single .c file to your project (''vm.c'' and the
 Call ''VM_Create'' and ''VM_Call'' to run the bytecode in your
 application:
 
+    #include "vm.h"
+
     vm_t vm;
+    
     VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
     VM_Call(&vm, 0);
     VM_Free(&vm);
