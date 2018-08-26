@@ -88,15 +88,20 @@ clean:
 	$(MAKE) -C lcc clean
 	$(MAKE) -C q3asm clean
 
-test: $(TARGET) example/bytecode.qvm
-	./q3vm example/bytecode.qvm
+test: $(TARGET) test/test.qvm example/bytecode.qvm
+	./q3vm example/test.qvm
+	./q3vm test/test.qvm
 
-dump:
+dump: $(TARGET)
 	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
 
-# Test
+# Example
 example/bytecode.qvm: q3asm lcc
 	$(MAKE) -C example
+
+# Test and code coverage firmware
+test/test.qvm: q3asm lcc
+	$(MAKE) -C test
 
 $(LCCTOOLPATH)lcc:
 	$(MAKE) -C lcc BUILDDIR=build all
