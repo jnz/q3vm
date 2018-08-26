@@ -1,0 +1,4 @@
+-o "test"
+build/g_main
+g_syscalls
+
