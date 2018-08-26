@@ -5,8 +5,7 @@ install:
   # cppcheck
   - sudo apt-get install -qq cppcheck
 script:
-  - scan-build make q3vm
-  - make cppcheck
+  - make analysis
   - make clean
   - make GCOV=on test
 after_success:
