@@ -83,7 +83,7 @@ clean:
 	$(MAKE) -C lcc clean
 	$(MAKE) -C q3asm clean
 
-test: test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
+test: $(TARGET) test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
 	./q3vm example/bytecode.qvm
 	./test/q3vm_test/q3vm_test test/test.qvm
 
