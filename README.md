@@ -27,7 +27,7 @@ Run:
 
 The q3vm.exe standalone interpreter is not required. You can
 easily add the interpreter as a single .c file to your project (''vm.c'' and the header ''vm.h'').
-Call ''VM_Create'' and ''VM_Call'' to run the bytecode in your
+Call `VM_Create` and ''VM_Call'' to run the bytecode in your
 application:
 
     #include "vm.h"
@@ -67,8 +67,8 @@ Compile with:
 
 Or use the Visual Studio 2015 project `q3vm.sln` in the `msvc` subfolder.
 
-Build bytecode firmware
------------------------
+Build example bytecode firmware
+-------------------------------
 
 **Windows**:
 
@@ -111,6 +111,20 @@ Run the bytecode firmware
 -------------------------
 
     > q3vm bytecode.qvm
+
+Folder structure
+----------------
+
+    ├─ bin/
+    │  ├─ linux/        Target folder for Linux lcc and q3asm builds
+    │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
+    ├─ build/           Target folder for q3vm build
+    ├─ example/         Example bytecode.qvm
+    ├─ lcc/             The LCC compiler (compile .c files to .asm files)
+    ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
+    ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
+    ├─ src/             q3vm application source code
+    └─ test/            test bytecode qvm
 
 Credits
 =======
