@@ -1,30 +1,22 @@
-# Makefile to build the Q3VM interpreter
+# Makefile to build the Q3VM test interpreter
 # 
 # Run 'make'
 #
 # Jan Zwiener 2018
-
-# Custom config (optional)
--include config.mk
 
 #We try to detect the OS we are running on, and adjust commands as needed
 ifeq ($(OS),Windows_NT)
 	CLEANUP = rm -f
 	MKDIR = mkdir
 	TARGET_EXTENSION=.exe
-	LCCTOOLPATH=bin/win32/
 else
 	CLEANUP = rm -f
 	MKDIR = mkdir -p
 	TARGET_EXTENSION=
-	LCCTOOLPATH=bin/linux/
 endif
 # Target executable configuration
-TARGET_BASE=q3vm
+TARGET_BASE=q3vm_test
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
-
-# Linker settings
-LINK_FLAGS := $(LTO_FLAGS) -Wl,--gc-sections
 
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
@@ -40,25 +32,20 @@ CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
-ifeq ($(GCOV),on)
-	CFLAGS += -fprofile-arcs -ftest-coverage
-	CFLAGS += -O0 -ggdb
-	LINK_FLAGS += -lgcov --coverage
-else
-	# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
-	CFLAGS += -O2
-endif
+CFLAGS += -fprofile-arcs -ftest-coverage
+CFLAGS += -O0 -ggdb
+LINK_FLAGS += -lgcov --coverage
 
 # disable some warnings...
 # Header files
-INCLUDE_PATH := -I"src/vm"
+INCLUDE_PATH := -I"./../../src/vm"
 
 # Source folders
-SRC_SUBDIRS := ./src
-SRC_SUBDIRS += ./src/vm
+SRC_SUBDIRS := ./
+SRC_SUBDIRS += ../../src/vm
 
 # Add all files from the folders in SRC_SUBDIRS to the build
-OBJDIR           := build
+OBJDIR           := ../../build
 SOURCES          = $(foreach dir, $(SRC_SUBDIRS), $(wildcard $(dir)/*.c))
 C_SRCS           = $(SOURCES)
 VPATH            = $(SRC_SUBDIRS)
@@ -73,7 +60,7 @@ $(OBJDIR)/%.o: %.c
 	@echo 'CC: $<'
 	@$(CC) $(CFLAGS) $(C_INCLUDES) -c -o"$@" "$<"
 
-all: $(TARGET) example/bytecode.qvm q3asm lcc test/test.qvm
+all: $(TARGET)
 
 $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'CFLAGS: '$(CFLAGS)
@@ -85,53 +72,6 @@ clean:
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) ./$(TARGET)
-	$(MAKE) -C example clean
-	$(MAKE) -C lcc clean
-	$(MAKE) -C q3asm clean
-
-test: test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
-	./q3vm example/bytecode.qvm
-	./test/q3vm_test/q3vm_test test/test.qvm
-
-dump: $(TARGET)
-	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
-
-# static code analysis with cppcheck
-cppcheck:
-	cppcheck --error-exitcode=-1 src/
-
-clangcheck: clean
-	scan-build make q3vm
-
-valgrind: $(TARGET) test/test.qvm
-	valgrind --error-exitcode=-1 --leak-check=yes ./q3vm test/test.qvm
-
-analysis: clangcheck cppcheck
-
-# Example
-example/bytecode.qvm: q3asm lcc
-	$(MAKE) -C example
-
-# Test and code coverage firmware
-test/test.qvm: q3asm lcc
-	$(MAKE) -C test
-
-test/q3vm_test/q3vm_test:
-	$(MAKE) -C test/q3vm_test
-
-$(LCCTOOLPATH)lcc:
-	$(MAKE) -C lcc BUILDDIR=build all
-	cp lcc/build/lcc$(TARGET_EXTENSION) $(LCCTOOLPATH)
-	cp lcc/build/cpp$(TARGET_EXTENSION) $(LCCTOOLPATH)q3cpp$(TARGET_EXTENSION)
-	cp lcc/build/rcc$(TARGET_EXTENSION) $(LCCTOOLPATH)q3rcc$(TARGET_EXTENSION)
-
-lcc: $(LCCTOOLPATH)lcc
-
-q3asm/q3asm$(TARGET_EXTENSION):
-	$(MAKE) -C q3asm
-	cp q3asm/q3asm$(TARGET_EXTENSION) $(LCCTOOLPATH)
-
-q3asm: q3asm/q3asm$(TARGET_EXTENSION)
 
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)
@@ -140,7 +80,7 @@ post-build:
 
 .FORCE:
 
-.PHONY: all test example/bytecode.qvm .FORCE
+.PHONY: all .FORCE
 
 .SECONDARY: post-build
 

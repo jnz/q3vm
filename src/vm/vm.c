@@ -766,6 +766,12 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
         return -1;
     }
 
+    if (!systemCalls)
+    {
+        Com_Error(-1, "No systemcalls provided.\n");
+        return -1;
+    }
+
     vm->systemCall = systemCalls;
 
     // allocate space for the jump targets, which will be filled in by the
