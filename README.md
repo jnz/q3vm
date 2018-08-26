@@ -5,7 +5,7 @@
      \__\_______/   \_/  |_|  |_|
 
 
-A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files (`.qvm`) based on good old C-language input (`.c`). A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project. Computed gotos are used to speed up the interpreter if you compile with GCC. 
+A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files (`.qvm`) based on good old C-language input (`.c`). A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project. For example code that needs to run in a sandbox.
 
 [![Build Status](https://travis-ci.org/jnz/q3vm.svg?branch=master)](https://travis-ci.org/jnz/q3vm)
 [![codecov](https://codecov.io/gh/jnz/q3vm/branch/master/graph/badge.svg)](https://codecov.io/gh/jnz/q3vm)
@@ -15,6 +15,21 @@ Jan Zwiener, 2018. Mail: jan@zwiener.org
 
 Q3VM
 ====
+
+Features
+--------
+
+ * Small and lightweight (one .c file to include without dependencies)
+ * Battle-tested (20 years of use in Quake III Arena)
+ * No need to learn a new scripting language (e.g. Lua)
+ * Strong typing in the scripting language (C)
+ * Static memory allocation in C, no unpredictable garbage collector
+ * Plan B: you can always go back to native code, as .c files are the input
+ * Great tool landscape for C. Use the tools that are available for C
+ * Computed gotos are used to speed up the interpreter if you compile with GCC
+
+Quick Intro
+-----------
 
 Two things are required:
 
