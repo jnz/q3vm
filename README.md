@@ -42,7 +42,7 @@ Run:
 
 The q3vm.exe standalone interpreter is not required. You can
 easily add the interpreter as a single .c file to your project (''vm.c'' and the header ''vm.h'').
-Call `VM_Create` and ''VM_Call'' to run the bytecode in your
+Call `VM_Create` and `VM_Call` to run the bytecode in your
 application:
 
     #include "vm.h"
@@ -140,6 +140,23 @@ Folder structure
     ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
     ├─ src/             q3vm application source code
     └─ test/            test bytecode qvm
+
+
+Static code analysis
+--------------------
+
+Call `make analysis` and `make valgrind` to check the VM with:
+
+ * clang static code analysis (scan-build)
+ * cppcheck
+ * Valgrind
+
+clang-format
+------------
+
+Run the following command to reformat a file according to the coding style:
+
+    clang-format -i -style=file input.c
 
 Credits
 =======

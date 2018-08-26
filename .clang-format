@@ -1,0 +1,29 @@
+﻿---
+BasedOnStyle: WebKit
+BreakBeforeBraces: Allman
+AlignOperands: 'true'
+AlignAfterOpenBracket: 'true'
+AlignTrailingComments: 'true'
+AllowAllParametersOfDeclarationOnNextLine: 'false'
+AlignConsecutiveAssignments: 'true'
+AlignConsecutiveDeclarations: 'true'
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: 'false'
+AllowShortLoopsOnASingleLine: 'false'
+AlwaysBreakAfterDefinitionReturnType: None
+BreakBeforeBinaryOperators: None
+BinPackParameters: 'true'
+BinPackArguments: 'true'
+BreakStringLiterals: 'true'
+ColumnLimit: '80'
+IndentCaseLabels: 'false'
+Language: Cpp
+ReflowComments: 'true'
+SortIncludes: 'false'
+SpacesInParentheses: 'false'
+SpacesInSquareBrackets: 'false'
+UseTab: Never
+ReflowComments: 'true'
+SpaceAfterCStyleCast: 'false'
+
+...
