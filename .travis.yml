@@ -1,6 +1,9 @@
 language: c
 addons:
   - clang
+install: 
+  # cppcheck
+  - sudo apt-get install -qq cppcheck
 script:
   - scan-build make
   - make clean
