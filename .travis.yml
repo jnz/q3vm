@@ -4,7 +4,9 @@ addons:
 install: 
   # cppcheck
   - sudo apt-get install -qq cppcheck
+  - sudo apt-get install -qq valgrind
 script:
+  - make valgrind
   - make analysis
   - make clean
   - make GCOV=on test
