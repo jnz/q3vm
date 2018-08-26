@@ -72,7 +72,7 @@ $(OBJDIR)/%.o: %.c
 	@echo 'CC: $<'
 	@$(CC) $(CFLAGS) -c -o"$@" "$<"
 
-all: $(TARGET) example/bytecode.qvm q3asm lcc
+all: $(TARGET) example/bytecode.qvm q3asm lcc test/test.qvm
 
 $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'CFLAGS: '$(CFLAGS)
