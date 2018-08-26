@@ -247,7 +247,7 @@ static vm_t* lastVM    = NULL;
  ******************************************************************************/
 
 static void Q_strncpyz(char* dest, const char* src, int destsize);
-static void VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header);
+static int VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header);
 static int VM_CallInterpreted(vm_t* vm, int* args);
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 
@@ -788,7 +788,10 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     // VM_Compile may have reset vm->compiled if compilation failed
     if (!vm->compiled)
     {
-        VM_PrepareInterpreter(vm, header);
+        if (VM_PrepareInterpreter(vm, header) != 0)
+        {
+            return -1;
+        }
     }
 
     // load the map file
@@ -881,7 +884,7 @@ intptr_t VM_Call(vm_t* vm, int callnum)
     if (!vm || !vm->name[0])
     {
         Com_Error(-1, "VM_Call with NULL vm");
-        return 0;
+        return -1;
     }
 
     oldVM     = currentVM;
@@ -991,9 +994,10 @@ static ID_INLINE int loadWord(void* addr)
 /*
 ====================
 VM_PrepareInterpreter
+-1 if something went wrong.
 ====================
 */
-static void VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
+static int VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
 {
     int      op;
     int      byte_pc;
@@ -1025,7 +1029,7 @@ static void VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
         if (byte_pc > header->codeLength)
         {
             Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
-            return;
+            return -1;
         }
 
         byte_pc++;
@@ -1104,7 +1108,7 @@ static void VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
             {
                 Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid "
                               "instruction number");
-                return;
+                return -1;
             }
 
             // codeBase[pc] is the instruction index. Convert that into an
@@ -1128,6 +1132,7 @@ static void VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
             break;
         }
     }
+    return 0;
 }
 
 /*
@@ -1193,7 +1198,9 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
     programStack -= (8 + 4 * MAX_VMMAIN_ARGS);
 
     for (arg = 0; arg < MAX_VMMAIN_ARGS; arg++)
+    {
         *(int*)&image[programStack + 8 + arg * 4] = args[arg];
+    }
 
     *(int*)&image[programStack + 4] = 0;  // return stack
     *(int*)&image[programStack]     = -1; // will terminate the loop on return
@@ -1265,19 +1272,19 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         if ((unsigned)programCounter >= vm->codeLength)
         {
             Com_Error(-1, "VM pc out of range");
-            return 0;
+            return -1;
         }
 
         if (programStack <= vm->stackBottom)
         {
             Com_Error(-1, "VM stack overflow");
-            return 0;
+            return -1;
         }
 
         if (programStack & 3)
         {
             Com_Error(-1, "VM program stack misaligned");
-            return 0;
+            return -1;
         }
 
         if (vm_debugLevel > 1)
@@ -1311,7 +1318,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             if (opStack[opStackOfs] & 3)
             {
                 Com_Error(-1, "OP_LOAD4 misaligned");
-                return 0;
+                return -1;
             }
 #endif
             r0 = opStack[opStackOfs] = *(int*)&image[r0 & dataMask];
@@ -1420,7 +1427,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             else if ((unsigned)programCounter >= vm->instructionCount)
             {
                 Com_Error(-1, "VM program counter out of range in OP_CALL");
-                return 0;
+                return -1;
             }
             else
             {
@@ -1489,7 +1496,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             else if ((unsigned)programCounter >= vm->codeLength)
             {
                 Com_Error(-1, "VM program counter out of range in OP_LEAVE");
-                return 0;
+                return -1;
             }
             DISPATCH();
 
@@ -1503,7 +1510,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             if ((unsigned)r0 >= vm->instructionCount)
             {
                 Com_Error(-1, "VM program counter out of range in OP_JUMP");
-                return 0;
+                return -1;
             }
 
             programCounter = vm->instructionPointers[r0];
