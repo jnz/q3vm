@@ -85,6 +85,7 @@ uint8_t* loadImage(const char* filepath)
 		return NULL;
     }
 
+    fclose(f);
 	return image;
 }
 
