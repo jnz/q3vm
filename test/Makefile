@@ -19,7 +19,7 @@ endif
 TARGET_EXTENSION=.qvm
 
 # Target executable configuration
-TARGET_BASE=bytecode
+TARGET_BASE=test
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 
 # Compiler settings

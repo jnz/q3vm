@@ -89,7 +89,7 @@ clean:
 	$(MAKE) -C q3asm clean
 
 test: $(TARGET) test/test.qvm example/bytecode.qvm
-	./q3vm example/test.qvm
+	./q3vm example/bytecode.qvm
 	./q3vm test/test.qvm
 
 dump: $(TARGET)
