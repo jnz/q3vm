@@ -23,11 +23,11 @@ uint8_t* loadImage(const char* filepath);
 int testNominal(const char* filepath)
 {
     vm_t vm;
+    uint8_t* image = loadImage(filepath);
 
-    char*    filepath = argv[1];
-    uint8_t* image    = loadImage(filepath);
     if (!image)
     {
+        fprintf(stderr, "Failed to load bytecode image from %s\n", filepath);
         return -1;
     }
 
@@ -48,17 +48,18 @@ void testArguments(void)
     loadImage(NULL);
     loadImage("invalidpathfoobar");
     VM_Create(&vm, NULL, NULL, systemCalls);
+    VM_Create(&vm, "test", NULL, systemCalls);
 
     uint8_t bogus[] = "bogusbogusbogus";
-    VM_Create(&vm, NULL, bogus, NULL);
-    VM_Create(&vm, NULL, bogus, systemCalls);
+    VM_Create(&vm, "test", bogus, NULL);
+    VM_Create(&vm, "test", bogus, systemCalls);
 }
 
 int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        printf("No virtual machine supplied. Example: q3vm bytecode.qvm\n");
+        fprintf(stderr, "No virtual machine supplied. Example: q3vm_test bytecode.qvm\n");
         return -1;
     }
 
@@ -72,7 +73,6 @@ int main(int argc, char** argv)
 void Com_Error(int level, const char* error)
 {
     fprintf(stderr, "Err: %s\n", error);
-    exit(level);
 }
 
 uint8_t* loadImage(const char* filepath)
@@ -80,6 +80,11 @@ uint8_t* loadImage(const char* filepath)
     FILE*    f;            /* bytecode input file */
     uint8_t* image = NULL; /* bytecode buffer */
     size_t   sz;           /* bytecode file size */
+
+    if (!filepath || filepath[0] == '\0')
+    {
+        return NULL;
+    }
 
     f = fopen(filepath, "rb");
     if (!f)

@@ -40,14 +40,8 @@ CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
-ifeq ($(GCOV),on)
-	CFLAGS += -fprofile-arcs -ftest-coverage
-	CFLAGS += -O0 -ggdb
-	LINK_FLAGS += -lgcov --coverage
-else
-	# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
-	CFLAGS += -O2
-endif
+# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
+CFLAGS += -O2
 
 # disable some warnings...
 # Header files
@@ -103,8 +97,9 @@ cppcheck:
 clangcheck: clean
 	scan-build make q3vm
 
-valgrind: $(TARGET) test/test.qvm
+valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test
 	valgrind --error-exitcode=-1 --leak-check=yes ./q3vm test/test.qvm
+	valgrind --error-exitcode=-1 --leak-check=yes ./test/q3vm_test/q3vm_test test/test.qvm
 
 analysis: clangcheck cppcheck
 

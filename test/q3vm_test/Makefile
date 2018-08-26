@@ -45,7 +45,7 @@ SRC_SUBDIRS := ./
 SRC_SUBDIRS += ../../src/vm
 
 # Add all files from the folders in SRC_SUBDIRS to the build
-OBJDIR           := ../../build
+OBJDIR           := ../../build/q3vm_test
 SOURCES          = $(foreach dir, $(SRC_SUBDIRS), $(wildcard $(dir)/*.c))
 C_SRCS           = $(SOURCES)
 VPATH            = $(SRC_SUBDIRS)
