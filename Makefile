@@ -95,6 +95,10 @@ test: $(TARGET) test/test.qvm example/bytecode.qvm
 dump: $(TARGET)
 	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
 
+# static code analysis with cppcheck
+cppcheck:
+	cppcheck --quiet --error-exitcode=1 src/
+
 # Example
 example/bytecode.qvm: q3asm lcc
 	$(MAKE) -C example
