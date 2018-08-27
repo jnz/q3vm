@@ -40,7 +40,7 @@ Run:
     > q3vm.exe bytecode.qvm
 
 The q3vm.exe standalone interpreter is not required. You can
-easily add the interpreter as a single .c file to your project (''vm.c'' and the header ''vm.h'').
+easily add the interpreter as a single .c file to your project (`vm.c` and the header `vm.h`).
 Call `VM_Create` and `VM_Call` to run the bytecode in your
 application:
 
@@ -133,7 +133,7 @@ Folder structure
     │  ├─ linux/        Target folder for Linux lcc and q3asm builds
     │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
     ├─ build/           Target folder for q3vm build
-    ├─ doxygen/         Doxygen config
+    ├─ doxygen/         Doxygen config and output
     ├─ example/         Example bytecode.qvm
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
@@ -157,7 +157,16 @@ clang-format
 
 Run the following command to reformat a file according to the coding style:
 
-    clang-format -i -style=file input.c
+    > clang-format -i -style=file input.c
+
+API Documentation with Doxygen
+------------------------------
+
+Call `make doxygen` to autogenerate the API documentation in the `doxygen`
+directory. The dot command is required (part of graphviz).
+Install it with `sudo apt-get install graphviz` on Debian or Ubuntu.
+
+    > make doxygen
 
 Credits
 =======
