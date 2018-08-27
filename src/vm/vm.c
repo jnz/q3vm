@@ -25,6 +25,7 @@
  * DEFINES
  ******************************************************************************/
 
+/** File start magic number for .qvm files */
 #define VM_MAGIC 0x12721444
 
 /** Don't change stack size: Hardcoded in q3asm a reserved at end of bss */
@@ -33,20 +34,23 @@
 
 #define OPSTACK_SIZE 1024
 
-// Max number of arguments to pass from a vm to engine's syscall handler
-// function for the vm.
-// syscall number + 15 arguments
+/** Max number of arguments to pass from a vm to engine's syscall handler
+ * function for the vm.
+ * syscall number + 15 arguments */
 #define MAX_VMSYSCALL_ARGS 16
 
-// Max number of arguments to pass from engine to vm's vmMain function.
-// command number + 12 arguments
+/* Max number of arguments to pass from engine to vm's vmMain function.
+ * command number + 12 arguments */
 #define MAX_VMMAIN_ARGS 13
 
-#define MAX_TOKEN_CHARS 1024 // max length of an individual token
+#define MAX_TOKEN_CHARS 1024 /**< max length of an individual token */
 
 #if defined(Q3VM_BIG_ENDIAN) && defined(Q3VM_LITTLE_ENDIAN)
 #error "Endianness defined as both big and little"
 #elif defined(Q3VM_BIG_ENDIAN)
+/** Helper function to swap bytes for the big endian version.
+ * @param[in] l Input value
+ * @return swapped output value. */
 static ID_INLINE int LongSwap(int l)
 {
     uint8_t b1, b2, b3, b4;
@@ -65,12 +69,13 @@ static ID_INLINE int LongSwap(int l)
 #error "Endianness not defined"
 #endif
 
+/** Used for debug output in DEBUG_VM */
 #define DEBUGSTR va("%s%i", VM_Indent(vm), opStackOfs)
 
 /* GCC can do computed gotos */
 #ifdef __GNUC__
-#ifndef DEBUG_VM /* can't use computed gotos in debug mode */
-#define USE_COMPUTED_GOTOS
+#ifndef DEBUG_VM           /* can't use computed gotos in debug mode */
+#define USE_COMPUTED_GOTOS /**< use computed gotos instead of a switch */
 #endif
 #endif
 
@@ -78,6 +83,7 @@ static ID_INLINE int LongSwap(int l)
  * TYPEDEFS
  ******************************************************************************/
 
+/** Enum for the virtual machine op codes */
 typedef enum {
     OP_UNDEF,
 
@@ -233,29 +239,55 @@ typedef enum {
  * GLOBAL DATA DEFINITIONS
  ******************************************************************************/
 
-int vm_debugLevel;
+int vm_debugLevel; /**< if 0, be quiet, otherwise emit printf informations */
 
 /******************************************************************************
  * LOCAL DATA DEFINITIONS
  ******************************************************************************/
 
-static vm_t* currentVM = NULL;
-static vm_t* lastVM    = NULL;
+static vm_t* currentVM = NULL; /**< Pointer to currently active virtual machine
+                                    This is used also during the sysCallbacks */
+static vm_t* lastVM = NULL;    /**< Previous virtual machine for the profiler */
 
 /******************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  ******************************************************************************/
 
+/** @brief Safe strncpy that ensures a trailing zero.
+ * @param[out] dest Output string.
+ * @param[in] src Input string.
+ * @param[in] destsize Number of free bytes in dest. */
 static void Q_strncpyz(char* dest, const char* src, int destsize);
-static int VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header);
+/** Helper function for VM_Create: Set up the virtual machine during loading.
+ * Ensure consistency and prepare the jumps.
+ * @param[in,out] vm Pointer to virtual machine, prepared by VM_Create.
+ * @param[in] header Header of .qvm bytecode.
+ * @return 0 if everything is OK. -1 otherwise. */
+static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header);
+/** Helper function for VM_Create: Set up the virtual machine during loading.
+ * Copy the data from the file input (bytecode) to the vm.
+ * @param[in,out] vm Pointer to virtual machine, prepared by VM_Create.
+ * @param[in] bytecode Pointer to bytecode.
+ * @return Pointer to start/header of vm bytecode. */
+static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode);
+/** Run a function from the virtual machine with the interpreter (i.e. no JIT).
+ * @param[in] vm Pointer to initialized virtual machine.
+ * @param[in] args Arguments for function call.
+ * @return Return value of the function call. */
 static int VM_CallInterpreted(vm_t* vm, int* args);
+/** Executes a block copy operation (memcpy) within currentVM data space.
+ * @param[out] dest Pointer (in VM space).
+ * @param[in] src Pointer (in VM space).
+ * @param[in] n Number of bytes. */
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
 
 #ifdef DEBUG_VM
 static void VM_VmInfo_f(void);
 static void VM_VmProfile_f(void);
-void VM_Debug(int level);
 #endif
+/** Set the printf debug level.
+ * @param[in] level If level is 0, be quiet. */
+void VM_Debug(int level);
 
 /******************************************************************************
  * LOCAL INLINE FUNCTIONS AND FUNCTION MACROS
@@ -265,7 +297,6 @@ void VM_Debug(int level);
 #define PAD(base, alignment) (((base) + (alignment)-1) & ~((alignment)-1))
 #define PADLEN(base, alignment) (PAD((base), (alignment)) - (base))
 #define PADP(base, alignment) ((void*)PAD((intptr_t)(base), (alignment)))
-#define Q_ftol(v) ((long)(v))
 
 /******************************************************************************
  * FUNCTION BODIES
@@ -278,7 +309,6 @@ const char *VM_ValueToSymbol( vm_t *vm, int value );
 void VM_LogSyscalls( int *args );
 */
 
-/* @brief Safe strncpy that ensures a trailing zero */
 static void Q_strncpyz(char* dest, const char* src, int destsize)
 {
     if (!dest || !src || destsize < 1)
@@ -551,7 +581,7 @@ void VM_VmProfile_f(void)
 
     vm = lastVM;
 
-    if (!vm->numSymbols)
+    if (vm->numSymbols < 1)
     {
         return;
     }
@@ -654,13 +684,6 @@ void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
 
 #endif
 
-/*
-=================
-VM_LoadQVM
-
-Load a .qvm file
-=================
-*/
 static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
 {
     int dataLength;
@@ -741,16 +764,6 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     return header.h;
 }
 
-/*
-================
-VM_Create
-
-If image ends in .qvm it will be interpreted, otherwise
-it will attempt to load as a system dll
-return 0 if everything is ok.
-return -1 if something went wrong.
-================
-*/
 int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
               intptr_t (*systemCalls)(intptr_t*))
 {
@@ -852,36 +865,12 @@ void* VM_ArgPtr(intptr_t intValue)
     return (void*)(currentVM->dataBase + (intValue & currentVM->dataMask));
 }
 
-/*
-==============
-VM_Call
-
-
-Upon a system call, the stack will look like:
-
-sp+32   parm1
-sp+28   parm0
-sp+24   return value
-sp+20   return address
-sp+16   local1
-sp+14   local0
-sp+12   arg1
-sp+8    arg0
-sp+4    return stack
-sp      return address
-
-An interpreted function will immediately execute
-an OP_ENTER instruction, which will subtract space for
-locals from sp
-==============
-*/
-
 intptr_t VM_Call(vm_t* vm, int callnum)
 {
     vm_t*    oldVM;
     intptr_t r;
 
-    if (!vm || !vm->name[0])
+    if (!vm)
     {
         Com_Error(-1, "VM_Call with NULL vm");
         return -1;
@@ -904,13 +893,6 @@ intptr_t VM_Call(vm_t* vm, int callnum)
         currentVM = oldVM;
     return r;
 }
-
-/*
-=================
-VM_BlockCopy
-Executes a block copy operation within currentVM data space
-=================
-*/
 
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
 {
@@ -991,13 +973,7 @@ static ID_INLINE int loadWord(void* addr)
     return LittleLong(word);
 }
 
-/*
-====================
-VM_PrepareInterpreter
--1 if something went wrong.
-====================
-*/
-static int VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
+static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
 {
     int      op;
     int      byte_pc;
@@ -1137,8 +1113,7 @@ static int VM_PrepareInterpreter(vm_t* vm, vmHeader_t* header)
 
 /*
 ==============
-VM_Call
-
+VM_CallInterpreted
 
 Upon a system call, the stack will look like:
 
@@ -1817,7 +1792,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             ((float*)opStack)[opStackOfs] = (float)opStack[opStackOfs];
             DISPATCH();
         goto_OP_CVFI:
-            opStack[opStackOfs] = Q_ftol(((float*)opStack)[opStackOfs]);
+            opStack[opStackOfs] = ((long((((float*)opStack)[opStackOfs]))));
             DISPATCH();
         goto_OP_SEX8:
             opStack[opStackOfs] = (signed char)opStack[opStackOfs];

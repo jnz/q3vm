@@ -7,10 +7,12 @@
 
 
    Quake III Arena Virtual Machine
+
+   Standalone interpreter: load a .qvm file, run it, exit.
 */
 
-#include "vm.h"
 #include <stdio.h>
+#include "vm.h"
 
 /* The compiled bytecode calls native functions,
    defined in this file. */
@@ -48,9 +50,10 @@ int main(int argc, char** argv)
     return 0;
 }
 
+/* Callback from the VM that something went wrong */
 void Com_Error(int level, const char* error)
 {
-    fprintf(stderr, "Err: %s\n", error);
+    fprintf(stderr, "Err (%i): %s\n", level, error);
     exit(level);
 }
 
@@ -89,6 +92,7 @@ uint8_t* loadImage(const char* filepath)
     return image;
 }
 
+/* Callback from the VM: system function call */
 intptr_t systemCalls(intptr_t* args)
 {
     int id = -1 - args[0];
