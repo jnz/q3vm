@@ -128,6 +128,10 @@ q3asm/q3asm$(TARGET_EXTENSION):
 
 q3asm: q3asm/q3asm$(TARGET_EXTENSION)
 
+doxygen:
+	@echo "Creating doxygen documentation"
+	@doxygen doxygen/Doxyfile
+
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)
 
@@ -135,7 +139,7 @@ post-build:
 
 .FORCE:
 
-.PHONY: all test example/bytecode.qvm .FORCE
+.PHONY: all test doxygen .FORCE
 
 .SECONDARY: post-build
 

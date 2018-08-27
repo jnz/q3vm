@@ -27,18 +27,18 @@
  ******************************************************************************/
 
 // #define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
-#define ID_INLINE inline
-#define MAX_QPATH 64 /**< max length of a pathname */
+#define ID_INLINE inline /**< Mark function as inline */
+#define MAX_QPATH 64 /**< Maximum length of a pathname */
 
-/** Redirect information output */
+/** Redirect printf() calls with this macro */
 #define Com_Printf printf
-/** Redirect memset call here */
+/** Redirect memset() calls with this macro */
 #define Com_Memset memset
-/** Redirect memcpy call here */
+/** Redirect memcpy() calls with this macro */
 #define Com_Memcpy memcpy
-/** Redirect malloc call here */
+/** Redirect malloc() calls with this macro */
 #define Com_malloc malloc
-/** Redirect free call here */
+/** Redirect free() calls with this macro */
 #define Com_free free
 
 /** Translate pointer from VM memory to system memory */
@@ -46,7 +46,7 @@
 /** Get float argument in syscall (used in system calls) and
  * don't cast it. */
 #define VMF(x) _vmf(args[x])
-void* VM_ArgPtr(intptr_t intValue); /**< for the VMA macro */
+void* VM_ArgPtr(intptr_t intValue); /**< Helper function for the VMA macro */
 
 /** Define endianess of target platform */
 #define Q3VM_LITTLE_ENDIAN
@@ -54,13 +54,6 @@ void* VM_ArgPtr(intptr_t intValue); /**< for the VMA macro */
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
-
-/** union to access a variable as float or int */
-typedef union {
-    float    f;  /**< float IEEE 754 32-bit single */
-    int32_t  i;  /**< int32 part */
-    uint32_t ui; /**< unsigned int32 part */
-} floatint_t;
 
 /** For debugging: symbols */
 typedef struct vmSymbol_s
@@ -185,7 +178,11 @@ intptr_t VM_Call(vm_t* vm, int callNum);
  * @return Value as float. */
 static ID_INLINE float _vmf(intptr_t x)
 {
-    floatint_t fi;
+    union {
+        float    f;  /**< float IEEE 754 32-bit single */
+        int32_t  i;  /**< int32 part */
+        uint32_t ui; /**< unsigned int32 part */
+    } fi;
     fi.i = (int)x;
     return fi.f;
 }

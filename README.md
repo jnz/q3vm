@@ -1,3 +1,6 @@
+Q3VM Readme
+===========
+
       ___   _______     ____  __
      / _ \ |___ /\ \   / /  \/  |
     | | | |  |_ \ \ \ / /| |\/| |
@@ -12,9 +15,6 @@ A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode 
 [![Coverity](https://scan.coverity.com/projects/16570/badge.svg)](https://scan.coverity.com/projects/jnz-q3vm)
 
 Jan Zwiener, 2018. Mail: jan@zwiener.org
-
-Q3VM
-====
 
 Features
 --------
@@ -134,11 +134,13 @@ Folder structure
     │  ├─ linux/        Target folder for Linux lcc and q3asm builds
     │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
     ├─ build/           Target folder for q3vm build
+    ├─ doxygen/         Doxygen config
     ├─ example/         Example bytecode.qvm
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
     ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
     ├─ src/             q3vm application source code
+    │  └─ vm/           The VM source. Copy that into your project
     └─ test/            test bytecode qvm
 
 
