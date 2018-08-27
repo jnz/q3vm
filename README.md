@@ -159,14 +159,16 @@ Run the following command to reformat a file according to the coding style:
 
     > clang-format -i -style=file input.c
 
-API Documentation with Doxygen
-------------------------------
+API Documentation
+-----------------
 
-Call `make doxygen` to autogenerate the API documentation in the `doxygen`
-directory. The dot command is required (part of graphviz).
-Install it with `sudo apt-get install graphviz` on Debian or Ubuntu.
+Call `make doxygen` to autogenerate the API documentation in the `doxygen/html`
+directory. Doxygen and dot command (part of graphviz) is required.
+Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
 
     > make doxygen
+
+But you can also read `vm.h` directly for the API documentation.
 
 Credits
 =======
