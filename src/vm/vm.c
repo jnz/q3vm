@@ -297,6 +297,7 @@ void VM_Debug(int level);
 #define PAD(base, alignment) (((base) + (alignment)-1) & ~((alignment)-1))
 #define PADLEN(base, alignment) (PAD((base), (alignment)) - (base))
 #define PADP(base, alignment) ((void*)PAD((intptr_t)(base), (alignment)))
+#define Q_ftol(v) ((long)(v))
 
 /******************************************************************************
  * FUNCTION BODIES
@@ -1792,7 +1793,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             ((float*)opStack)[opStackOfs] = (float)opStack[opStackOfs];
             DISPATCH();
         goto_OP_CVFI:
-            opStack[opStackOfs] = ((long((((float*)opStack)[opStackOfs]))));
+            opStack[opStackOfs] = Q_ftol(((float*)opStack)[opStackOfs]);
             DISPATCH();
         goto_OP_SEX8:
             opStack[opStackOfs] = (signed char)opStack[opStackOfs];
