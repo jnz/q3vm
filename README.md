@@ -54,12 +54,39 @@ application:
     
 The `pointerToByteCodeBuffer` is some memory location where the
 bytecode is located. You can e.g. load it from a file and store it
-in an uint8_t array. See `main.c` for an example implementation.
+in a byte array. See `main.c` for an example implementation.
 
 The `sysCall` is a callback function that you define so that
 the interpreter can call native functions from your code. E.g. a
 logging function or some time critical function that you don't want
 to implement in the bytecode. Again, check `main.c` for an example.
+
+Folder structure
+----------------
+
+    ├─ bin/
+    │  ├─ linux/        Target folder for Linux lcc and q3asm builds
+    │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
+    ├─ build/           Target folder for q3vm build
+    ├─ doxygen/         Doxygen config and output
+    ├─ example/         Example bytecode.qvm
+    ├─ lcc/             The LCC compiler (compile .c files to .asm files)
+    ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
+    ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
+    ├─ src/             q3vm application source code
+    │  └─ vm/           The VM source. Copy that into your project
+    └─ test/            test bytecode qvm
+
+API Documentation
+-----------------
+
+Call `make doxygen` to autogenerate the API documentation in the `doxygen/html`
+directory. Doxygen and dot command (part of graphviz) is required.
+Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
+
+    > make doxygen
+
+But you can also read `vm.h` directly for the API documentation.
 
 
 Build VM/interpreter
@@ -126,22 +153,6 @@ Run the bytecode firmware
 
     > q3vm bytecode.qvm
 
-Folder structure
-----------------
-
-    ├─ bin/
-    │  ├─ linux/        Target folder for Linux lcc and q3asm builds
-    │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
-    ├─ build/           Target folder for q3vm build
-    ├─ doxygen/         Doxygen config and output
-    ├─ example/         Example bytecode.qvm
-    ├─ lcc/             The LCC compiler (compile .c files to .asm files)
-    ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
-    ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
-    ├─ src/             q3vm application source code
-    │  └─ vm/           The VM source. Copy that into your project
-    └─ test/            test bytecode qvm
-
 
 Static code analysis
 --------------------
@@ -158,17 +169,6 @@ clang-format
 Run the following command to reformat a file according to the coding style:
 
     > clang-format -i -style=file input.c
-
-API Documentation
------------------
-
-Call `make doxygen` to autogenerate the API documentation in the `doxygen/html`
-directory. Doxygen and dot command (part of graphviz) is required.
-Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
-
-    > make doxygen
-
-But you can also read `vm.h` directly for the API documentation.
 
 Credits
 =======
