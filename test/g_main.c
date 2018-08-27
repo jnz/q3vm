@@ -25,7 +25,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     volatile float f     = 0.0f;
     volatile float df    = 0.0001f;
     volatile int   xi    = 128;
-    volatile int   xu    = 128;
+    volatile unsigned xu = 128;
+    volatile unsigned xu2 = 3;
     volatile unsigned short us = 1;
     volatile short si = 1;
     volatile int   j;
@@ -70,8 +71,12 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         xu = xu + 2;
         xu = xu - 2;
         xu = xu % 2;
-        xu = xu << 3;
-        xu = xu >> 2;
+        xu = xu << xu2;
+        xu = xu >> xu2;
+        xu = xu / xu2;
+        xu = xu % xu2;
+        xu = xu * xu2;
+
         xu = ~xu;
         xi = (short)xi;
         f = j*j;
@@ -109,7 +114,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
             xi = 2*xi;
         }
         xu = j;
-        if (xu > 5)
+        if (xu > 5U)
         {
             xi = -xi;
         }
@@ -117,7 +122,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             xi = 2*xi;
         }
-        if (xu >= 5)
+        if (xu >= 5U)
         {
             xi = -xi;
         }
@@ -125,7 +130,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             xi = 2*xi;
         }
-        if (xu < 5)
+        if (xu < 5U)
         {
             xi = -xi;
         }
@@ -133,7 +138,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             xi = 2*xi;
         }
-        if (xu <= 5)
+        if (xu <= 5U)
         {
             xi = -xi;
         }
@@ -141,7 +146,6 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             xi = 2*xi;
         }
-
         if (f > 0)
         {
             f = -f;
@@ -174,6 +178,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             f = 2*f;
         }
+        f = 0.1f;
         if (f == 0.0f)
         {
             f = -f;
