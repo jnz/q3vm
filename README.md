@@ -98,16 +98,17 @@ On **Linux**:
     > make
 
 On **Windows**:
-Install MinGW64 from and add the bin\ directory it to your path.
-So that you have gcc.exe available.
+
+Use the **Visual Studio 2015** project `q3vm.sln` in the `msvc` subfolder.
+
+Or install MinGW64 from and add the MinGW64 bin\ directory it to your path.
+So that you have gcc.exe available at the command prompt.
 
  * http://mingw-w64.org/doku.php/download/mingw-builds
 
 Compile with:
 
     > mingw32-make
-
-Or use the Visual Studio 2015 project `q3vm.sln` in the `msvc` subfolder.
 
 Build example bytecode firmware
 -------------------------------
@@ -122,6 +123,19 @@ your path.
     mingw32-make
     cp bytecode.qvm ..
     cd ..
+
+If you don't want to use make, you can do the steps from the make file
+manually at the command line. Compile every `.c` source code with `LCC`:
+
+    > lcc -S -Wf-target=bytecode -Wf-g YOUR_C_CODE.c
+
+And then link it with `q3asm` (based on a bytecode.q3asm
+linker script):
+
+    > q3asm -f bytecode
+
+The output of q3asm is a `.qvm` file that you can run with q3vm.
+
 
 **Linux**:
 
