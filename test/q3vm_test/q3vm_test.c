@@ -53,6 +53,10 @@ void testArguments(void)
     uint8_t bogus[] = "bogusbogusbogus";
     VM_Create(&vm, "test", bogus, NULL);
     VM_Create(&vm, "test", bogus, systemCalls);
+    VM_Free(NULL);
+
+    vm.callLevel = 1;
+    VM_Free(&vm);
 }
 
 int main(int argc, char** argv)
@@ -66,6 +70,7 @@ int main(int argc, char** argv)
     testArguments();
 
     /* finally: test the normal case */
+    testNominal(NULL);
     return testNominal(argv[1]);
 ;
 }
@@ -98,18 +103,15 @@ uint8_t* loadImage(const char* filepath)
     rewind(f);
 
     image = (uint8_t*)malloc(sz);
+    /*
     if (!image)
     {
         fclose(f);
         return NULL;
     }
+    */
 
-    if (fread(image, 1, sz, f) != sz)
-    {
-        free(image);
-        fclose(f);
-        return NULL;
-    }
+    fread(image, 1, sz, f);
 
     fclose(f);
     return image;

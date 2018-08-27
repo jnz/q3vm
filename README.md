@@ -170,6 +170,16 @@ Run the following command to reformat a file according to the coding style:
 
     > clang-format -i -style=file input.c
 
+TODO
+----
+
+Known limitations, bugs, missing features.
+
+ * The Quake III Arena JIT compiler is not added yet.
+ * 16 bit ints are a bit tricky with LCC (op code not supported).
+ * Static memory allocation support for embedded targets is missing (if you
+   don't want malloc).
+
 Credits
 =======
 

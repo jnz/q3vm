@@ -78,10 +78,17 @@ clean:
 	@echo 'Cleanup...'
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
+	$(CLEANUP) $(OBJDIR)/q3vm_test/*.d
+	$(CLEANUP) $(OBJDIR)/q3vm_test/*.o
+	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcno
+	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcda
+	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcov
 	$(CLEANUP) ./$(TARGET)
+	$(CLEANUP) ./*.gcov
 	$(MAKE) -C example clean
 	$(MAKE) -C lcc clean
 	$(MAKE) -C q3asm clean
+	$(MAKE) -C test/q3vm_test clean
 
 test: $(TARGET) test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
 	./q3vm example/bytecode.qvm
@@ -131,6 +138,9 @@ q3asm: q3asm/q3asm$(TARGET_EXTENSION)
 doxygen:
 	@echo "Creating doxygen documentation"
 	@doxygen doxygen/Doxyfile
+
+gcov: clean test
+	@gcov build/q3vm_test/*.gcda
 
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)

@@ -768,6 +768,11 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
 {
     vmHeader_t* header;
 
+    if (!vm)
+    {
+        Com_Error(-1, "Invalid vm pointer.\n");
+        return -1;
+    }
     Com_Memset(vm, 0, sizeof(vm_t));
 
     Q_strncpyz(vm->name, name, sizeof(vm->name));

@@ -25,6 +25,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     volatile float f     = 0.0f;
     volatile float df    = 0.0001f;
     volatile int   xi    = 128;
+    volatile int   xu    = 128;
+    volatile unsigned short us = 1;
+    volatile short si = 1;
     volatile int   j;
     unsigned char  mem1[16];
     unsigned char  mem2[16] = "Hello World";
@@ -51,6 +54,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     /* integer stuff */
     for (j = 0; j < 32; j++)
     {
+        xi = us;
+        xi = si;
         xi = j;
         xi = xi << 3;
         xi = xi >> 2;
@@ -60,21 +65,130 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         xi = xi & 3;
         xi = xi | 4;
         xi = xi ^ 4;
-        if (i > 0)
+        xu = xu * 3;
+        xu = xu / 3;
+        xu = xu + 2;
+        xu = xu - 2;
+        xu = xu % 2;
+        xu = xu << 3;
+        xu = xu >> 2;
+        xu = ~xu;
+        xi = (short)xi;
+        f = j*j;
+
+        if (j > 0)
         {
             xi = -xi;
         }
-        if (i >= 0)
+        else
+        {
+            xi = 2*xi;
+        }
+        if (j >= 0)
         {
             xi = -xi;
         }
-        if (i < 1)
+        else
+        {
+            xi = 2*xi;
+        }
+        if (j < 5)
         {
             xi = -xi;
         }
-        if (i <= 1)
+        else
+        {
+            xi = 2*xi;
+        }
+        if (j <= 5)
         {
             xi = -xi;
+        }
+        else
+        {
+            xi = 2*xi;
+        }
+        xu = j;
+        if (xu > 5)
+        {
+            xi = -xi;
+        }
+        else
+        {
+            xi = 2*xi;
+        }
+        if (xu >= 5)
+        {
+            xi = -xi;
+        }
+        else
+        {
+            xi = 2*xi;
+        }
+        if (xu < 5)
+        {
+            xi = -xi;
+        }
+        else
+        {
+            xi = 2*xi;
+        }
+        if (xu <= 5)
+        {
+            xi = -xi;
+        }
+        else
+        {
+            xi = 2*xi;
+        }
+
+        if (f > 0)
+        {
+            f = -f;
+        }
+        else
+        {
+            f = 2*f;
+        }
+        if (f >= 0)
+        {
+            f = -f;
+        }
+        else
+        {
+            f = 2*f;
+        }
+        if (f < 1)
+        {
+            f = -f;
+        }
+        else
+        {
+            f = 2*f;
+        }
+        if (f <= 1)
+        {
+            f = -f;
+        }
+        else
+        {
+            f = 2*f;
+        }
+        if (f == 0.0f)
+        {
+            f = -f;
+        }
+        else
+        {
+            f = 0.0f;
+        }
+        if (f == 0.0f)
+        {
+            f = -f;
+        }
+        if (f != 0.0f)
+        {
+            f = 128*f;
         }
     }
 
