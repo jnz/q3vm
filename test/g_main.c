@@ -20,18 +20,18 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
            int arg5, int arg6, int arg7, int arg8, int arg9, int arg10,
            int arg11)
 {
-    int            i;
-    char           str[] = "Hello %s\n";
-    volatile float f     = 0.0f;
-    volatile float df    = 0.0001f;
-    volatile int   xi    = 128;
-    volatile unsigned xu = 128;
-    volatile unsigned xu2 = 3;
-    volatile unsigned short us = 1;
-    volatile short si = 1;
-    volatile int   j;
-    unsigned char  mem1[16];
-    unsigned char  mem2[16] = "Hello World";
+    int                     i;
+    char                    str[] = "Hello %s\n";
+    volatile float          f     = 0.0f;
+    volatile float          df    = 0.0001f;
+    volatile int            xi    = 128;
+    volatile unsigned       xu    = 128;
+    volatile unsigned       xu2   = 3;
+    volatile unsigned short us    = 1;
+    volatile short          si    = 1;
+    volatile int            j;
+    unsigned char           mem1[16];
+    unsigned char           mem2[16] = "Hello World";
 
     printf(str, "World");
     trap_Error("Test Error");
@@ -79,7 +79,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
 
         xu = ~xu;
         xi = (short)xi;
-        f = j*j;
+        f  = j * j;
 
         if (j > 0)
         {
@@ -87,7 +87,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (j >= 0)
         {
@@ -95,7 +95,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (j < 5)
         {
@@ -103,7 +103,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (j <= 5)
         {
@@ -111,7 +111,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         xu = j;
         if (xu > 5U)
@@ -120,7 +120,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (xu >= 5U)
         {
@@ -128,7 +128,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (xu < 5U)
         {
@@ -136,7 +136,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (xu <= 5U)
         {
@@ -144,7 +144,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            xi = 2*xi;
+            xi = 2 * xi;
         }
         if (f > 0)
         {
@@ -152,7 +152,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         if (f >= 0)
         {
@@ -160,7 +160,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         if (f < 1)
         {
@@ -168,7 +168,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         if (f <= 1)
         {
@@ -176,7 +176,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         f = 0.1f;
         if (f == 0.0f)
@@ -193,7 +193,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         if (f != 0.0f)
         {
-            f = 128*f;
+            f = 128 * f;
         }
     }
 

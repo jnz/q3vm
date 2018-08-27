@@ -20,6 +20,7 @@ Features
 
  * Small and lightweight (one .c file to include without dependencies)
  * Battle-tested (20 years of use in Quake III Arena)
+ * Tool tested (static code analysis, test coverage)
  * No need to learn a new scripting language (e.g. Lua)
  * Strong typing in the scripting language (C)
  * Static memory allocation in C, no unpredictable garbage collector
@@ -73,8 +74,8 @@ Folder structure
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
     ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
-    ├─ src/             q3vm application source code
-    │  └─ vm/           The VM source. Copy that into your project
+    ├─ src/             q3vm standalone application source code
+    │  └─ vm/           The core VM source, copy that folder into your project
     └─ test/            test bytecode qvm
 
 API Documentation
@@ -175,8 +176,8 @@ TODO
 
 Known limitations, bugs, missing features.
 
- * The Quake III Arena JIT compiler is not added yet.
- * 16 bit ints are a bit tricky with LCC (op code not supported).
+ * The Quake III Arena JIT compiler (e.g. for x86) is not added.
+ * Some 16 bit int operations won't compile with LCC (op code not supported).
  * Static memory allocation support for embedded targets is missing (if you
    don't want malloc).
 

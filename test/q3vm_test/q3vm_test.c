@@ -22,7 +22,7 @@ uint8_t* loadImage(const char* filepath);
 
 int testNominal(const char* filepath)
 {
-    vm_t vm;
+    vm_t     vm;
     uint8_t* image = loadImage(filepath);
 
     if (!image)
@@ -63,7 +63,9 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        fprintf(stderr, "No virtual machine supplied. Example: q3vm_test bytecode.qvm\n");
+        fprintf(
+            stderr,
+            "No virtual machine supplied. Example: q3vm_test bytecode.qvm\n");
         return -1;
     }
 
@@ -72,7 +74,7 @@ int main(int argc, char** argv)
     /* finally: test the normal case */
     testNominal(NULL);
     return testNominal(argv[1]);
-;
+    ;
 }
 
 void Com_Error(int level, const char* error)
