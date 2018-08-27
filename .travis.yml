@@ -5,7 +5,10 @@ install:
   # cppcheck
   - sudo apt-get install -qq cppcheck
   - sudo apt-get install -qq valgrind
+  - sudo apt-get install -qq doxygen
+  - sudo apt-get install -qq graphviz
 script:
+  - make doxygen
   - make valgrind
   - make analysis
   - make clean
