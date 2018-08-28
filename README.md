@@ -110,8 +110,8 @@ On **Windows**:
 
 Use the **Visual Studio 2015** project `q3vm.sln` in the `msvc` subfolder.
 
-Or install MinGW64 from and add the MinGW64 bin\ directory it to your path.
-So that you have gcc.exe available at the command prompt.
+Or install MinGW64 and add the MinGW64 bin\ directory to your path.
+So that you have gcc.exe and mingw32-make.exe available at the command prompt.
 
  * http://mingw-w64.org/doku.php/download/mingw-builds
 
@@ -138,7 +138,7 @@ manually at the command line. Compile every `.c` source code with `LCC`:
 
     > lcc -S -Wf-target=bytecode -Wf-g YOUR_C_CODE.c
 
-And then link it with `q3asm` (based on a bytecode.q3asm
+This will create .asm output files. Then link the .asm files with `q3asm` (based on a bytecode.q3asm
 linker script):
 
     > q3asm -f bytecode
