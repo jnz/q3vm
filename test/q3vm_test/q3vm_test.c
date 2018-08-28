@@ -14,7 +14,7 @@
 
 /* The compiled bytecode calls native functions,
    defined in this file. */
-intptr_t systemCalls(intptr_t* args);
+intptr_t systemCalls(vm_t* vm, intptr_t* args);
 
 /* Load an image from a file. Data is allocated with malloc.
    Call free() to unload image. */
@@ -141,25 +141,26 @@ uint8_t* loadImage(const char* filepath)
     return image;
 }
 
-intptr_t systemCalls(intptr_t* args)
+/* Callback from the VM: system function call */
+intptr_t systemCalls(vm_t* vm, intptr_t* args)
 {
     int id = -1 - args[0];
 
     switch (id)
     {
     case -1: /* PRINTF */
-        printf("%s", (const char*)VMA(1));
+        printf("%s", (const char*)VMA(1, vm));
         return 0;
     case -2: /* ERROR */
-        fprintf(stderr, "%s", (const char*)VMA(1));
+        fprintf(stderr, "%s", (const char*)VMA(1, vm));
         return 0;
 
     case -3: /* MEMSET */
-        memset(VMA(1), args[2], args[3]);
+        memset(VMA(1, vm), args[2], args[3]);
         return 0;
 
     case -4: /* MEMCPY */
-        memcpy(VMA(1), VMA(2), args[3]);
+        memcpy(VMA(1, vm), VMA(2, vm), args[3]);
         return 0;
 
     default:
@@ -167,3 +168,4 @@ intptr_t systemCalls(intptr_t* args)
     }
     return 0;
 }
+

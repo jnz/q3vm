@@ -245,10 +245,6 @@ int vm_debugLevel; /**< if 0, be quiet, otherwise emit printf informations */
  * LOCAL DATA DEFINITIONS
  ******************************************************************************/
 
-static vm_t* currentVM = NULL; /**< Pointer to currently active virtual machine
-                                    This is used also during the sysCallbacks */
-static vm_t* lastVM = NULL;    /**< Previous virtual machine for the profiler */
-
 /******************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  ******************************************************************************/
@@ -278,8 +274,9 @@ static int VM_CallInterpreted(vm_t* vm, int* args);
 /** Executes a block copy operation (memcpy) within currentVM data space.
  * @param[out] dest Pointer (in VM space).
  * @param[in] src Pointer (in VM space).
- * @param[in] n Number of bytes. */
-static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n);
+ * @param[in] n Number of bytes.
+ * @param[in,out] vm Current VM */
+static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n, vm_t* vm);
 
 #ifdef DEBUG_VM
 static void VM_VmInfo_f(void);
@@ -303,13 +300,6 @@ void VM_Debug(int level);
  * FUNCTION BODIES
  ******************************************************************************/
 
-/*
-vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
-int VM_SymbolToValue( vm_t *vm, const char *symbol );
-const char *VM_ValueToSymbol( vm_t *vm, int value );
-void VM_LogSyscalls( int *args );
-*/
-
 static void Q_strncpyz(char* dest, const char* src, int destsize)
 {
     if (!dest || !src || destsize < 1)
@@ -319,371 +309,6 @@ static void Q_strncpyz(char* dest, const char* src, int destsize)
     strncpy(dest, src, destsize - 1);
     dest[destsize - 1] = 0;
 }
-
-#ifdef DEBUG_VM
-
-char* VM_Indent(vm_t* vm)
-{
-    static char* string = "                                        ";
-    if (vm->callLevel > 20)
-    {
-        return string;
-    }
-    return string + 2 * (20 - vm->callLevel);
-}
-
-/*
-===============
-VM_ValueToSymbol
-
-Assumes a program counter value
-===============
-*/
-const char* VM_ValueToSymbol(vm_t* vm, int value)
-{
-    vmSymbol_t* sym;
-    static char text[MAX_TOKEN_CHARS];
-
-    sym = vm->symbols;
-    if (!sym)
-    {
-        return "NO SYMBOLS";
-    }
-
-    // find the symbol
-    while (sym->next && sym->next->symValue <= value)
-    {
-        sym = sym->next;
-    }
-
-    if (value == sym->symValue)
-    {
-        return sym->symName;
-    }
-
-    snprintf(text, sizeof(text), "%s+%i", sym->symName, value - sym->symValue);
-
-    return text;
-}
-
-/*
-===============
-VM_ValueToFunctionSymbol
-
-For profiling, find the symbol behind this value
-===============
-*/
-vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value)
-{
-    vmSymbol_t*       sym;
-    static vmSymbol_t nullSym;
-
-    sym = vm->symbols;
-    if (!sym)
-    {
-        return &nullSym;
-    }
-
-    while (sym->next && sym->next->symValue <= value)
-    {
-        sym = sym->next;
-    }
-
-    return sym;
-}
-
-/*
-===============
-VM_SymbolToValue
-===============
-*/
-int VM_SymbolToValue(vm_t* vm, const char* symbol)
-{
-    vmSymbol_t* sym;
-
-    for (sym = vm->symbols; sym; sym = sym->next)
-    {
-        if (!strcmp(symbol, sym->symName))
-        {
-            return sym->symValue;
-        }
-    }
-    return 0;
-}
-
-/*
-===============
-ParseHex
-===============
-*/
-static int ParseHex(const char* text)
-{
-    int value;
-    int c;
-
-    value = 0;
-    while ((c = *text++) != 0)
-    {
-        if (c >= '0' && c <= '9')
-        {
-            value = value * 16 + c - '0';
-            continue;
-        }
-        if (c >= 'a' && c <= 'f')
-        {
-            value = value * 16 + 10 + c - 'a';
-            continue;
-        }
-        if (c >= 'A' && c <= 'F')
-        {
-            value = value * 16 + 10 + c - 'A';
-            continue;
-        }
-    }
-
-    return value;
-}
-
-void COM_StripExtension(const char* in, char* out)
-{
-    while (*in && *in != '.')
-    {
-        *out++ = *in++;
-    }
-    *out = 0;
-}
-
-/*
-===============
-VM_LoadSymbols
-===============
-*/
-void VM_LoadSymbols(vm_t* vm)
-{
-    union {
-        char* c;
-        void* v;
-    } mapfile;
-    char *       text_p, *token;
-    char         name[MAX_QPATH];
-    char         symbols[MAX_QPATH];
-    vmSymbol_t **prev, *sym;
-    int          count;
-    int          value;
-    int          chars;
-    int          segment;
-    int          numInstructions;
-
-    COM_StripExtension(vm->name, name, sizeof(name));
-    snprintf(symbols, sizeof(symbols), "%s.map", name);
-    FS_ReadFile(symbols, &mapfile.v);
-    if (!mapfile.c)
-    {
-        Com_Printf("Couldn't load symbol file: %s\n", symbols);
-        return;
-    }
-
-    numInstructions = vm->instructionCount;
-
-    // parse the symbols
-    text_p = mapfile.c;
-    prev   = &vm->symbols;
-    count  = 0;
-
-    while (1)
-    {
-        token = COM_Parse(&text_p);
-        if (!token[0])
-        {
-            break;
-        }
-        segment = ParseHex(token);
-        if (segment)
-        {
-            COM_Parse(&text_p);
-            COM_Parse(&text_p);
-            continue; // only load code segment values
-        }
-
-        token = COM_Parse(&text_p);
-        if (!token[0])
-        {
-            Com_Printf("WARNING: incomplete line at end of file\n");
-            break;
-        }
-        value = ParseHex(token);
-
-        token = COM_Parse(&text_p);
-        if (!token[0])
-        {
-            Com_Printf("WARNING: incomplete line at end of file\n");
-            break;
-        }
-        chars     = strlen(token);
-        sym       = Hunk_Alloc(sizeof(*sym) + chars, h_high);
-        *prev     = sym;
-        prev      = &sym->next;
-        sym->next = NULL;
-
-        // convert value from an instruction number to a code offset
-        if (value >= 0 && value < numInstructions)
-        {
-            value = vm->instructionPointers[value];
-        }
-
-        sym->symValue = value;
-        Q_strncpyz(sym->symName, token, chars + 1);
-
-        count++;
-    }
-
-    vm->numSymbols = count;
-    Com_Printf("%i symbols parsed from %s\n", count, symbols);
-    FS_FreeFile(mapfile.v);
-}
-
-//=================================================================
-
-static int VM_ProfileSort(const void* a, const void* b)
-{
-    vmSymbol_t *sa, *sb;
-
-    sa = *(vmSymbol_t**)a;
-    sb = *(vmSymbol_t**)b;
-
-    if (sa->profileCount < sb->profileCount)
-    {
-        return -1;
-    }
-    if (sa->profileCount > sb->profileCount)
-    {
-        return 1;
-    }
-    return 0;
-}
-
-/*
-==============
-VM_VmProfile_f
-
-==============
-*/
-void VM_VmProfile_f(void)
-{
-    vm_t*        vm;
-    vmSymbol_t **sorted, *sym;
-    int          i;
-    double       total;
-
-    if (!lastVM)
-    {
-        return;
-    }
-
-    vm = lastVM;
-
-    if (vm->numSymbols < 1)
-    {
-        return;
-    }
-
-    sorted    = Z_Malloc(vm->numSymbols * sizeof(*sorted));
-    sorted[0] = vm->symbols;
-    total     = sorted[0]->profileCount;
-    for (i = 1; i < vm->numSymbols; i++)
-    {
-        sorted[i] = sorted[i - 1]->next;
-        total += sorted[i]->profileCount;
-    }
-
-    qsort(sorted, vm->numSymbols, sizeof(*sorted), VM_ProfileSort);
-
-    for (i = 0; i < vm->numSymbols; i++)
-    {
-        int perc;
-
-        sym = sorted[i];
-
-        perc = 100 * (float)sym->profileCount / total;
-        Com_Printf("%2i%% %9i %s\n", perc, sym->profileCount, sym->symName);
-        sym->profileCount = 0;
-    }
-
-    Com_Printf("    %9.0f total\n", total);
-
-    Z_Free(sorted);
-}
-
-/*
-==============
-VM_VmInfo_f
-
-==============
-*/
-void VM_VmInfo_f(void)
-{
-    vm_t* vm;
-    int   i;
-
-    Com_Printf("Registered virtual machines:\n");
-    for (i = 0; i < MAX_VM; i++)
-    {
-        vm = &vmTable[i];
-        if (!vm->name[0])
-        {
-            break;
-        }
-        Com_Printf("%s : ", vm->name);
-        if (vm->compiled)
-        {
-            Com_Printf("compiled on load\n");
-        }
-        else
-        {
-            Com_Printf("interpreted\n");
-        }
-        Com_Printf("    code length : %7i\n", vm->codeLength);
-        Com_Printf("    table length: %7i\n", vm->instructionCount * 4);
-        Com_Printf("    data length : %7i\n", vm->dataMask + 1);
-    }
-}
-
-/*
-===============
-VM_LogSyscalls
-
-Insert calls to this while debugging the vm compiler
-===============
-*/
-void VM_LogSyscalls(int* args)
-{
-    static int   callnum;
-    static FILE* f;
-
-    if (!f)
-    {
-        f = fopen("syscalls.log", "w");
-    }
-    callnum++;
-    fprintf(f, "%i: %p (%i) = %i %i %i %i\n", callnum,
-            (void*)(args - (int*)currentVM->dataBase), args[0], args[1],
-            args[2], args[3], args[4]);
-}
-
-void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
-{
-    int count;
-
-    count = 0;
-    do
-    {
-        Com_Printf("%s\n", VM_ValueToSymbol(vm, programCounter));
-        programStack   = *(int*)&vm->dataBase[programStack + 4];
-        programCounter = *(int*)&vm->dataBase[programStack];
-    } while (programCounter != -1 && ++count < 32);
-}
-
-#endif
 
 static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
 {
@@ -768,7 +393,7 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
 }
 
 int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
-              intptr_t (*systemCalls)(intptr_t*))
+              intptr_t (*systemCalls)(vm_t*, intptr_t*))
 {
     vmHeader_t* header;
 
@@ -857,24 +482,19 @@ void VM_Free(vm_t* vm)
     }
 
     Com_Memset(vm, 0, sizeof(*vm));
-
-    currentVM = NULL;
-    lastVM    = NULL;
 }
 
-void* VM_ArgPtr(intptr_t intValue)
+void* VM_ArgPtr(intptr_t intValue, vm_t* vm)
 {
-    // currentVM is missing on reconnect
-    if (!intValue || currentVM == NULL)
+    if (!intValue || vm == NULL)
     {
         return NULL;
     }
-    return (void*)(currentVM->dataBase + (intValue & currentVM->dataMask));
+    return (void*)(vm->dataBase + (intValue & vm->dataMask));
 }
 
 intptr_t VM_Call(vm_t* vm, int command, ...)
 {
-    vm_t*    oldVM;
     intptr_t r;
 	int args[MAX_VMMAIN_ARGS];
 	va_list ap;
@@ -885,10 +505,6 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
         Com_Error(VM_INVALID_POINTER, "VM_Call with NULL vm");
         return -1;
     }
-
-    oldVM     = currentVM;
-    currentVM = vm;
-    lastVM    = vm;
 
     if (vm_debugLevel)
     {
@@ -907,27 +523,23 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     r = VM_CallInterpreted(vm, args);
     --vm->callLevel;
 
-    if (oldVM != NULL)
-    {
-        currentVM = oldVM;
-    }
     return r;
 }
 
-static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
+static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n, vm_t* vm)
 {
-    unsigned int dataMask = currentVM->dataMask;
+    unsigned int dataMask = vm->dataMask;
 
     if ((dest & dataMask) != dest || (src & dataMask) != src ||
         ((dest + n) & dataMask) != dest + n ||
         ((src + n) & dataMask) != src + n)
     {
-        currentVM->errno = VM_BLOCKCOPY_OUT_OF_RANGE;
-        Com_Error(currentVM->errno, "OP_BLOCK_COPY out of range!");
+        vm->errno = VM_BLOCKCOPY_OUT_OF_RANGE;
+        Com_Error(vm->errno, "OP_BLOCK_COPY out of range!");
         return;
     }
 
-    Com_Memcpy(currentVM->dataBase + dest, currentVM->dataBase + src, n);
+    Com_Memcpy(vm->dataBase + dest, vm->dataBase + src, n);
 }
 
 void VM_Debug(int level)
@@ -1352,7 +964,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             programCounter += 1;
             DISPATCH();
         goto_OP_BLOCK_COPY:
-            VM_BlockCopy(r1, r0, r2);
+            VM_BlockCopy(r1, r0, r2, vm);
             programCounter += 1;
             opStackOfs -= 2;
             DISPATCH();
@@ -1398,12 +1010,12 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                         {
                             argarr[i] = *(++imagePtr);
                         }
-                        r = vm->systemCall(argarr);
+                        r = vm->systemCall(vm, argarr);
                     }
                     else
                     {
                         intptr_t* argptr = (intptr_t*)&image[programStack + 4];
-                        r                = vm->systemCall(argptr);
+                        r                = vm->systemCall(vm, argptr);
                     }
                 }
 
@@ -1847,3 +1459,380 @@ done:
     // return the result
     return opStack[opStackOfs];
 }
+
+/* UNFINISHED DEBUG FUNCTIONS */
+/* -------------------------- */
+
+#ifdef DEBUG_VM
+
+/*
+vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
+int VM_SymbolToValue( vm_t *vm, const char *symbol );
+const char *VM_ValueToSymbol( vm_t *vm, int value );
+void VM_LogSyscalls( int *args );
+*/
+
+
+char* VM_Indent(vm_t* vm)
+{
+    static char* string = "                                        ";
+    if (vm->callLevel > 20)
+    {
+        return string;
+    }
+    return string + 2 * (20 - vm->callLevel);
+}
+
+/*
+===============
+VM_ValueToSymbol
+
+Assumes a program counter value
+===============
+*/
+const char* VM_ValueToSymbol(vm_t* vm, int value)
+{
+    vmSymbol_t* sym;
+    static char text[MAX_TOKEN_CHARS];
+
+    sym = vm->symbols;
+    if (!sym)
+    {
+        return "NO SYMBOLS";
+    }
+
+    // find the symbol
+    while (sym->next && sym->next->symValue <= value)
+    {
+        sym = sym->next;
+    }
+
+    if (value == sym->symValue)
+    {
+        return sym->symName;
+    }
+
+    snprintf(text, sizeof(text), "%s+%i", sym->symName, value - sym->symValue);
+
+    return text;
+}
+
+/*
+===============
+VM_ValueToFunctionSymbol
+
+For profiling, find the symbol behind this value
+===============
+*/
+vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value)
+{
+    vmSymbol_t*       sym;
+    static vmSymbol_t nullSym;
+
+    sym = vm->symbols;
+    if (!sym)
+    {
+        return &nullSym;
+    }
+
+    while (sym->next && sym->next->symValue <= value)
+    {
+        sym = sym->next;
+    }
+
+    return sym;
+}
+
+/*
+===============
+VM_SymbolToValue
+===============
+*/
+int VM_SymbolToValue(vm_t* vm, const char* symbol)
+{
+    vmSymbol_t* sym;
+
+    for (sym = vm->symbols; sym; sym = sym->next)
+    {
+        if (!strcmp(symbol, sym->symName))
+        {
+            return sym->symValue;
+        }
+    }
+    return 0;
+}
+
+/*
+===============
+ParseHex
+===============
+*/
+static int ParseHex(const char* text)
+{
+    int value;
+    int c;
+
+    value = 0;
+    while ((c = *text++) != 0)
+    {
+        if (c >= '0' && c <= '9')
+        {
+            value = value * 16 + c - '0';
+            continue;
+        }
+        if (c >= 'a' && c <= 'f')
+        {
+            value = value * 16 + 10 + c - 'a';
+            continue;
+        }
+        if (c >= 'A' && c <= 'F')
+        {
+            value = value * 16 + 10 + c - 'A';
+            continue;
+        }
+    }
+
+    return value;
+}
+
+void COM_StripExtension(const char* in, char* out)
+{
+    while (*in && *in != '.')
+    {
+        *out++ = *in++;
+    }
+    *out = 0;
+}
+
+/*
+===============
+VM_LoadSymbols
+===============
+*/
+void VM_LoadSymbols(vm_t* vm)
+{
+    union {
+        char* c;
+        void* v;
+    } mapfile;
+    char *       text_p, *token;
+    char         name[MAX_QPATH];
+    char         symbols[MAX_QPATH];
+    vmSymbol_t **prev, *sym;
+    int          count;
+    int          value;
+    int          chars;
+    int          segment;
+    int          numInstructions;
+
+    COM_StripExtension(vm->name, name, sizeof(name));
+    snprintf(symbols, sizeof(symbols), "%s.map", name);
+    FS_ReadFile(symbols, &mapfile.v);
+    if (!mapfile.c)
+    {
+        Com_Printf("Couldn't load symbol file: %s\n", symbols);
+        return;
+    }
+
+    numInstructions = vm->instructionCount;
+
+    // parse the symbols
+    text_p = mapfile.c;
+    prev   = &vm->symbols;
+    count  = 0;
+
+    while (1)
+    {
+        token = COM_Parse(&text_p);
+        if (!token[0])
+        {
+            break;
+        }
+        segment = ParseHex(token);
+        if (segment)
+        {
+            COM_Parse(&text_p);
+            COM_Parse(&text_p);
+            continue; // only load code segment values
+        }
+
+        token = COM_Parse(&text_p);
+        if (!token[0])
+        {
+            Com_Printf("WARNING: incomplete line at end of file\n");
+            break;
+        }
+        value = ParseHex(token);
+
+        token = COM_Parse(&text_p);
+        if (!token[0])
+        {
+            Com_Printf("WARNING: incomplete line at end of file\n");
+            break;
+        }
+        chars     = strlen(token);
+        sym       = Hunk_Alloc(sizeof(*sym) + chars, h_high);
+        *prev     = sym;
+        prev      = &sym->next;
+        sym->next = NULL;
+
+        // convert value from an instruction number to a code offset
+        if (value >= 0 && value < numInstructions)
+        {
+            value = vm->instructionPointers[value];
+        }
+
+        sym->symValue = value;
+        Q_strncpyz(sym->symName, token, chars + 1);
+
+        count++;
+    }
+
+    vm->numSymbols = count;
+    Com_Printf("%i symbols parsed from %s\n", count, symbols);
+    FS_FreeFile(mapfile.v);
+}
+
+//=================================================================
+
+static int VM_ProfileSort(const void* a, const void* b)
+{
+    vmSymbol_t *sa, *sb;
+
+    sa = *(vmSymbol_t**)a;
+    sb = *(vmSymbol_t**)b;
+
+    if (sa->profileCount < sb->profileCount)
+    {
+        return -1;
+    }
+    if (sa->profileCount > sb->profileCount)
+    {
+        return 1;
+    }
+    return 0;
+}
+
+/*
+==============
+VM_VmProfile_f
+
+==============
+*/
+void VM_VmProfile_f(void)
+{
+    vm_t*        vm;
+    vmSymbol_t **sorted, *sym;
+    int          i;
+    double       total;
+
+    if (!lastVM)
+    {
+        return;
+    }
+
+    vm = lastVM;
+
+    if (vm->numSymbols < 1)
+    {
+        return;
+    }
+
+    sorted    = Z_Malloc(vm->numSymbols * sizeof(*sorted));
+    sorted[0] = vm->symbols;
+    total     = sorted[0]->profileCount;
+    for (i = 1; i < vm->numSymbols; i++)
+    {
+        sorted[i] = sorted[i - 1]->next;
+        total += sorted[i]->profileCount;
+    }
+
+    qsort(sorted, vm->numSymbols, sizeof(*sorted), VM_ProfileSort);
+
+    for (i = 0; i < vm->numSymbols; i++)
+    {
+        int perc;
+
+        sym = sorted[i];
+
+        perc = 100 * (float)sym->profileCount / total;
+        Com_Printf("%2i%% %9i %s\n", perc, sym->profileCount, sym->symName);
+        sym->profileCount = 0;
+    }
+
+    Com_Printf("    %9.0f total\n", total);
+
+    Z_Free(sorted);
+}
+
+/*
+==============
+VM_VmInfo_f
+
+==============
+*/
+void VM_VmInfo_f(void)
+{
+    vm_t* vm;
+    int   i;
+
+    Com_Printf("Registered virtual machines:\n");
+    for (i = 0; i < MAX_VM; i++)
+    {
+        vm = &vmTable[i];
+        if (!vm->name[0])
+        {
+            break;
+        }
+        Com_Printf("%s : ", vm->name);
+        if (vm->compiled)
+        {
+            Com_Printf("compiled on load\n");
+        }
+        else
+        {
+            Com_Printf("interpreted\n");
+        }
+        Com_Printf("    code length : %7i\n", vm->codeLength);
+        Com_Printf("    table length: %7i\n", vm->instructionCount * 4);
+        Com_Printf("    data length : %7i\n", vm->dataMask + 1);
+    }
+}
+
+/*
+===============
+VM_LogSyscalls
+
+Insert calls to this while debugging the vm compiler
+===============
+*/
+void VM_LogSyscalls(int* args)
+{
+    static int   callnum;
+    static FILE* f;
+
+    if (!f)
+    {
+        f = fopen("syscalls.log", "w");
+    }
+    callnum++;
+    fprintf(f, "%i: %p (%i) = %i %i %i %i\n", callnum,
+            (void*)(args - (int*)currentVM->dataBase), args[0], args[1],
+            args[2], args[3], args[4]);
+}
+
+void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
+{
+    int count;
+
+    count = 0;
+    do
+    {
+        Com_Printf("%s\n", VM_ValueToSymbol(vm, programCounter));
+        programStack   = *(int*)&vm->dataBase[programStack + 4];
+        programCounter = *(int*)&vm->dataBase[programStack];
+    } while (programCounter != -1 && ++count < 32);
+}
+
+#endif
+

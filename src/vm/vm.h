@@ -38,11 +38,10 @@
 #define Com_Memcpy memcpy
 
 /** Translate pointer from VM memory to system memory */
-#define VMA(x) VM_ArgPtr(args[x])
+#define VMA(x, vm) VM_ArgPtr(args[x], vm)
 /** Get float argument in syscall (used in system calls) and
  * don't cast it. */
 #define VMF(x) _vmf(args[x])
-void* VM_ArgPtr(intptr_t intValue); /**< Helper function for the VMA macro */
 
 /** Define endianess of target platform */
 #define Q3VM_LITTLE_ENDIAN
@@ -122,7 +121,7 @@ typedef struct vm_s
      * equals to 0 in the systemCall parms argument, -2 in g_syscalls.asm is 1
      * in parms,
      * -3 is 2 and so on. */
-    intptr_t (*systemCall)(intptr_t* parms);
+    intptr_t (*systemCall)(struct vm_s* vm, intptr_t* parms);
 
     //------------------------------------
 
@@ -198,7 +197,7 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type);
  *   g_syscalls.asm is 1 in parms, -3 is 2 and so on.
  * @return 0 if everything is OK. -1 if something went wrong. */
 int VM_Create(vm_t* vm, const char* module, uint8_t* bytecode,
-              intptr_t (*systemCalls)(intptr_t*));
+              intptr_t (*systemCalls)(vm_t*, intptr_t*));
 
 /** Free the memory of the virtual machine.
  * @param[in] vm Pointer to initialized virtual machine. */
@@ -210,6 +209,12 @@ void VM_Free(vm_t* vm);
  * You can supply additional (up to 12) parameters to pass to the bytecode.
  * @return Return value of the function call. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
+
+/**< Helper function for the VMA macro
+ * @param[in] intValue argument id
+ * @param[in,out] vm Current VM
+ * @return translated address. */
+void* VM_ArgPtr(intptr_t intValue, vm_t* vm);
 
 /******************************************************************************
  * INLINE
