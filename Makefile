@@ -104,8 +104,8 @@ cppcheck:
 clangcheck: clean
 	scan-build make q3vm
 
-valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test
-	valgrind --error-exitcode=-1 --leak-check=yes ./q3vm test/test.qvm
+valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test example/bytecode.qvm
+	valgrind --error-exitcode=-1 --leak-check=yes ./q3vm example/bytecode.qvm
 	valgrind --error-exitcode=-1 --leak-check=yes ./test/q3vm_test/q3vm_test test/test.qvm
 
 analysis: clangcheck cppcheck
