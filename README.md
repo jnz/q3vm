@@ -60,7 +60,8 @@ located. You can e.g. load it from a file and store it in a byte array. See
 Data can be exchanged with the bytecode by the return value (result) and
 arguments to `VM_Call`. Here just a 0 is passed to the bytecode. It is up to
 the `vmMain` function in the bytecode what to do with that 0.  You can pass
-more (up to 12) optional arguments to the bytecode.
+more (up to 12) optional arguments to the bytecode:
+`VM_Call(&vm, 0, 1, 2, 3, 4)`.
 
 The `sysCall` is a callback function that you define so that the interpreter
 can call native functions from your code. E.g. a logging function or some time
@@ -227,6 +228,8 @@ Known limitations, bugs, missing features.
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
+ * Multi-threading of concurrent VMs is currently not supported, due to the
+   `currentVM` global variable.
 
 Credits
 =======

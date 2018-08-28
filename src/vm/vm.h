@@ -228,3 +228,4 @@ static ID_INLINE float _vmf(intptr_t x)
     fi.i = (int)x;
     return fi.f;
 }
+

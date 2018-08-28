@@ -31,7 +31,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     volatile short          si    = 1;
     volatile int            j;
     static unsigned char    mem1[8];
-    static unsigned char    mem2[8] = "Hello";
+    static unsigned char    mem2[8] = "Hello"; /* don't change this string */
 
     /*
     printf("cmd:   %i\n", command);
@@ -76,6 +76,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     /* memcpy/memset */
     memset(mem1, 0, sizeof(mem1));
     memcpy(mem1, mem2, sizeof(mem2));
+    if (mem1[0] != 'H' || mem1[1] != 'e' ||
+        mem1[2] != 'l' || mem1[3] != 'l' ||
+        mem1[4] != 'o' || mem1[5] != '\0' ||
+        mem1[6] != 0)
+    {
+        printf("memcpy / memset error\n", f);
+        return -1;
+    }
 
     /* integer stuff */
     for (j = 0; j < 32; j++)
