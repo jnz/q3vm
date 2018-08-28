@@ -40,7 +40,6 @@ char* strcpy(char* strDestination, const char* strSource);
 int strcmp(const char* string1, const char* string2);
 char* strchr(const char* string, int c);
 char* strstr(const char* string, const char* strCharSet);
-char* strncpy(char* strDest, const char* strSource, size_t count);
 int tolower(int c);
 int toupper(int c);
 
@@ -58,15 +57,7 @@ void* memset(void* dest, int c, size_t count);
 void* memcpy(void* dest, const void* src, size_t count);
 
 // Math functions
-double ceil(double x);
-double floor(double x);
-double sqrt(double x);
-double sin(double x);
-double cos(double x);
-double atan2(double y, double x);
-double tan(double x);
 int abs(int n);
 double fabs(double x);
-double acos(double x);
 
 #endif
