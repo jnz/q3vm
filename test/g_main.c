@@ -30,11 +30,36 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     volatile unsigned short us    = 1;
     volatile short          si    = 1;
     volatile int            j;
-    unsigned char           mem1[16];
-    unsigned char           mem2[16] = "Hello World";
+    static unsigned char    mem1[8];
+    static unsigned char    mem2[8] = "Hello";
+
+    /*
+    printf("cmd:   %i\n", command);
+    printf("arg0:  %i\n", arg0);
+    printf("arg1:  %i\n", arg1);
+    printf("arg2:  %i\n", arg2);
+    printf("arg3:  %i\n", arg3);
+    printf("arg4:  %i\n", arg4);
+    printf("arg5:  %i\n", arg5);
+    printf("arg6:  %i\n", arg6);
+    printf("arg7:  %i\n", arg7);
+    printf("arg8:  %i\n", arg8);
+    printf("arg9:  %i\n", arg9);
+    printf("arg10: %i\n", arg10);
+    printf("arg11: %i\n", arg11);
+    */
+
+    if (arg0 != 0 || arg1  !=  1 || arg2  !=  2 ||
+        arg3 != 3 || arg4  !=  4 || arg5  !=  5 ||
+        arg6 != 6 || arg7  !=  7 || arg8  !=  8 ||
+        arg9 != 9 || arg10 != 10 || arg11 != 11)
+    {
+        trap_Error("Argument test case: arguments invalid");
+        return -1;
+    }
 
     printf(str, "World");
-    trap_Error("Test Error");
+    trap_Error("Testing Error Callback\n");
 
     /* float */
     for (i = 0; i < 20000000; i++)
@@ -197,7 +222,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
     }
 
-    return 0;
+    /* test host expects 333 as a return value */
+    return 333;
 }
 
 void printf(const char* fmt, ...)

@@ -826,11 +826,6 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     return 0;
 }
 
-/*
-==============
-VM_Free
-==============
-*/
 void VM_Free(vm_t* vm)
 {
 
@@ -875,10 +870,19 @@ void* VM_ArgPtr(intptr_t intValue)
     return (void*)(currentVM->dataBase + (intValue & currentVM->dataMask));
 }
 
-intptr_t VM_Call(vm_t* vm, int callnum)
+intptr_t VM_Call(vm_t* vm, int callNum,
+                 int arg0, int arg1, int arg2, int arg3,
+                 int arg4, int arg5, int arg6, int arg7,
+                 int arg8, int arg9, int arg10, int arg11)
 {
     vm_t*    oldVM;
     intptr_t r;
+    int args[MAX_VMMAIN_ARGS] =
+        {callNum,
+         arg0, arg1, arg2,
+         arg3, arg4, arg5,
+         arg6, arg7, arg8,
+         arg9, arg10, arg11};
 
     if (!vm)
     {
@@ -892,11 +896,11 @@ intptr_t VM_Call(vm_t* vm, int callnum)
 
     if (vm_debugLevel)
     {
-        Com_Printf("VM_Call( %d )\n", callnum);
+        Com_Printf("VM_Call( %d )\n", callNum);
     }
 
     ++vm->callLevel;
-    r = VM_CallInterpreted(vm, (int*)&callnum);
+    r = VM_CallInterpreted(vm, args);
     --vm->callLevel;
 
     if (oldVM != NULL)

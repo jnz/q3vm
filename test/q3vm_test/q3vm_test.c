@@ -24,21 +24,28 @@ int testNominal(const char* filepath)
 {
     vm_t     vm;
     uint8_t* image = loadImage(filepath);
+    int retVal = -1;
 
     if (!image)
     {
         fprintf(stderr, "Failed to load bytecode image from %s\n", filepath);
-        return -1;
+        return retVal;
     }
 
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
-        VM_Call(&vm, 0);
+        /* let's call with some unexpected arguments, we expect a -1 as a result */
+        retVal = VM_Call(&vm, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2);
+        /* now do the proper call, this should give us 333 */
+        retVal += VM_Call(&vm, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+        /* so now retVal should be 332 if everything is as expected */
+        fprintf(stderr, "Result (should be 332): %i\n", retVal);
     }
 
     VM_Free(&vm);
     free(image); /* we can release the memory now */
-    return 0;
+
+    return (retVal == 332) ? 0 : -1;
 }
 
 void testArguments(void)
@@ -74,7 +81,6 @@ int main(int argc, char** argv)
     /* finally: test the normal case */
     testNominal(NULL);
     return testNominal(argv[1]);
-    ;
 }
 
 void Com_Error(vmErrorCode_t level, const char* error)

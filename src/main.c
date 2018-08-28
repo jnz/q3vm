@@ -25,11 +25,12 @@ uint8_t* loadImage(const char* filepath);
 int main(int argc, char** argv)
 {
     vm_t vm;
+    int retVal = -1;
 
     if (argc < 2)
     {
         printf("No virtual machine supplied. Example: q3vm bytecode.qvm\n");
-        return -1;
+        return retVal;
     }
 
     char*    filepath = argv[1];
@@ -41,13 +42,13 @@ int main(int argc, char** argv)
 
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
-        VM_Call(&vm, 0);
+        retVal = VM_Call(&vm, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     VM_Free(&vm);
     free(image); /* we can release the memory now */
 
-    return 0;
+    return retVal;
 }
 
 /* Callback from the VM that something went wrong */

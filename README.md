@@ -40,19 +40,24 @@ Run:
 
     > q3vm.exe bytecode.qvm
 
-The q3vm.exe standalone interpreter is not required. You can
-easily add the interpreter as a single .c file to your project (`vm.c` and the header `vm.h`).
-Call `VM_Create` and `VM_Call` to run the bytecode in your
-application:
+The q3vm.exe standalone interpreter is not required. You can easily add the
+interpreter as a single .c file to your project (`vm.c` and the header `vm.h`).
+Call `VM_Create` and `VM_Call` to run the bytecode in your application:
 
     #include "vm.h"
 
     vm_t vm;
+    int result;
     
     VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
-    VM_Call(&vm, 0);
+    result = VM_Call(&vm, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     VM_Free(&vm);
     
+Data can be exchanged with the bytecode with the return value (result) and
+arguments to `VM_Call`. You can supply parameters (13) to the bytecode
+as additional arguments for `VM_Call`. If you don't need them, just set them
+to 0.
+
 The `pointerToByteCodeBuffer` is some memory location where the
 bytecode is located. You can e.g. load it from a file and store it
 in a byte array. See `main.c` for an example implementation.
@@ -61,6 +66,9 @@ The `sysCall` is a callback function that you define so that
 the interpreter can call native functions from your code. E.g. a
 logging function or some time critical function that you don't want
 to implement in the bytecode. Again, check `main.c` for an example.
+
+And normally you should also check if `VM_Create` returns 0 (i.e. everything is
+OK).
 
 Folder structure
 ----------------
@@ -162,11 +170,6 @@ Build the example bytecode:
     > make
     > cp bytecode.qvm ..
     > cd ..
-
-Run the bytecode firmware
--------------------------
-
-    > q3vm bytecode.qvm
 
 
 Callback functions in host application

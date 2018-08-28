@@ -208,7 +208,10 @@ void VM_Free(vm_t* vm);
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] callNum Argument of function call.
  * @return Return value of the function call. */
-intptr_t VM_Call(vm_t* vm, int callNum);
+intptr_t VM_Call(vm_t* vm, int callNum,
+                 int arg0, int arg1, int arg2, int arg3,
+                 int arg4, int arg5, int arg6, int arg7,
+                 int arg8, int arg9, int arg10, int arg11);
 
 /******************************************************************************
  * INLINE
