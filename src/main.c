@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 }
 
 /* Callback from the VM that something went wrong */
-void Com_Error(int level, const char* error)
+void Com_Error(vmErrorCode_t level, const char* error)
 {
     fprintf(stderr, "Err (%i): %s\n", level, error);
     exit(level);

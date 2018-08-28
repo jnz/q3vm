@@ -723,9 +723,11 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     }
     else
     {
-        Com_Printf("Warning: %s does not have a recognisable "
-                   "magic number in its header\n",
-                   vm->name);
+        Com_Printf("Warning: Invalid magic number in header of \"%s\". "
+                   "Read: 0x%x, expected: 0x%x\n",
+                   vm->name,
+                   LittleLong(header.h->vmMagic),
+                   VM_MAGIC);
         return NULL;
     }
 
@@ -770,7 +772,7 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
 
     if (!vm)
     {
-        Com_Error(-1, "Invalid vm pointer.\n");
+        Com_Error(VM_INVALID_POINTER, "Invalid vm pointer.\n");
         return -1;
     }
     Com_Memset(vm, 0, sizeof(vm_t));
@@ -779,13 +781,15 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     header = VM_LoadQVM(vm, bytecode);
     if (!header)
     {
-        Com_Error(-1, "Failed to load bytecode.\n");
+        vm->errno = VM_FAILED_TO_LOAD_BYTECODE;
+        Com_Error(vm->errno, "Failed to load bytecode.\n");
         return -1;
     }
 
     if (!systemCalls)
     {
-        Com_Error(-1, "No systemcalls provided.\n");
+        vm->errno = VM_NO_SYSCALL_CALLBACK;
+        Com_Error(vm->errno, "No systemcalls provided.\n");
         return -1;
     }
 
@@ -836,7 +840,8 @@ void VM_Free(vm_t* vm)
 
     if (vm->callLevel)
     {
-        Com_Error(-1, "VM_Free on running vm");
+        vm->errno = VM_FREE_ON_RUNNING_VM;
+        Com_Error(vm->errno, "VM_Free on running vm");
         return;
     }
 
@@ -876,7 +881,7 @@ intptr_t VM_Call(vm_t* vm, int callnum)
 
     if (!vm)
     {
-        Com_Error(-1, "VM_Call with NULL vm");
+        Com_Error(VM_INVALID_POINTER, "VM_Call with NULL vm");
         return -1;
     }
 
@@ -906,7 +911,8 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
         ((dest + n) & dataMask) != dest + n ||
         ((src + n) & dataMask) != src + n)
     {
-        Com_Error(-1, "OP_BLOCK_COPY out of range!");
+        currentVM->errno = VM_BLOCKCOPY_OUT_OF_RANGE;
+        Com_Error(currentVM->errno, "OP_BLOCK_COPY out of range!");
         return;
     }
 
@@ -1008,7 +1014,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         codeBase[int_pc] = op;
         if (byte_pc > header->codeLength)
         {
-            Com_Error(-1, "VM_PrepareInterpreter: pc > header->codeLength");
+            vm->errno = VM_PC_OUT_OF_RANGE;
+            Com_Error(vm->errno, "VM_PrepareInterpreter: pc > header->codeLength");
             return -1;
         }
 
@@ -1086,7 +1093,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_GEF:
             if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
             {
-                Com_Error(-1, "VM_PrepareInterpreter: Jump to invalid "
+                vm->errno = VM_JUMP_TO_INVALID_INSTRUCTION;
+                Com_Error(vm->errno, "VM_PrepareInterpreter: Jump to invalid "
                               "instruction number");
                 return -1;
             }
@@ -1250,19 +1258,22 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 #ifdef DEBUG_VM
         if ((unsigned)programCounter >= vm->codeLength)
         {
-            Com_Error(-1, "VM pc out of range");
+            vm->errno = VM_PC_OUT_OF_RANGE;
+            Com_Error(vm->errno, "VM pc out of range");
             return -1;
         }
 
         if (programStack <= vm->stackBottom)
         {
-            Com_Error(-1, "VM stack overflow");
+            vm->errno = VM_STACK_OVERFLOW;
+            Com_Error(vm->errno, "VM stack overflow");
             return -1;
         }
 
         if (programStack & 3)
         {
-            Com_Error(-1, "VM program stack misaligned");
+            vm->errno = VM_STACK_MISALIGNED;
+            Com_Error(vm->errno, "VM program stack misaligned");
             return -1;
         }
 
@@ -1296,7 +1307,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 #ifdef DEBUG_VM
             if (opStack[opStackOfs] & 3)
             {
-                Com_Error(-1, "OP_LOAD4 misaligned");
+                vm->errno = VM_OP_LOAD4_MISALIGNED;
+                Com_Error(vm->errno, "OP_LOAD4 misaligned");
                 return -1;
             }
 #endif
@@ -1405,7 +1417,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             }
             else if ((unsigned)programCounter >= vm->instructionCount)
             {
-                Com_Error(-1, "VM program counter out of range in OP_CALL");
+                vm->errno = VM_PC_OUT_OF_RANGE;
+                Com_Error(vm->errno, "VM program counter out of range in OP_CALL");
                 return -1;
             }
             else
@@ -1474,7 +1487,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             }
             else if ((unsigned)programCounter >= vm->codeLength)
             {
-                Com_Error(-1, "VM program counter out of range in OP_LEAVE");
+                vm->errno = VM_PC_OUT_OF_RANGE;
+                Com_Error(vm->errno, "VM program counter out of range in OP_LEAVE");
                 return -1;
             }
             DISPATCH();
@@ -1488,7 +1502,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         goto_OP_JUMP:
             if ((unsigned)r0 >= vm->instructionCount)
             {
-                Com_Error(-1, "VM program counter out of range in OP_JUMP");
+                vm->errno = VM_PC_OUT_OF_RANGE;
+                Com_Error(vm->errno, "VM program counter out of range in OP_JUMP");
                 return -1;
             }
 
@@ -1812,7 +1827,8 @@ done:
 
     if (opStackOfs != 1 || *opStack != 0xDEADBEEF)
     {
-        Com_Error(-1, "Interpreter stack error");
+        vm->errno = VM_STACK_ERROR;
+        Com_Error(vm->errno, "Interpreter stack error");
     }
 
     vm->programStack = stackOnEntry;

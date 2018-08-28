@@ -77,9 +77,9 @@ int main(int argc, char** argv)
     ;
 }
 
-void Com_Error(int level, const char* error)
+void Com_Error(vmErrorCode_t level, const char* error)
 {
-    fprintf(stderr, "Err: %s\n", error);
+    fprintf(stderr, "Err(%i): %s\n", level, error);
 }
 
 uint8_t* loadImage(const char* filepath)

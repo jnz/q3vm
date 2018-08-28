@@ -55,6 +55,23 @@ void* VM_ArgPtr(intptr_t intValue); /**< Helper function for the VMA macro */
  * TYPEDEFS
  ******************************************************************************/
 
+/** VM error codes */
+typedef enum {
+    VM_NO_ERROR = 0,
+    VM_INVALID_POINTER = -1,
+    VM_FAILED_TO_LOAD_BYTECODE = -2,
+    VM_NO_SYSCALL_CALLBACK = -3,
+    VM_FREE_ON_RUNNING_VM = -4,
+    VM_BLOCKCOPY_OUT_OF_RANGE = -5,
+    VM_PC_OUT_OF_RANGE = -6, /**< program counter out of range */
+    VM_JUMP_TO_INVALID_INSTRUCTION = -7,
+    VM_STACK_OVERFLOW = -8,
+    VM_STACK_MISALIGNED = -9,
+    VM_OP_LOAD4_MISALIGNED = -10,
+    VM_STACK_ERROR = -11,
+
+} vmErrorCode_t;
+
 /** For debugging: symbols */
 typedef struct vmSymbol_s
 {
@@ -132,16 +149,17 @@ typedef struct vm_s
     int breakFunction; /**< Debug breakpoints: increment breakCount on function
                          entry to this */
     int breakCount;    /**< Used for breakpoints (triggered by OP_BREAK) */
+    vmErrorCode_t errno; /**< Last known error */
 } vm_t;
 
 /******************************************************************************
  * FUNCTION PROTOTYPES
  ******************************************************************************/
 
-/** Implement this error callback function for error callbacks.
+/** Implement this error callback function for error callbacks in your code.
  * @param[in] level Error identifier.
  * @param[in] error Human readable error text. */
-void Com_Error(int level, const char* error);
+void Com_Error(vmErrorCode_t level, const char* error);
 
 /** Initialize a virtual machine.
  * @param[out] vm Pointer to a virtual machine to initialize.

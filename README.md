@@ -169,6 +169,22 @@ Run the bytecode firmware
     > q3vm bytecode.qvm
 
 
+Error handling in host application
+----------------------------------
+
+The following function needs to be implemented in the host application:
+
+    void Com_Error(vmErrorCode_t level, const char* error)
+    {
+        fprintf(stderr, "Err (%i): %s\n", level, error);
+        exit(level);
+    }
+
+The `vmErrorCode_t` describes the error. The `error` string describes what went
+wrong.  It is up to the host application how to deal with the error.
+In this simple example we just print the error string and exit the application.
+The error code is stored in the `vm_t::errno` variable.
+
 Static code analysis
 --------------------
 
