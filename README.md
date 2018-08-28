@@ -169,8 +169,24 @@ Run the bytecode firmware
     > q3vm bytecode.qvm
 
 
-Error handling in host application
-----------------------------------
+Callback functions in host application
+--------------------------------------
+
+**malloc and free**:
+
+The following functions are required in the host application for
+memory allocation:
+
+    void* Com_malloc(size_t size, vm_t* vm, vmMallocType_t type);
+    void Com_free(void* p, vm_t* vm, vmMallocType_t type);
+
+The host can simply call `malloc` and `free` or use a custom memory allocation
+function or use static memory (e.g. in an embedded application). Each VM only
+calls once per malloc type. This can be used as a help for the static memory
+allocation in an embedded environment without malloc() and free(). A simple
+implementation suitable for most environments can be found in `src/main.c`.
+
+**Error handling in host application**:
 
 The following function needs to be implemented in the host application:
 
@@ -208,8 +224,6 @@ Known limitations, bugs, missing features.
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
- * Static memory allocation support for embedded targets is missing (if you
-   don't want malloc).
 
 Credits
 =======

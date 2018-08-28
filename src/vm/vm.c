@@ -743,7 +743,7 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     // allocate zero filled space for initialized and uninitialized data
     // leave some space beyond data mask so we can secure all mask operations
     vm->dataAlloc = dataLength + 4;
-    vm->dataBase  = (uint8_t*)Com_malloc(vm->dataAlloc);
+    vm->dataBase  = (uint8_t*)Com_malloc(vm->dataAlloc, vm, VM_ALLOC_DATA_SEC);
     vm->dataMask  = dataLength - 1;
 
     if (vm->dataBase == NULL)
@@ -799,7 +799,8 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     // compile/prep functions
     vm->instructionCount    = header->instructionCount;
     vm->instructionPointers = (intptr_t*)Com_malloc(
-        vm->instructionCount * sizeof(*vm->instructionPointers));
+        vm->instructionCount * sizeof(*vm->instructionPointers),
+        vm, VM_ALLOC_INSTRUCTION_POINTERS);
 
     // copy or compile the instructions
     vm->codeLength = header->codeLength;
@@ -847,15 +848,15 @@ void VM_Free(vm_t* vm)
 
     if (vm->codeBase)
     {
-        Com_free(vm->codeBase);
+        Com_free(vm->codeBase, vm, VM_ALLOC_CODE_SEC);
     }
     if (vm->dataBase)
     {
-        Com_free(vm->dataBase);
+        Com_free(vm->dataBase, vm, VM_ALLOC_DATA_SEC);
     }
     if (vm->instructionPointers)
     {
-        Com_free(vm->instructionPointers);
+        Com_free(vm->instructionPointers, vm, VM_ALLOC_INSTRUCTION_POINTERS);
     }
 
     Com_Memset(vm, 0, sizeof(*vm));
@@ -993,7 +994,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
     int*     codeBase;
 
     vm->codeBase =
-        (uint8_t*)Com_malloc(vm->codeLength * 4); // we're now int aligned
+        (uint8_t*)Com_malloc(vm->codeLength * 4, vm, VM_ALLOC_CODE_SEC); // we're now int aligned
     Com_Memcpy(vm->codeBase, (uint8_t*)header + header->codeOffset,
                vm->codeLength);
 

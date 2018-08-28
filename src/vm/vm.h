@@ -36,10 +36,6 @@
 #define Com_Memset memset
 /** Redirect memcpy() calls with this macro */
 #define Com_Memcpy memcpy
-/** Redirect malloc() calls with this macro */
-#define Com_malloc malloc
-/** Redirect free() calls with this macro */
-#define Com_free free
 
 /** Translate pointer from VM memory to system memory */
 #define VMA(x) VM_ArgPtr(args[x])
@@ -69,8 +65,15 @@ typedef enum {
     VM_STACK_MISALIGNED = -9,
     VM_OP_LOAD4_MISALIGNED = -10,
     VM_STACK_ERROR = -11,
-
 } vmErrorCode_t;
+
+/** VM alloc type */
+typedef enum {
+    VM_ALLOC_GENERIC = 0, /**< Unknown purpose */
+    VM_ALLOC_DATA_SEC, /**< Bytecode data section */
+    VM_ALLOC_INSTRUCTION_POINTERS, /**< Bytecode instruction pointers */
+    VM_ALLOC_CODE_SEC, /**< Bytecode code section */
+} vmMallocType_t;
 
 /** For debugging: symbols */
 typedef struct vmSymbol_s
@@ -156,10 +159,30 @@ typedef struct vm_s
  * FUNCTION PROTOTYPES
  ******************************************************************************/
 
-/** Implement this error callback function for error callbacks in your code.
- * @param[in] level Error identifier.
+/** Implement this error callback function for error callbacks in the host
+ * application.
+ * @param[in] level Error identifier, see vmErrorCode_t.
  * @param[in] error Human readable error text. */
 void Com_Error(vmErrorCode_t level, const char* error);
+
+/** Implement this memory allocation function in the host application.
+ * A simple implementation in the host app can just call malloc() or new[]
+ * and ignore the vm and type parameters.
+ * The type information can be used as a hint for static memory allocation
+ * if needed.
+ * @param[in] size Number of bytes to allocate.
+ * @param[in] vm Pointer to vm requesting the memory.
+ * @param[in] type What purpose has the requested memory, see vmMallocType_t.
+ * @return pointer to allocated memory. */
+void* Com_malloc(size_t size, vm_t* vm, vmMallocType_t type);
+
+/** Implement this memory free function in the host application.
+ * A simple implementation in the host app can just call free() or delete[]
+ * and ignore the vm and type parameters.
+ * @param[in,out] p Pointer of memory allocated by Com_malloc to be released.
+ * @param[in] vm Pointer to vm releasing the memory.
+ * @param[in] type What purpose has the memory, see vmMallocType_t. */
+void Com_free(void* p, vm_t* vm, vmMallocType_t type);
 
 /** Initialize a virtual machine.
  * @param[out] vm Pointer to a virtual machine to initialize.
