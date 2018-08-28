@@ -69,10 +69,10 @@ typedef enum {
 
 /** VM alloc type */
 typedef enum {
-    VM_ALLOC_GENERIC = 0, /**< Unknown purpose */
-    VM_ALLOC_DATA_SEC, /**< Bytecode data section */
-    VM_ALLOC_INSTRUCTION_POINTERS, /**< Bytecode instruction pointers */
-    VM_ALLOC_CODE_SEC, /**< Bytecode code section */
+    VM_ALLOC_CODE_SEC = 0, /**< Bytecode code section */
+    VM_ALLOC_DATA_SEC = 1, /**< Bytecode data section */
+    VM_ALLOC_INSTRUCTION_POINTERS = 2, /**< Bytecode instruction pointers */
+    VM_ALLOC_TYPE_MAX /**< Make this the last item */
 } vmMallocType_t;
 
 /** For debugging: symbols */
