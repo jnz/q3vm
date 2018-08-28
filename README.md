@@ -50,22 +50,22 @@ Call `VM_Create` and `VM_Call` to run the bytecode in your application:
     int result;
     
     VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
-    result = VM_Call(&vm, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    result = VM_Call(&vm, 0);
     VM_Free(&vm);
     
-Data can be exchanged with the bytecode with the return value (result) and
-arguments to `VM_Call`. You can supply parameters (13) to the bytecode
-as additional arguments for `VM_Call`. If you don't need them, just set them
-to 0.
+The `pointerToByteCodeBuffer` is some memory location where the bytecode is
+located. You can e.g. load it from a file and store it in a byte array. See
+`main.c` for an example implementation.
 
-The `pointerToByteCodeBuffer` is some memory location where the
-bytecode is located. You can e.g. load it from a file and store it
-in a byte array. See `main.c` for an example implementation.
+Data can be exchanged with the bytecode by the return value (result) and
+arguments to `VM_Call`. Here just a 0 is passed to the bytecode. It is up to
+the `vmMain` function in the bytecode what to do with that 0.  You can pass
+more (up to 12) optional arguments to the bytecode.
 
-The `sysCall` is a callback function that you define so that
-the interpreter can call native functions from your code. E.g. a
-logging function or some time critical function that you don't want
-to implement in the bytecode. Again, check `main.c` for an example.
+The `sysCall` is a callback function that you define so that the interpreter
+can call native functions from your code. E.g. a logging function or some time
+critical function that you don't want to implement in the bytecode. Again,
+check `main.c` for an example.
 
 And normally you should also check if `VM_Create` returns 0 (i.e. everything is
 OK).

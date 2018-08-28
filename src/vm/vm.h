@@ -206,12 +206,10 @@ void VM_Free(vm_t* vm);
 
 /** Run a function from the virtual machine.
  * @param[in] vm Pointer to initialized virtual machine.
- * @param[in] callNum Argument of function call.
+ * @param[in] command Basic parameter passed to the bytecode.
+ * You can supply additional (up to 12) parameters to pass to the bytecode.
  * @return Return value of the function call. */
-intptr_t VM_Call(vm_t* vm, int callNum,
-                 int arg0, int arg1, int arg2, int arg3,
-                 int arg4, int arg5, int arg6, int arg7,
-                 int arg8, int arg9, int arg10, int arg11);
+intptr_t VM_Call(vm_t* vm, int command, ...);
 
 /******************************************************************************
  * INLINE

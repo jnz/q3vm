@@ -54,7 +54,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         arg6 != 6 || arg7  !=  7 || arg8  !=  8 ||
         arg9 != 9 || arg10 != 10 || arg11 != 11)
     {
-        trap_Error("Argument test case: arguments invalid");
+        trap_Error("Argument test case: arguments invalid\n");
         return -1;
     }
 
@@ -71,7 +71,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         f *= 2.0f;
     }
 
-    printf("Result: %f\n", f);
+    printf("Result (should be 2048.000000): %f\n", f);
 
     /* memcpy/memset */
     memset(mem1, 0, sizeof(mem1));

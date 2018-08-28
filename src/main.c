@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
-        retVal = VM_Call(&vm, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        retVal = VM_Call(&vm, 0);
     }
 
     VM_Free(&vm);

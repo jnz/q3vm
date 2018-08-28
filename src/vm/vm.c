@@ -13,6 +13,8 @@
  * SYSTEM INCLUDE FILES
  ******************************************************************************/
 
+#include "stdarg.h"
+
 /******************************************************************************
  * PROJECT INCLUDE FILES
  ******************************************************************************/
@@ -870,19 +872,13 @@ void* VM_ArgPtr(intptr_t intValue)
     return (void*)(currentVM->dataBase + (intValue & currentVM->dataMask));
 }
 
-intptr_t VM_Call(vm_t* vm, int callNum,
-                 int arg0, int arg1, int arg2, int arg3,
-                 int arg4, int arg5, int arg6, int arg7,
-                 int arg8, int arg9, int arg10, int arg11)
+intptr_t VM_Call(vm_t* vm, int command, ...)
 {
     vm_t*    oldVM;
     intptr_t r;
-    int args[MAX_VMMAIN_ARGS] =
-        {callNum,
-         arg0, arg1, arg2,
-         arg3, arg4, arg5,
-         arg6, arg7, arg8,
-         arg9, arg10, arg11};
+	int args[MAX_VMMAIN_ARGS];
+	va_list ap;
+    int i;
 
     if (!vm)
     {
@@ -896,15 +892,25 @@ intptr_t VM_Call(vm_t* vm, int callNum,
 
     if (vm_debugLevel)
     {
-        Com_Printf("VM_Call( %d )\n", callNum);
+        Com_Printf("VM_Call( %d )\n", command);
     }
+
+    args[0] = command;
+    va_start(ap, command);
+    for (i = 1; i < ARRAY_LEN(args); i++)
+    {
+        args[i] = va_arg(ap, int);
+    }
+    va_end(ap);
 
     ++vm->callLevel;
     r = VM_CallInterpreted(vm, args);
     --vm->callLevel;
 
     if (oldVM != NULL)
+    {
         currentVM = oldVM;
+    }
     return r;
 }
 
