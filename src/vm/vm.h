@@ -52,26 +52,26 @@
 
 /** VM error codes */
 typedef enum {
-    VM_NO_ERROR = 0,
-    VM_INVALID_POINTER = -1,
-    VM_FAILED_TO_LOAD_BYTECODE = -2,
-    VM_NO_SYSCALL_CALLBACK = -3,
-    VM_FREE_ON_RUNNING_VM = -4,
-    VM_BLOCKCOPY_OUT_OF_RANGE = -5,
-    VM_PC_OUT_OF_RANGE = -6, /**< program counter out of range */
+    VM_NO_ERROR                    = 0,
+    VM_INVALID_POINTER             = -1,
+    VM_FAILED_TO_LOAD_BYTECODE     = -2,
+    VM_NO_SYSCALL_CALLBACK         = -3,
+    VM_FREE_ON_RUNNING_VM          = -4,
+    VM_BLOCKCOPY_OUT_OF_RANGE      = -5,
+    VM_PC_OUT_OF_RANGE             = -6, /**< program counter out of range */
     VM_JUMP_TO_INVALID_INSTRUCTION = -7,
-    VM_STACK_OVERFLOW = -8,
-    VM_STACK_MISALIGNED = -9,
-    VM_OP_LOAD4_MISALIGNED = -10,
-    VM_STACK_ERROR = -11,
+    VM_STACK_OVERFLOW              = -8,
+    VM_STACK_MISALIGNED            = -9,
+    VM_OP_LOAD4_MISALIGNED         = -10,
+    VM_STACK_ERROR                 = -11,
 } vmErrorCode_t;
 
 /** VM alloc type */
 typedef enum {
-    VM_ALLOC_CODE_SEC = 0, /**< Bytecode code section */
-    VM_ALLOC_DATA_SEC = 1, /**< Bytecode data section */
+    VM_ALLOC_CODE_SEC             = 0, /**< Bytecode code section */
+    VM_ALLOC_DATA_SEC             = 1, /**< Bytecode data section */
     VM_ALLOC_INSTRUCTION_POINTERS = 2, /**< Bytecode instruction pointers */
-    VM_ALLOC_TYPE_MAX /**< Make this the last item */
+    VM_ALLOC_TYPE_MAX                  /**< Make this the last item */
 } vmMallocType_t;
 
 /** For debugging: symbols */
@@ -233,4 +233,3 @@ static ID_INLINE float _vmf(intptr_t x)
     fi.i = (int)x;
     return fi.f;
 }
-

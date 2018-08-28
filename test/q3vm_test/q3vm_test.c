@@ -23,8 +23,8 @@ uint8_t* loadImage(const char* filepath);
 int testNominal(const char* filepath)
 {
     vm_t     vm;
-    uint8_t* image = loadImage(filepath);
-    int retVal = -1;
+    uint8_t* image  = loadImage(filepath);
+    int      retVal = -1;
 
     if (!image)
     {
@@ -34,7 +34,8 @@ int testNominal(const char* filepath)
 
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
-        /* let's call with some unexpected arguments, we expect a -1 as a result */
+        /* let's call with some unexpected arguments, we expect a -1 as a result
+         */
         retVal = VM_Call(&vm, 0, 9001, -1000, 0);
         /* now do the proper call, this should give us 333 */
         retVal += VM_Call(&vm, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
@@ -168,4 +169,3 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
     }
     return 0;
 }
-

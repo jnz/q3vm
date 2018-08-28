@@ -228,8 +228,6 @@ Known limitations, bugs, missing features.
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
- * Multi-threading of concurrent VMs is currently not supported, due to the
-   `currentVM` global variable.
 
 Credits
 =======

@@ -276,7 +276,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args);
  * @param[in] src Pointer (in VM space).
  * @param[in] n Number of bytes.
  * @param[in,out] vm Current VM */
-static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n, vm_t* vm);
+static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
+                         vm_t* vm);
 
 #ifdef DEBUG_VM
 static void VM_VmInfo_f(void);
@@ -352,9 +353,7 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     {
         Com_Printf("Warning: Invalid magic number in header of \"%s\". "
                    "Read: 0x%x, expected: 0x%x\n",
-                   vm->name,
-                   LittleLong(header.h->vmMagic),
-                   VM_MAGIC);
+                   vm->name, LittleLong(header.h->vmMagic), VM_MAGIC);
         return NULL;
     }
 
@@ -426,8 +425,8 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     // compile/prep functions
     vm->instructionCount    = header->instructionCount;
     vm->instructionPointers = (intptr_t*)Com_malloc(
-        vm->instructionCount * sizeof(*vm->instructionPointers),
-        vm, VM_ALLOC_INSTRUCTION_POINTERS);
+        vm->instructionCount * sizeof(*vm->instructionPointers), vm,
+        VM_ALLOC_INSTRUCTION_POINTERS);
 
     // copy or compile the instructions
     vm->codeLength = header->codeLength;
@@ -496,9 +495,9 @@ void* VM_ArgPtr(intptr_t intValue, vm_t* vm)
 intptr_t VM_Call(vm_t* vm, int command, ...)
 {
     intptr_t r;
-	int args[MAX_VMMAIN_ARGS];
-	va_list ap;
-    int i;
+    int      args[MAX_VMMAIN_ARGS];
+    va_list  ap;
+    int      i;
 
     if (!vm)
     {
@@ -526,7 +525,8 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     return r;
 }
 
-static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n, vm_t* vm)
+static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
+                         vm_t* vm)
 {
     unsigned int dataMask = vm->dataMask;
 
@@ -615,8 +615,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
     int      instruction;
     int*     codeBase;
 
-    vm->codeBase =
-        (uint8_t*)Com_malloc(vm->codeLength * 4, vm, VM_ALLOC_CODE_SEC); // we're now int aligned
+    vm->codeBase = (uint8_t*)Com_malloc(
+        vm->codeLength * 4, vm, VM_ALLOC_CODE_SEC); // we're now int aligned
     Com_Memcpy(vm->codeBase, (uint8_t*)header + header->codeOffset,
                vm->codeLength);
 
@@ -638,7 +638,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         if (byte_pc > header->codeLength)
         {
             vm->errno = VM_PC_OUT_OF_RANGE;
-            Com_Error(vm->errno, "VM_PrepareInterpreter: pc > header->codeLength");
+            Com_Error(vm->errno,
+                      "VM_PrepareInterpreter: pc > header->codeLength");
             return -1;
         }
 
@@ -718,7 +719,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
             {
                 vm->errno = VM_JUMP_TO_INVALID_INSTRUCTION;
                 Com_Error(vm->errno, "VM_PrepareInterpreter: Jump to invalid "
-                              "instruction number");
+                                     "instruction number");
                 return -1;
             }
 
@@ -1041,7 +1042,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             else if ((unsigned)programCounter >= vm->instructionCount)
             {
                 vm->errno = VM_PC_OUT_OF_RANGE;
-                Com_Error(vm->errno, "VM program counter out of range in OP_CALL");
+                Com_Error(vm->errno,
+                          "VM program counter out of range in OP_CALL");
                 return -1;
             }
             else
@@ -1111,7 +1113,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             else if ((unsigned)programCounter >= vm->codeLength)
             {
                 vm->errno = VM_PC_OUT_OF_RANGE;
-                Com_Error(vm->errno, "VM program counter out of range in OP_LEAVE");
+                Com_Error(vm->errno,
+                          "VM program counter out of range in OP_LEAVE");
                 return -1;
             }
             DISPATCH();
@@ -1126,7 +1129,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             if ((unsigned)r0 >= vm->instructionCount)
             {
                 vm->errno = VM_PC_OUT_OF_RANGE;
-                Com_Error(vm->errno, "VM program counter out of range in OP_JUMP");
+                Com_Error(vm->errno,
+                          "VM program counter out of range in OP_JUMP");
                 return -1;
             }
 
@@ -1471,7 +1475,6 @@ int VM_SymbolToValue( vm_t *vm, const char *symbol );
 const char *VM_ValueToSymbol( vm_t *vm, int value );
 void VM_LogSyscalls( int *args );
 */
-
 
 char* VM_Indent(vm_t* vm)
 {
@@ -1835,4 +1838,3 @@ void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
 }
 
 #endif
-

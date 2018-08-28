@@ -49,10 +49,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     printf("arg11: %i\n", arg11);
     */
 
-    if (arg0 != 0 || arg1  !=  1 || arg2  !=  2 ||
-        arg3 != 3 || arg4  !=  4 || arg5  !=  5 ||
-        arg6 != 6 || arg7  !=  7 || arg8  !=  8 ||
-        arg9 != 9 || arg10 != 10 || arg11 != 11)
+    if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
+        arg5 != 5 || arg6 != 6 || arg7 != 7 || arg8 != 8 || arg9 != 9 ||
+        arg10 != 10 || arg11 != 11)
     {
         trap_Error("Argument test case: arguments invalid\n");
         return -1;
@@ -76,10 +75,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     /* memcpy/memset */
     memset(mem1, 0, sizeof(mem1));
     memcpy(mem1, mem2, sizeof(mem2));
-    if (mem1[0] != 'H' || mem1[1] != 'e' ||
-        mem1[2] != 'l' || mem1[3] != 'l' ||
-        mem1[4] != 'o' || mem1[5] != '\0' ||
-        mem1[6] != 0)
+    if (mem1[0] != 'H' || mem1[1] != 'e' || mem1[2] != 'l' || mem1[3] != 'l' ||
+        mem1[4] != 'o' || mem1[5] != '\0' || mem1[6] != 0)
     {
         printf("memcpy / memset error\n", f);
         return -1;

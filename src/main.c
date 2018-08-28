@@ -25,7 +25,7 @@ uint8_t* loadImage(const char* filepath);
 int main(int argc, char** argv)
 {
     vm_t vm;
-    int retVal = -1;
+    int  retVal = -1;
 
     if (argc < 2)
     {
@@ -136,4 +136,3 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
     }
     return 0;
 }
-
