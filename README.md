@@ -182,7 +182,7 @@ memory allocation:
 
 The host can simply call `malloc` and `free` or use a custom memory allocation
 function or use static memory (e.g. in an embedded application). Each VM only
-calls Com_malloc once per malloc type. This can be used as a help for the static memory
+calls `Com_malloc` once per malloc type. This can be used as a help for the static memory
 allocation in an embedded environment without malloc() and free().
 
 **Error handling**:
@@ -200,8 +200,8 @@ what went wrong.  It is up to the host application how to deal with the error.
 In this simple example we just print the error string and exit the application.
 The error code is stored in the `vm_t::errno` variable.
 
-How to add a custom callback function
--------------------------------------
+How to add a custom native function
+-----------------------------------
 
 Let's say we want to add a native function to convert a string to an integer:
 `stringToInt`.  We want to add the function to our virtual machine (step 1) and
@@ -310,7 +310,7 @@ Known limitations, bugs, missing features:
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
- * Debug features (DEBUG_VM) are not working at the moment. Will be added later.
+ * Debug features (`DEBUG_VM`) are not working at the moment. Will be added later.
 
 Credits
 =======
