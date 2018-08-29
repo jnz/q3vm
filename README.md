@@ -200,6 +200,93 @@ what went wrong.  It is up to the host application how to deal with the error.
 In this simple example we just print the error string and exit the application.
 The error code is stored in the `vm_t::errno` variable.
 
+How to add a custom callback function
+-------------------------------------
+
+Let's say we want to add a native function to convert a string to an integer:
+`stringToInt`.  We want to add the function to our virtual machine (step 1) and
+call it from our example code (step 2).  (Note: there is already the atoi function in
+the bytecode, but this is just an example on how to call atoi as a native
+function and deal with address translation) 
+
+
+**Step 1)**
+
+Open `src/main.c` and modify the `systemCalls` function. Add `case -5:` for the
+new native function. We just use the next free id (here -5) as an identifier.
+The identifier will be important in step 2.  The first argument
+for `stringToInt` is the address of a string. The address is in the virtual
+machine address space, so we can't directly use that argument (`args[1]`) for
+the native call to `atoi`. There is a helper macro that will translate the
+address for use: `VMA`. We need to give `VMA` the pointer argument from the
+bytecode and the virtual machine context (`vm`) to translate it.
+With the first argument (`args[0]`) the bytecode tells us which one of our
+native functions is called.
+
+    intptr_t systemCalls(vm_t* vm, intptr_t* args)
+    {
+        int id = -1 - args[0];
+    
+        switch (id)
+        {
+        case -1: /* PRINTF */
+            printf("%s", (const char*)VMA(1, vm));
+            return 0;
+        case -2: /* ERROR */
+            fprintf(stderr, "%s", (const char*)VMA(1, vm));
+            return 0;
+    
+        case -3: /* MEMSET */
+            memset(VMA(1, vm), args[2], args[3]);
+            return 0;
+    
+        case -4: /* MEMCPY */
+            memcpy(VMA(1, vm), VMA(2, vm), args[3]);
+            return 0;
+
+        case -5: /* stringToInt */                             // < NEW
+            return atoi(VMA(1, vm));                           // < NEW
+    
+        default:
+            fprintf(stderr, "Bad system call: %ld", (long int)args[0]);
+        }
+        return 0;
+    }
+
+**Step 2)** Tell the bytecode about this function
+
+Now we need to tell our example project about this new function `strintToInt`.
+Open `example/g_syscalls.asm` and add the last line. The identifier -5 is
+important for the mapping.
+
+    code
+    
+    equ	trap_Printf				-1
+    equ	trap_Error				-2
+    equ	memset					-3
+    equ	memcpy					-4
+    equ	stringToInt				-5
+
+**Step 3)** Perform an example call to `strintToInt`
+
+Edit `example/main.c` and add the function declaration:
+
+    int stringToInt(const char* a);
+
+And call it somewhere from the main function:
+
+    char* myStr = "1234";
+    printf("\"%s\" -> %i\n", myStr, stringToInt(myStr));
+
+Compile everything:
+
+    > make && make example/bytecode.qvm
+
+And run it:
+
+    > ./q3vm example/bytecode.qvm
+
+
 Static code analysis
 --------------------
 
