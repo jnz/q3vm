@@ -1,7 +1,7 @@
 Q3VM Readme
 ===========
 
-A lightweight embeddable interpreter/Virtual Machine (VM) for compiled bytecode files (`.qvm`) based on good old C-language input (`.c`). A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project. For example code that needs to run in a sandbox.
+A lightweight (single file: `vm.c`) embeddable interpreter/Virtual Machine (VM) for compiled bytecode files (`.qvm`) based on good old C-language input (`.c`). A complete C compiler to generate `.qvm` files is included (LCC). The interpreter is based on the Quake III Arena virtual machine (hence the name q3vm) but the interpreter is not tied to Quake III Arena and can be used for any kind of project. For example code that needs to run in a sandbox.
 
       ___   _______     ____  __
      / _ \ |___ /\ \   / /  \/  |
@@ -20,7 +20,7 @@ Features
 
  * Small and lightweight (one .c file to include without dependencies)
  * Battle-tested (20 years of use in Quake III Arena)
- * Tool tested (static code analysis, test coverage)
+ * Tool tested (static code analysis, test coverage, Valgrind)
  * No need to learn a new scripting language (e.g. Lua)
  * Strong typing in the scripting language (C)
  * Static memory allocation in C, no unpredictable garbage collector
@@ -91,7 +91,7 @@ API Documentation
 -----------------
 
 Call `make doxygen` to autogenerate the API documentation in the `doxygen/html`
-directory. Doxygen and dot command (part of graphviz) is required.
+directory. Doxygen is required as well as the dot command (part of graphviz).
 Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
 
     > make doxygen
@@ -126,12 +126,10 @@ Build example bytecode firmware
 
 The LCC compiler (lcc.exe) is included in the ./bin/win32 directory.
 You need make (mingw32-make) from the MinGW64 installation in
-your path.
+your path. The Makefile calls LCC and q3asm to generate `bytecode.qvm`:
 
     cd example
     mingw32-make
-    cp bytecode.qvm ..
-    cd ..
 
 If you don't want to use make, you can do the steps from the make file
 manually at the command line. Compile every `.c` source code with `LCC`:
@@ -148,33 +146,20 @@ The output of q3asm is a `.qvm` file that you can run with q3vm.
 
 **Linux**:
 
-Build LCC (and copy the executables to ./bin/linux directory).
+Build LCC:
 
-    > cd lcc
-    > make BUILDDIR=build all
-    > cd build
-    > cp lcc ../../bin/linux/lcc
-    > cp cpp ../../bin/linux/q3cpp
-    > cp rcc ../../bin/linux/q3rcc
-    > cd ../..
+    > make lcc
 
 Build q3asm
 
-    > cd q3asm
-    > make
-    > cp q3asm ../bin/linux/
-    > cd ..
+    > make q3asm
 
 Build the example bytecode:
 
-    > cd example
-    > make
-    > cp bytecode.qvm ..
-    > cd ..
+    > make example/bytecode.qvm
 
-
-Callback functions in host application
---------------------------------------
+Callback functions required in host application
+-----------------------------------------------
 
 **malloc and free**:
 
@@ -182,15 +167,25 @@ The following functions are required in the host application for
 memory allocation:
 
     void* Com_malloc(size_t size, vm_t* vm, vmMallocType_t type);
-    void Com_free(void* p, vm_t* vm, vmMallocType_t type);
+    {
+        (void)vm;
+        (void)type;
+        return malloc(size);
+    }
+    
+    void Com_free(void* p, vm_t* vm, vmMallocType_t type)
+    {
+        (void)vm;
+        (void)type;
+        free(p);
+    }
 
 The host can simply call `malloc` and `free` or use a custom memory allocation
 function or use static memory (e.g. in an embedded application). Each VM only
-calls once per malloc type. This can be used as a help for the static memory
-allocation in an embedded environment without malloc() and free(). A simple
-implementation suitable for most environments can be found in `src/main.c`.
+calls Com_malloc once per malloc type. This can be used as a help for the static memory
+allocation in an embedded environment without malloc() and free().
 
-**Error handling in host application**:
+**Error handling**:
 
 The following function needs to be implemented in the host application:
 
@@ -200,8 +195,8 @@ The following function needs to be implemented in the host application:
         exit(level);
     }
 
-The `vmErrorCode_t` describes the error. The `error` string describes what went
-wrong.  It is up to the host application how to deal with the error.
+The error id is given by the `vmErrorCode_t` parameter. The `error` string describes
+what went wrong.  It is up to the host application how to deal with the error.
 In this simple example we just print the error string and exit the application.
 The error code is stored in the `vm_t::errno` variable.
 
@@ -224,7 +219,7 @@ Run the following command to reformat a file according to the coding style:
 TODO
 ----
 
-Known limitations, bugs, missing features.
+Known limitations, bugs, missing features:
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
