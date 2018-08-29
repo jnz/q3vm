@@ -86,6 +86,7 @@ clean:
 	$(CLEANUP) $(LCCTOOLPATH)/lcc
 	$(CLEANUP) $(LCCTOOLPATH)/q3cpp
 	$(CLEANUP) $(LCCTOOLPATH)/q3rcc
+	$(CLEANUP) $(LCCTOOLPATH)/q3asm
 	$(CLEANUP) ./$(TARGET)
 	$(CLEANUP) ./*.gcov
 	$(MAKE) -C example clean
