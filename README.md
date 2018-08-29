@@ -20,6 +20,7 @@ Features
 
  * Small and lightweight (one .c file to include without dependencies)
  * Battle-tested (20 years of use in Quake III Arena)
+ * Forked from the well maintained ioquake3 code base
  * Tool tested (static code analysis, test coverage, Valgrind)
  * No need to learn a new scripting language (e.g. Lua)
  * Strong typing in the scripting language (C)
@@ -27,6 +28,16 @@ Features
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
  * Computed gotos are used to speed up the interpreter if you compile with GCC
+
+Use Cases
+---------
+
+ * Sandbox for code you don't fully trust (e.g. download the bytecode from a web server)
+ * Mods for small hobby game engines
+ * There are many virtual machines, but not many are so small, with strong typing and no garbage collector
+ * Learn about virtual machines in general, but directly have a C compiler available for the virtual machine
+ * Sandbox for embedded applications, e.g. plug-ins for IoT applications on microcontrollers (bounded CPU time, bounded memory area, restrict access to peripheral devices)
+ * There is also a historical value: learn about the Quake III engine
 
 Quick Intro
 -----------
@@ -310,6 +321,12 @@ Known limitations, bugs, missing features:
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
  * Debug features (`DEBUG_VM`) are not working at the moment. Will be added later.
+
+Further information
+-------------------
+
+ * http://fabiensanglard.net/quake3/qvm.php
+ * http://users.suse.com/~lnussel/talks/fosdem_talk_2013_q3.pdf
 
 Credits
 =======
