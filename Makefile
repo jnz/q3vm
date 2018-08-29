@@ -83,6 +83,9 @@ clean:
 	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcno
 	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcda
 	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcov
+	$(CLEANUP) $(LCCTOOLPATH)/lcc
+	$(CLEANUP) $(LCCTOOLPATH)/q3cpp
+	$(CLEANUP) $(LCCTOOLPATH)/q3rcc
 	$(CLEANUP) ./$(TARGET)
 	$(CLEANUP) ./*.gcov
 	$(MAKE) -C example clean
