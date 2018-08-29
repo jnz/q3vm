@@ -14,7 +14,7 @@
 #define	BUFSIZE 4096
 
 #define istypename(t,tsym) (kind[t] == CHAR \
-	|| t == ID && tsym && tsym->sclass == TYPEDEF)
+	|| (t == ID && tsym && tsym->sclass == TYPEDEF))
 #define sizeop(n) ((n)<<10)
 #define generic(op)  ((op)&0x3F0)
 #define specific(op) ((op)&0x3FF)
@@ -81,7 +81,7 @@ typedef struct table *Table;
 typedef union value {
 	long i;
 	unsigned long u;
-	long double d;
+	double d;
 	void *p;
 	void (*g)(void);
 } Value;
@@ -97,6 +97,12 @@ typedef struct {
 	unsigned short typeno;
 	void *xt;
 } Xtype;
+
+typedef union {
+	float f;
+	int i;
+	unsigned int ui;
+} floatint_t;
 
 #include "config.h"
 typedef struct metrics {
@@ -571,6 +577,7 @@ extern Tree cnsttree(Type, ...);
 extern Tree consttree(unsigned int, Type);
 extern Tree eqtree(int, Tree, Tree);
 extern int iscallb(Tree);
+extern int isnullptr(Tree);
 extern Tree shtree(int, Tree, Tree);
 extern void typeerror(int, Tree, Tree);
 
