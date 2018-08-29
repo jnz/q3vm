@@ -32,7 +32,7 @@ LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
 # LTO_FLAGS := -flto -fno-builtin
 CFLAGS += -std=c99
-CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
+CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
 # -MF: When used with the driver options -MD or -MMD, -MF overrides the default dependency output file.
