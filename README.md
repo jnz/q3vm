@@ -210,7 +210,7 @@ the bytecode, but this is just an example on how to call atoi as a native
 function and deal with address translation) 
 
 
-**Step 1)**
+**Step 1)** Add the native function to the host application
 
 Open `src/main.c` and modify the `systemCalls` function. Add `case -5:` for the
 new native function. We just use the next free id (here -5) as an identifier.
@@ -220,9 +220,8 @@ machine address space, so we can't directly use that argument (`args[1]`) for
 the native call to `atoi`. There is a helper macro that will translate the
 address for use: `VMA`. We need to give `VMA` the pointer argument from the
 bytecode and the virtual machine context (`vm`) to translate it.
-With the first argument (`args[0]`) the bytecode tells us which one of our
-native functions is called.
 
+    /* Call native functions from the bytecode: */
     intptr_t systemCalls(vm_t* vm, intptr_t* args)
     {
         int id = -1 - args[0];
