@@ -283,8 +283,8 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
 /* WARNING: DEBUG_VM is not thread safe */
 static int vm_debugLevel = 0; /**< if 0, be quiet, otherwise emit printf informations */
 static char com_token[MAX_TOKEN_CHARS];
-static int  com_lines;
-static int  com_tokenline;
+static int com_lines;
+static int com_tokenline;
 static int ParseHex(const char* text);
 static void COM_StripExtension(const char* in, char* out);
 static char* VM_Indent(vm_t* vm);
@@ -1418,7 +1418,6 @@ done:
 /* --------------- */
 
 #ifdef DEBUG_VM
-
 static char* VM_Indent(vm_t* vm)
 {
     static char* string = "                                        ";
