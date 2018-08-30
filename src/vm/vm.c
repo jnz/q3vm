@@ -43,8 +43,6 @@
  * command number + 12 arguments */
 #define MAX_VMMAIN_ARGS 13
 
-#define MAX_TOKEN_CHARS 1024 /**< max length of an individual token */
-
 #if defined(Q3VM_BIG_ENDIAN) && defined(Q3VM_LITTLE_ENDIAN)
 #error "Endianness defined as both big and little"
 #elif defined(Q3VM_BIG_ENDIAN)
@@ -251,23 +249,27 @@ static int vm_debugLevel; /**< 0: be quiet, otherwise print informations */
  * @param[in] src Input string.
  * @param[in] destsize Number of free bytes in dest. */
 static void Q_strncpyz(char* dest, const char* src, int destsize);
+
 /** Helper function for VM_Create: Set up the virtual machine during loading.
  * Ensure consistency and prepare the jumps.
  * @param[in,out] vm Pointer to virtual machine, prepared by VM_Create.
  * @param[in] header Header of .qvm bytecode.
  * @return 0 if everything is OK. -1 otherwise. */
 static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header);
+
 /** Helper function for VM_Create: Set up the virtual machine during loading.
  * Copy the data from the file input (bytecode) to the vm.
  * @param[in,out] vm Pointer to virtual machine, prepared by VM_Create.
  * @param[in] bytecode Pointer to bytecode.
  * @return Pointer to start/header of vm bytecode. */
 static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode);
+
 /** Run a function from the virtual machine with the interpreter (i.e. no JIT).
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] args Arguments for function call.
  * @return Return value of the function call. */
 static int VM_CallInterpreted(vm_t* vm, int* args);
+
 /** Executes a block copy operation (memcpy) within currentVM data space.
  * @param[out] dest Pointer (in VM space).
  * @param[in] src Pointer (in VM space).
@@ -282,6 +284,7 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
 
 #ifdef DEBUG_VM
 #include <stdio.h> /* fopen to read symbols */
+#define MAX_TOKEN_CHARS 1024 /**< max length of an individual token */
 /* WARNING: DEBUG_VM is not thread safe */
 static char com_token[MAX_TOKEN_CHARS];
 static int com_lines;
@@ -321,6 +324,66 @@ static void Q_strncpyz(char* dest, const char* src, int destsize)
     dest[destsize - 1] = 0;
 }
 
+int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
+              intptr_t (*systemCalls)(vm_t*, intptr_t*))
+{
+    vmHeader_t* header;
+
+    if (!vm)
+    {
+        Com_Error(VM_INVALID_POINTER, "Invalid vm pointer.\n");
+        return -1;
+    }
+    if (!systemCalls)
+    {
+        vm->lastError = VM_NO_SYSCALL_CALLBACK;
+        Com_Error(vm->lastError, "No systemcalls provided.\n");
+        return -1;
+    }
+
+    Com_Memset(vm, 0, sizeof(vm_t));
+    Q_strncpyz(vm->name, name, sizeof(vm->name));
+    header = VM_LoadQVM(vm, bytecode);
+    if (!header)
+    {
+        vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
+        Com_Error(vm->lastError, "Failed to load bytecode.\n");
+        return -1;
+    }
+
+    vm->systemCall = systemCalls;
+
+    // allocate space for the jump targets, which will be filled in by the
+    // compile/prep functions
+    vm->instructionCount    = header->instructionCount;
+    vm->instructionPointers = (intptr_t*)Com_malloc(
+        vm->instructionCount * sizeof(*vm->instructionPointers), vm,
+        VM_ALLOC_INSTRUCTION_POINTERS);
+
+    // copy or compile the instructions
+    vm->codeLength = header->codeLength;
+
+    vm->compiled = 0; /* no JIT */
+    if (!vm->compiled)
+    {
+        if (VM_PrepareInterpreter(vm, header) != 0)
+        {
+            return -1;
+        }
+    }
+
+#ifdef DEBUG_VM
+    // load the map file
+    VM_LoadSymbols( vm );
+#endif
+
+    // the stack is implicitly at the end of the image
+    vm->programStack = vm->dataMask + 1;
+    vm->stackBottom  = vm->programStack - PROGRAM_STACK_SIZE;
+
+    return 0;
+}
+
 static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
 {
     int dataLength;
@@ -334,7 +397,6 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     Com_Printf("Loading vm file %s...\n", vm->name);
 
     header.v = bytecode;
-
     if (!header.h)
     {
         Com_Printf("Failed.\n");
@@ -401,71 +463,8 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     return header.h;
 }
 
-int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
-              intptr_t (*systemCalls)(vm_t*, intptr_t*))
-{
-    vmHeader_t* header;
-
-    if (!vm)
-    {
-        Com_Error(VM_INVALID_POINTER, "Invalid vm pointer.\n");
-        return -1;
-    }
-    if (!systemCalls)
-    {
-        vm->lastError = VM_NO_SYSCALL_CALLBACK;
-        Com_Error(vm->lastError, "No systemcalls provided.\n");
-        return -1;
-    }
-
-    Com_Memset(vm, 0, sizeof(vm_t));
-    Q_strncpyz(vm->name, name, sizeof(vm->name));
-    header = VM_LoadQVM(vm, bytecode);
-    if (!header)
-    {
-        vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
-        Com_Error(vm->lastError, "Failed to load bytecode.\n");
-        return -1;
-    }
-
-    vm->systemCall = systemCalls;
-
-    // allocate space for the jump targets, which will be filled in by the
-    // compile/prep functions
-    vm->instructionCount    = header->instructionCount;
-    vm->instructionPointers = (intptr_t*)Com_malloc(
-        vm->instructionCount * sizeof(*vm->instructionPointers), vm,
-        VM_ALLOC_INSTRUCTION_POINTERS);
-
-    // copy or compile the instructions
-    vm->codeLength = header->codeLength;
-
-    vm->compiled = 0;
-
-    // VM_Compile may have reset vm->compiled if compilation failed
-    if (!vm->compiled)
-    {
-        if (VM_PrepareInterpreter(vm, header) != 0)
-        {
-            return -1;
-        }
-    }
-
-    // load the map file
-#ifdef DEBUG_VM
-    VM_LoadSymbols( vm );
-#endif
-
-    // the stack is implicitly at the end of the image
-    vm->programStack = vm->dataMask + 1;
-    vm->stackBottom  = vm->programStack - PROGRAM_STACK_SIZE;
-
-    return 0;
-}
-
 void VM_Free(vm_t* vm)
 {
-
     if (!vm)
     {
         return;
