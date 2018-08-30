@@ -22,7 +22,7 @@
  * PROJECT INCLUDE FILES
  ******************************************************************************/
 
-#if _MSC_VER >= 1600
+#ifdef VISUAL_STUDIO_PATCHES
 #include <vs_patches.h>
 #endif
 
