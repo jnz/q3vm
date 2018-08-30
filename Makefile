@@ -92,6 +92,7 @@ clean:
 	$(MAKE) -C example clean
 	$(MAKE) -C lcc clean
 	$(MAKE) -C q3asm clean
+	$(MAKE) -C test clean
 	$(MAKE) -C test/q3vm_test clean
 
 test: $(TARGET) test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm

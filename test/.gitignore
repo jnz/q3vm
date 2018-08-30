@@ -1,2 +1,4 @@
 *.map
 *.qvm
+test_native
+test_native.exe
