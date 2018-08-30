@@ -209,7 +209,7 @@ The following function needs to be implemented in the host application:
 The error id is given by the `vmErrorCode_t` parameter. The `error` string describes
 what went wrong.  It is up to the host application how to deal with the error.
 In this simple example we just print the error string and exit the application.
-The error code is stored in the `vm_t::errno` variable.
+The error code is stored in the `vm_t::lastError` variable.
 
 How to add a custom native function
 -----------------------------------
