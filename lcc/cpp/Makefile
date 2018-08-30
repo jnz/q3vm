@@ -14,20 +14,16 @@ else
 	MKDIR = mkdir -p
 	TARGET_EXTENSION=
 endif
-OBJDIR           := ../build
+OBJDIR := ../build
 
 # Target executable configuration
 TARGET_BASE=$(OBJDIR)/cpp
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 
-# Linker settings
-LINK_FLAGS :=
-
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
 # add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
-# LTO_FLAGS := -flto -fno-builtin
 CFLAGS += -fno-strict-aliasing
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
@@ -37,7 +33,6 @@ CFLAGS += -fno-strict-aliasing
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
 # CFLAGS += -Og -ggdb -fno-omit-frame-pointer
-CFLAGS += -O0
 
 # disable some warnings...
 # Header files
@@ -68,10 +63,9 @@ all: $(TARGET)
 $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'CFLAGS: '$(CFLAGS)
 	$(LINK) $(LINK_FLAGS) -o"$@" $(OBJS) $(LOCAL_LIBRARIES)
-	@echo 'Executable created: '$@
+	@echo 'LCC executable created: '$@
 
 clean:
-	@echo 'Cleanup...'
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) $(TARGET)

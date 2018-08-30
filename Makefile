@@ -12,27 +12,31 @@ ifeq ($(OS),Windows_NT)
 	CLEANUP = rm -f
 	MKDIR = mkdir
 	TARGET_EXTENSION=.exe
-	LCCTOOLPATH=bin/win32/
+	LCCTOOLPATH=bin/win32
+	# Linker flag: remove unused code
+	LINK_FLAGS := -Wl,--gc-sections
 else
 	CLEANUP = rm -f
 	MKDIR = mkdir -p
 	TARGET_EXTENSION=
-	LCCTOOLPATH=bin/linux/
+	LCCTOOLPATH=bin/linux
+	# Remove dead code at link time
+	# special case for macOS
+	ifeq ($(shell uname -s),Darwin)
+		export LINKFLAGS += -Wl,-dead_strip
+	else
+		export LINKFLAGS += -Wl,--gc-sections
+	endif
 endif
 # Target executable configuration
 TARGET_BASE=q3vm
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 
-# Linker settings
-LINK_FLAGS := $(LTO_FLAGS) -Wl,--gc-sections
-
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
-# add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
-# LTO_FLAGS := -flto -fno-builtin
 CFLAGS += -std=c99
-CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections -fno-strict-aliasing
+CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
 # -MF: When used with the driver options -MD or -MMD, -MF overrides the default dependency output file.
@@ -78,11 +82,6 @@ clean:
 	@echo 'Cleanup...'
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
-	$(CLEANUP) $(OBJDIR)/q3vm_test/*.d
-	$(CLEANUP) $(OBJDIR)/q3vm_test/*.o
-	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcno
-	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcda
-	$(CLEANUP) $(OBJDIR)/q3vm_test/*.gcov
 	$(CLEANUP) $(LCCTOOLPATH)/lcc
 	$(CLEANUP) $(LCCTOOLPATH)/q3cpp
 	$(CLEANUP) $(LCCTOOLPATH)/q3rcc
@@ -95,6 +94,7 @@ clean:
 	$(MAKE) -C test/q3vm_test clean
 
 test: $(TARGET) test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
+	@echo "Running "$@
 	./q3vm example/bytecode.qvm
 	./test/q3vm_test/q3vm_test test/test.qvm
 
@@ -103,12 +103,15 @@ dump: $(TARGET)
 
 # static code analysis with cppcheck
 cppcheck:
+	@echo "Running "$@
 	cppcheck --error-exitcode=-1 src/
 
 clangcheck: clean
+	@echo "Running "$@
 	scan-build make q3vm
 
 valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test example/bytecode.qvm
+	@echo "Running "$@
 	valgrind --error-exitcode=-1 --leak-check=yes ./q3vm example/bytecode.qvm
 	valgrind --error-exitcode=-1 --leak-check=yes ./test/q3vm_test/q3vm_test test/test.qvm
 
@@ -116,25 +119,30 @@ analysis: clangcheck cppcheck
 
 # Example
 example/bytecode.qvm: q3asm lcc
-	$(MAKE) -C example
+	@echo "Building "$@
+	@$(MAKE) -C example
 
 # Test and code coverage firmware
 test/test.qvm: q3asm lcc
-	$(MAKE) -C test
+	@echo "Building "$@
+	@$(MAKE) -C test
 
 test/q3vm_test/q3vm_test:
-	$(MAKE) -C test/q3vm_test
+	@echo "Building "$@
+	@$(MAKE) -C test/q3vm_test
 
-$(LCCTOOLPATH)lcc:
-	$(MAKE) -C lcc BUILDDIR=build all
+$(LCCTOOLPATH)/lcc:
+	@echo "Building "$@
+	@$(MAKE) -C lcc all
 	cp lcc/build/lcc$(TARGET_EXTENSION) $(LCCTOOLPATH)
-	cp lcc/build/cpp$(TARGET_EXTENSION) $(LCCTOOLPATH)q3cpp$(TARGET_EXTENSION)
-	cp lcc/build/rcc$(TARGET_EXTENSION) $(LCCTOOLPATH)q3rcc$(TARGET_EXTENSION)
+	cp lcc/build/cpp$(TARGET_EXTENSION) $(LCCTOOLPATH)/q3cpp$(TARGET_EXTENSION)
+	cp lcc/build/rcc$(TARGET_EXTENSION) $(LCCTOOLPATH)/q3rcc$(TARGET_EXTENSION)
 
-lcc: $(LCCTOOLPATH)lcc
+lcc: $(LCCTOOLPATH)/lcc
 
 q3asm/q3asm$(TARGET_EXTENSION):
-	$(MAKE) -C q3asm
+	@echo "Building "$@
+	@$(MAKE) -C q3asm
 	cp q3asm/q3asm$(TARGET_EXTENSION) $(LCCTOOLPATH)
 
 q3asm: q3asm/q3asm$(TARGET_EXTENSION)

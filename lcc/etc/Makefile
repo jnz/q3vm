@@ -70,7 +70,6 @@ $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'Executable created: '$@
 
 clean:
-	@echo 'Cleanup...'
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
 	$(CLEANUP) $(TARGET)

@@ -21,10 +21,8 @@ TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
-# add Link Time Optimization flags (LTO will treat retarget functions as unused without -fno-builtin):
-# LTO_FLAGS := -flto -fno-builtin
 CFLAGS += -std=c99
-CFLAGS += $(LTO_FLAGS) -fdata-sections -ffunction-sections
+CFLAGS += -fdata-sections -ffunction-sections
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
 # -MF: When used with the driver options -MD or -MMD, -MF overrides the default dependency output file.
@@ -69,9 +67,12 @@ $(TARGET): $(OBJDIR) $(OBJS)
 
 clean:
 	@echo 'Cleanup...'
+	$(CLEANUP) $(OBJDIR)/*.gcno
+	$(CLEANUP) $(OBJDIR)/*.gcda
+	$(CLEANUP) $(OBJDIR)/*.gcov
 	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(OBJDIR)/*.o
-	$(CLEANUP) ./$(TARGET)
+	$(CLEANUP) $(TARGET)
 
 # Make sure that we recompile if a header file was changed
 -include $(C_DEPS)

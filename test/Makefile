@@ -14,6 +14,7 @@ else
 	TOOLCHAIN=
 	CLEANUP = rm -f
 	MKDIR = mkdir -p
+	SHELL=/bin/bash # required on macOS so that export PATH below works
 	export PATH := ../bin/linux:$(PATH)
 endif
 TARGET_EXTENSION=.qvm
@@ -39,7 +40,7 @@ OBJ_NAMES        = $(notdir $(C_SRCS))
 OBJS             = $(addprefix $(OBJDIR)/,$(OBJ_NAMES:%.c=%.asm))
 
 $(OBJDIR)/%.asm: %.c
-	@echo 'CC: $<'
+	@echo 'LCC: $<'
 	@$(CC) $(CFLAGS) -o $@ $<
 
 all: $(TARGET)

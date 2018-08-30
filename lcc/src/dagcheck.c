@@ -22,6 +22,7 @@ static int _rule(void*, int);
 #define _F_NT 7
 #define _B_NT 8
 
+#if 0
 static char *_ntname[] = {
 	0,
 	"stmt",
@@ -34,6 +35,7 @@ static char *_ntname[] = {
 	"B",
 	0
 };
+#endif
 
 struct _state {
 	short cost[9];
@@ -192,6 +194,7 @@ static short *_nts[] = {
 	_nts_7,	/* 119 */
 };
 
+#if 0
 static char *_templates[] = {
 /* 0 */	0,
 /* 1 */	"",	/* stmt: INDIRB(P) */
@@ -560,6 +563,7 @@ static char *_string[] = {
 /* 118 */	"V: JUMPV(P)",
 /* 119 */	"V: LABELV",
 };
+#endif
 
 static short _decode_stmt[] = {
 	0,
