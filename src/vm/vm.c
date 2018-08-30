@@ -69,9 +69,6 @@ static ID_INLINE int LongSwap(int l)
 #error "Endianness not defined"
 #endif
 
-/** Used for debug output in DEBUG_VM */
-#define DEBUGSTR va("%s%i", VM_Indent(vm), opStackOfs)
-
 /* GCC can do computed gotos */
 #ifdef __GNUC__
 #ifndef DEBUG_VM           /* can't use computed gotos in debug mode */
@@ -239,11 +236,11 @@ typedef enum {
  * GLOBAL DATA DEFINITIONS
  ******************************************************************************/
 
-int vm_debugLevel; /**< if 0, be quiet, otherwise emit printf informations */
-
 /******************************************************************************
  * LOCAL DATA DEFINITIONS
  ******************************************************************************/
+
+static int vm_debugLevel; /**< 0: be quiet, otherwise print informations */
 
 /******************************************************************************
  * LOCAL FUNCTION PROTOTYPES
@@ -279,13 +276,26 @@ static int VM_CallInterpreted(vm_t* vm, int* args);
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
                          vm_t* vm);
 
+/******************************************************************************
+ * DEBUG FUNCTIONS
+ ******************************************************************************/
+
 #ifdef DEBUG_VM
-static void VM_VmInfo_f(void);
-static void VM_VmProfile_f(void);
+#include <stdio.h> /* fopen to read symbols */
+/* WARNING: DEBUG_VM is not thread safe */
+static char com_token[MAX_TOKEN_CHARS];
+static int com_lines;
+static int com_tokenline;
+static int ParseHex(const char* text);
+static void COM_StripExtension(const char* in, char* out);
+static char* VM_Indent(vm_t* vm);
+/** For profiling, find the symbol behind this value */
+static vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
+static const char *VM_ValueToSymbol( vm_t *vm, int value );
+static void VM_LoadSymbols(vm_t* vm);
+static uint8_t* loadImage(const char* filepath);
+static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
 #endif
-/** Set the printf debug level.
- * @param[in] level If level is 0, be quiet. */
-void VM_Debug(int level);
 
 /******************************************************************************
  * LOCAL INLINE FUNCTIONS AND FUNCTION MACROS
@@ -442,7 +452,9 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     }
 
     // load the map file
-    // VM_LoadSymbols( vm );
+#ifdef DEBUG_VM
+    VM_LoadSymbols( vm );
+#endif
 
     // the stack is implicitly at the end of the image
     vm->programStack = vm->dataMask + 1;
@@ -457,6 +469,14 @@ void VM_Free(vm_t* vm)
     if (!vm)
     {
         return;
+    }
+
+    vmSymbol_t* sym = vm->symbols;
+    while (sym)
+    {
+        vmSymbol_t* next = sym->next;
+        Com_free(sym, NULL, VM_ALLOC_TYPE_MAX);
+        sym = next;
     }
 
     if (vm->callLevel)
@@ -536,60 +556,19 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
     Com_Memcpy(vm->dataBase + dest, vm->dataBase + src, n);
 }
 
-void VM_Debug(int level)
-{
-    vm_debugLevel = level;
-}
-
 #ifdef DEBUG_VM
 const static char* opnames[256] = {
     "OP_UNDEF",
 
-    "OP_IGNORE",
-
-    "OP_BREAK",
-
-    "OP_ENTER", "OP_LEAVE", "OP_CALL", "OP_PUSH", "OP_POP",
-
-    "OP_CONST",
-
-    "OP_LOCAL",
-
-    "OP_JUMP",
-
-    //-------------------
-
-    "OP_EQ", "OP_NE",
-
-    "OP_LTI", "OP_LEI", "OP_GTI", "OP_GEI",
-
-    "OP_LTU", "OP_LEU", "OP_GTU", "OP_GEU",
-
-    "OP_EQF", "OP_NEF",
-
-    "OP_LTF", "OP_LEF", "OP_GTF", "OP_GEF",
-
-    //-------------------
-
-    "OP_LOAD1", "OP_LOAD2", "OP_LOAD4", "OP_STORE1", "OP_STORE2", "OP_STORE4",
-    "OP_ARG",
-
-    "OP_BLOCK_COPY",
-
-    //-------------------
-
-    "OP_SEX8", "OP_SEX16",
-
-    "OP_NEGI", "OP_ADD", "OP_SUB", "OP_DIVI", "OP_DIVU", "OP_MODI", "OP_MODU",
-    "OP_MULI", "OP_MULU",
-
-    "OP_BAND", "OP_BOR", "OP_BXOR", "OP_BCOM",
-
-    "OP_LSH", "OP_RSHI", "OP_RSHU",
-
-    "OP_NEGF", "OP_ADDF", "OP_SUBF", "OP_DIVF", "OP_MULF",
-
-    "OP_CVIF", "OP_CVFI"
+    "OP_IGNORE", "OP_BREAK", "OP_ENTER", "OP_LEAVE", "OP_CALL", "OP_PUSH",
+    "OP_POP", "OP_CONST", "OP_LOCAL", "OP_JUMP", "OP_EQ", "OP_NE", "OP_LTI",
+    "OP_LEI", "OP_GTI", "OP_GEI", "OP_LTU", "OP_LEU", "OP_GTU", "OP_GEU",
+    "OP_EQF", "OP_NEF", "OP_LTF", "OP_LEF", "OP_GTF", "OP_GEF", "OP_LOAD1",
+    "OP_LOAD2", "OP_LOAD4", "OP_STORE1", "OP_STORE2", "OP_STORE4", "OP_ARG",
+    "OP_BLOCK_COPY", "OP_SEX8", "OP_SEX16", "OP_NEGI", "OP_ADD", "OP_SUB",
+    "OP_DIVI", "OP_DIVU", "OP_MODI", "OP_MODU", "OP_MULI", "OP_MULU",
+    "OP_BAND", "OP_BOR", "OP_BXOR", "OP_BCOM", "OP_LSH", "OP_RSHI", "OP_RSHU",
+    "OP_NEGF", "OP_ADDF", "OP_SUBF", "OP_DIVF", "OP_MULF", "OP_CVIF", "OP_CVFI"
 };
 #endif
 
@@ -810,8 +789,6 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
     *(int*)&image[programStack + 4] = 0;  // return stack
     *(int*)&image[programStack]     = -1; // will terminate the loop on return
 
-    VM_Debug(0);
-
     // leave a free spot at start of stack so
     // that as long as opStack is valid, opStack-1 will
     // not corrupt anything
@@ -819,7 +796,6 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
     *opStack   = 0xDEADBEEF;
     opStackOfs = 0;
 
-    // vm_debugLevel=2;
     // main interpreter loop, will exit when a LEAVE instruction
     // grabs the -1 program counter
 
@@ -897,7 +873,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 
         if (vm_debugLevel > 1)
         {
-            Com_Printf("%s %s\n", DEBUGSTR, opnames[opcode]);
+            Com_Printf("%s%i %s\n", VM_Indent(vm), opStackOfs, opnames[opcode]);
         }
         profileSymbol->profileCount++;
 #endif /* DEBUG_VM */
@@ -974,44 +950,37 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             {
                 // system call
                 int r;
-//              int     temp;
 #ifdef DEBUG_VM
-                int stomped;
-
                 if (vm_debugLevel)
                 {
-                    Com_Printf("%s---> systemcall(%i)\n", DEBUGSTR,
-                               -1 - programCounter);
+                    Com_Printf("%s%i---> systemcall(%i)\n",
+                               VM_Indent(vm), opStackOfs, -1 - programCounter);
                 }
 #endif
                 // save the stack to allow recursive VM entry
-                //              temp = vm->callLevel;
                 vm->programStack = programStack - 4;
 #ifdef DEBUG_VM
-                stomped = *(int*)&image[programStack + 4];
+                int stomped = *(int*)&image[programStack + 4];
 #endif
                 *(int*)&image[programStack + 4] = -1 - programCounter;
 
-                // VM_LogSyscalls( (int *)&image[ programStack + 4 ] );
+                // the vm has ints on the stack, we expect
+                // pointers so we might have to convert it
+                if (sizeof(intptr_t) != sizeof(int))
                 {
-                    // the vm has ints on the stack, we expect
-                    // pointers so we might have to convert it
-                    if (sizeof(intptr_t) != sizeof(int))
+                    intptr_t argarr[MAX_VMSYSCALL_ARGS];
+                    int*     imagePtr = (int*)&image[programStack];
+                    int      i;
+                    for (i = 0; i < ARRAY_LEN(argarr); ++i)
                     {
-                        intptr_t argarr[MAX_VMSYSCALL_ARGS];
-                        int*     imagePtr = (int*)&image[programStack];
-                        int      i;
-                        for (i = 0; i < ARRAY_LEN(argarr); ++i)
-                        {
-                            argarr[i] = *(++imagePtr);
-                        }
-                        r = vm->systemCall(vm, argarr);
+                        argarr[i] = *(++imagePtr);
                     }
-                    else
-                    {
-                        intptr_t* argptr = (intptr_t*)&image[programStack + 4];
-                        r                = vm->systemCall(vm, argptr);
-                    }
+                    r = vm->systemCall(vm, argarr);
+                }
+                else
+                {
+                    intptr_t* argptr = (intptr_t*)&image[programStack + 4];
+                    r                = vm->systemCall(vm, argptr);
                 }
 
 #ifdef DEBUG_VM
@@ -1024,11 +993,10 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 opStackOfs++;
                 opStack[opStackOfs] = r;
                 programCounter      = *(int*)&image[programStack];
-//              vm->callLevel = temp;
 #ifdef DEBUG_VM
                 if (vm_debugLevel)
                 {
-                    Com_Printf("%s<--- %s\n", DEBUGSTR,
+                    Com_Printf("%s%i<--- %s\n", VM_Indent(vm), opStackOfs,
                                VM_ValueToSymbol(vm, programCounter));
                 }
 #endif
@@ -1054,20 +1022,19 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             opStackOfs--;
             DISPATCH();
         goto_OP_ENTER:
-#ifdef DEBUG_VM
-            profileSymbol = VM_ValueToFunctionSymbol(vm, programCounter);
-#endif
             // get size of stack frame
             v1 = r2;
 
             programCounter += 1;
             programStack -= v1;
 #ifdef DEBUG_VM
+            profileSymbol = VM_ValueToFunctionSymbol(vm, programCounter);
+            //
             // save old stack frame for debugging traces
             *(int*)&image[programStack + 4] = programStack + v1;
             if (vm_debugLevel)
             {
-                Com_Printf("%s---> %s\n", DEBUGSTR,
+                Com_Printf("%s%i---> %s\n", VM_Indent(vm), opStackOfs,
                            VM_ValueToSymbol(vm, programCounter - 5));
                 if (vm->breakFunction &&
                     programCounter - 5 == vm->breakFunction)
@@ -1075,10 +1042,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                     // this is to allow setting breakpoints here in the debugger
                     vm->breakCount++;
                     //                  vm_debugLevel = 2;
-                    //                  VM_StackTrace( vm, programCounter,
-                    //                  programStack );
+                    VM_StackTrace(vm, programCounter, programStack);
                 }
-                //              vm->callLevel++;
             }
 #endif
             DISPATCH();
@@ -1094,8 +1059,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             profileSymbol = VM_ValueToFunctionSymbol(vm, programCounter);
             if (vm_debugLevel)
             {
-                //              vm->callLevel--;
-                Com_Printf("%s<--- %s\n", DEBUGSTR,
+                Com_Printf("%s%i<--- %s\n", VM_Indent(vm), opStackOfs,
                            VM_ValueToSymbol(vm, programCounter));
             }
 #endif
@@ -1458,19 +1422,16 @@ done:
     return opStack[opStackOfs];
 }
 
-/* UNFINISHED DEBUG FUNCTIONS */
-/* -------------------------- */
+/* DEBUG FUNCTIONS */
+/* --------------- */
+
+void VM_Debug(int level)
+{
+    vm_debugLevel = level;
+}
 
 #ifdef DEBUG_VM
-
-/*
-vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
-int VM_SymbolToValue( vm_t *vm, const char *symbol );
-const char *VM_ValueToSymbol( vm_t *vm, int value );
-void VM_LogSyscalls( int *args );
-*/
-
-char* VM_Indent(vm_t* vm)
+static char* VM_Indent(vm_t* vm)
 {
     static char* string = "                                        ";
     if (vm->callLevel > 20)
@@ -1480,14 +1441,7 @@ char* VM_Indent(vm_t* vm)
     return string + 2 * (20 - vm->callLevel);
 }
 
-/*
-===============
-VM_ValueToSymbol
-
-Assumes a program counter value
-===============
-*/
-const char* VM_ValueToSymbol(vm_t* vm, int value)
+static const char* VM_ValueToSymbol(vm_t* vm, int value)
 {
     vmSymbol_t* sym;
     static char text[MAX_TOKEN_CHARS];
@@ -1514,14 +1468,7 @@ const char* VM_ValueToSymbol(vm_t* vm, int value)
     return text;
 }
 
-/*
-===============
-VM_ValueToFunctionSymbol
-
-For profiling, find the symbol behind this value
-===============
-*/
-vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value)
+static vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value)
 {
     vmSymbol_t*       sym;
     static vmSymbol_t nullSym;
@@ -1540,30 +1487,6 @@ vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value)
     return sym;
 }
 
-/*
-===============
-VM_SymbolToValue
-===============
-*/
-int VM_SymbolToValue(vm_t* vm, const char* symbol)
-{
-    vmSymbol_t* sym;
-
-    for (sym = vm->symbols; sym; sym = sym->next)
-    {
-        if (!strcmp(symbol, sym->symName))
-        {
-            return sym->symValue;
-        }
-    }
-    return 0;
-}
-
-/*
-===============
-ParseHex
-===============
-*/
 static int ParseHex(const char* text)
 {
     int value;
@@ -1592,7 +1515,7 @@ static int ParseHex(const char* text)
     return value;
 }
 
-void COM_StripExtension(const char* in, char* out)
+static void COM_StripExtension(const char* in, char* out)
 {
     while (*in && *in != '.')
     {
@@ -1601,12 +1524,172 @@ void COM_StripExtension(const char* in, char* out)
     *out = 0;
 }
 
-/*
-===============
-VM_LoadSymbols
-===============
-*/
-void VM_LoadSymbols(vm_t* vm)
+static uint8_t* loadImage(const char* filepath)
+{
+    FILE*    f;            /* input file */
+    uint8_t* image = NULL; /* buffer */
+    size_t   sz;           /* bytecode file size */
+
+    f = fopen(filepath, "rb");
+    if (!f)
+    {
+        return NULL;
+    }
+    /* calculate file size */
+    fseek(f, 0L, SEEK_END);
+    sz = ftell(f);
+    rewind(f);
+
+    image = (uint8_t*)Com_malloc(sz, NULL, VM_ALLOC_TYPE_MAX);
+    if (!image)
+    {
+        fclose(f);
+        return NULL;
+    }
+
+    if (fread(image, 1, sz, f) != sz)
+    {
+        Com_free(image, NULL, VM_ALLOC_TYPE_MAX);
+        fclose(f);
+        return NULL;
+    }
+
+    fclose(f);
+    return image;
+}
+
+static char* SkipWhitespace(char *data, int *hasNewLines)
+{
+    int c;
+
+    while( (c = *data) <= ' ') {
+        if( !c ) {
+            return NULL;
+        }
+        if( c == '\n' ) {
+            com_lines++;
+            *hasNewLines = 1;
+        }
+        data++;
+    }
+
+    return data;
+}
+
+static char* COM_Parse(char **data_p)
+{
+    int c = 0, len;
+    int hasNewLines = 0;
+    char *data;
+    int allowLineBreaks = 1;
+
+    data = *data_p;
+    len = 0;
+    com_token[0] = 0;
+    com_tokenline = 0;
+
+    // make sure incoming data is valid
+    if ( !data )
+    {
+        *data_p = NULL;
+        return com_token;
+    }
+
+    while ( 1 )
+    {
+        // skip whitespace
+        data = SkipWhitespace( data, &hasNewLines );
+        if ( !data )
+        {
+            *data_p = NULL;
+            return com_token;
+        }
+        if ( hasNewLines && !allowLineBreaks )
+        {
+            *data_p = data;
+            return com_token;
+        }
+
+        c = *data;
+
+        // skip double slash comments
+        if ( c == '/' && data[1] == '/' )
+        {
+            data += 2;
+            while (*data && *data != '\n') {
+                data++;
+            }
+        }
+        // skip /* */ comments
+        else if ( c=='/' && data[1] == '*' ) 
+        {
+            data += 2;
+            while ( *data && ( *data != '*' || data[1] != '/' ) ) 
+            {
+                if ( *data == '\n' )
+                {
+                    com_lines++;
+                }
+                data++;
+            }
+            if ( *data ) 
+            {
+                data += 2;
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // token starts on this line
+    com_tokenline = com_lines;
+
+    // handle quoted strings
+    if (c == '\"')
+    {
+        data++;
+        while (1)
+        {
+            c = *data++;
+            if (c=='\"' || !c)
+            {
+                com_token[len] = 0;
+                *data_p = ( char * ) data;
+                return com_token;
+            }
+            if ( c == '\n' )
+            {
+                com_lines++;
+            }
+            if (len < MAX_TOKEN_CHARS - 1)
+            {
+                com_token[len] = c;
+                len++;
+            }
+        }
+    }
+
+    // parse a regular word
+    do
+    {
+        if (len < MAX_TOKEN_CHARS - 1)
+        {
+            com_token[len] = c;
+            len++;
+        }
+        data++;
+        c = *data;
+    } while (c>32);
+
+    com_token[len] = 0;
+
+    *data_p = ( char * ) data;
+    return com_token;
+}
+
+static void VM_LoadSymbols(vm_t* vm)
 {
     union {
         char* c;
@@ -1622,9 +1705,11 @@ void VM_LoadSymbols(vm_t* vm)
     int          segment;
     int          numInstructions;
 
-    COM_StripExtension(vm->name, name, sizeof(name));
+    COM_StripExtension(vm->name, name);
     snprintf(symbols, sizeof(symbols), "%s.map", name);
-    FS_ReadFile(symbols, &mapfile.v);
+    Com_Printf("Loading symbol file: %s...\n", symbols);
+    mapfile.v = loadImage(symbols);
+
     if (!mapfile.c)
     {
         Com_Printf("Couldn't load symbol file: %s\n", symbols);
@@ -1668,7 +1753,7 @@ void VM_LoadSymbols(vm_t* vm)
             break;
         }
         chars     = strlen(token);
-        sym       = Hunk_Alloc(sizeof(*sym) + chars, h_high);
+        sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_TYPE_MAX);
         *prev     = sym;
         prev      = &sym->next;
         sym->next = NULL;
@@ -1687,10 +1772,21 @@ void VM_LoadSymbols(vm_t* vm)
 
     vm->numSymbols = count;
     Com_Printf("%i symbols parsed from %s\n", count, symbols);
-    FS_FreeFile(mapfile.v);
+    Com_free(mapfile.v, NULL, VM_ALLOC_TYPE_MAX);
 }
 
-//=================================================================
+static void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
+{
+    int count;
+
+    count = 0;
+    do
+    {
+        Com_Printf("%s\n", VM_ValueToSymbol(vm, programCounter));
+        programStack   = *(int*)&vm->dataBase[programStack + 4];
+        programCounter = *(int*)&vm->dataBase[programStack];
+    } while (programCounter != -1 && ++count < 32);
+}
 
 static int VM_ProfileSort(const void* a, const void* b)
 {
@@ -1710,32 +1806,23 @@ static int VM_ProfileSort(const void* a, const void* b)
     return 0;
 }
 
-/*
-==============
-VM_VmProfile_f
-
-==============
-*/
-void VM_VmProfile_f(void)
+void VM_VmProfile_f(const vm_t* vm)
 {
-    vm_t*        vm;
     vmSymbol_t **sorted, *sym;
     int          i;
     double       total;
 
-    if (!lastVM)
+    if (!vm)
     {
         return;
     }
-
-    vm = lastVM;
 
     if (vm->numSymbols < 1)
     {
         return;
     }
 
-    sorted    = Z_Malloc(vm->numSymbols * sizeof(*sorted));
+    sorted    = Com_malloc(vm->numSymbols * sizeof(*sorted), NULL, VM_ALLOC_TYPE_MAX);
     sorted[0] = vm->symbols;
     total     = sorted[0]->profileCount;
     for (i = 1; i < vm->numSymbols; i++)
@@ -1759,76 +1846,11 @@ void VM_VmProfile_f(void)
 
     Com_Printf("    %9.0f total\n", total);
 
-    Z_Free(sorted);
+    Com_free(sorted, NULL, VM_ALLOC_TYPE_MAX);
 }
-
-/*
-==============
-VM_VmInfo_f
-
-==============
-*/
-void VM_VmInfo_f(void)
+#else
+void VM_VmProfile_f(const vm_t* vm)
 {
-    vm_t* vm;
-    int   i;
-
-    Com_Printf("Registered virtual machines:\n");
-    for (i = 0; i < MAX_VM; i++)
-    {
-        vm = &vmTable[i];
-        if (!vm->name[0])
-        {
-            break;
-        }
-        Com_Printf("%s : ", vm->name);
-        if (vm->compiled)
-        {
-            Com_Printf("compiled on load\n");
-        }
-        else
-        {
-            Com_Printf("interpreted\n");
-        }
-        Com_Printf("    code length : %7i\n", vm->codeLength);
-        Com_Printf("    table length: %7i\n", vm->instructionCount * 4);
-        Com_Printf("    data length : %7i\n", vm->dataMask + 1);
-    }
+    (void)vm;
 }
-
-/*
-===============
-VM_LogSyscalls
-
-Insert calls to this while debugging the vm compiler
-===============
-*/
-void VM_LogSyscalls(int* args)
-{
-    static int   callnum;
-    static FILE* f;
-
-    if (!f)
-    {
-        f = fopen("syscalls.log", "w");
-    }
-    callnum++;
-    fprintf(f, "%i: %p (%i) = %i %i %i %i\n", callnum,
-            (void*)(args - (int*)currentVM->dataBase), args[0], args[1],
-            args[2], args[3], args[4]);
-}
-
-void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
-{
-    int count;
-
-    count = 0;
-    do
-    {
-        Com_Printf("%s\n", VM_ValueToSymbol(vm, programCounter));
-        programStack   = *(int*)&vm->dataBase[programStack + 4];
-        programCounter = *(int*)&vm->dataBase[programStack];
-    } while (programCounter != -1 && ++count < 32);
-}
-
 #endif

@@ -44,7 +44,7 @@ CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
-# CFLAGS += -Og -ggdb -fno-omit-frame-pointer
+# CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 CFLAGS += -O2
 
 # disable some warnings...

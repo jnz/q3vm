@@ -219,6 +219,15 @@ intptr_t VM_Call(vm_t* vm, int command, ...);
  * @return translated address. */
 void* VM_ArgPtr(intptr_t intValue, vm_t* vm);
 
+/** Print profile statistics. Only useful with #define DEBUG_VM.
+ * Does nothing if DEBUG_VM is not defined.
+ * @param[in] vm VM to profile */
+void VM_VmProfile_f(const vm_t* vm);
+
+/** Set the printf debug level. Only useful with #define DEBUG_VM.
+ * @param[in] level If level is 0: be quiet (default). */
+void VM_Debug(int level);
+
 /******************************************************************************
  * INLINE
  ******************************************************************************/

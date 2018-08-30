@@ -313,6 +313,15 @@ Run the following command to reformat a file according to the coding style:
 
     > clang-format -i -style=file input.c
 
+
+Debugging
+---------
+
+Build `vm.c` with `#define DEBUG_VM` in `vm.h` to enable more checks and debug
+functions. Call `VM_Debug(1)` or `VM_Debug(2)` to enable debug printfs.
+Call at the end of a session `VM_VmProfile_f(vm)` to see a VM usage summary.
+
+
 TODO
 ----
 
@@ -320,7 +329,7 @@ Known limitations, bugs, missing features:
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
- * Debug features (`DEBUG_VM`) are not working at the moment. Will be added later.
+ * `DEBUG_VM` builds are not thread-safe.
 
 LICENSE
 -------
