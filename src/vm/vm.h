@@ -25,10 +25,6 @@
  * PROJECT INCLUDE FILES
  ******************************************************************************/
 
-#ifdef VISUAL_STUDIO_PATCHES
-#include <vs_patches.h>
-#endif
-
 /******************************************************************************
  * DEFINES
  ******************************************************************************/
@@ -158,7 +154,7 @@ typedef struct vm_s
     int breakFunction; /**< Debug breakpoints: increment breakCount on function
                          entry to this */
     int breakCount;    /**< Used for breakpoints (triggered by OP_BREAK) */
-    vmErrorCode_t errno; /**< Last known error */
+    vmErrorCode_t lastError; /**< Last known error */
 } vm_t;
 
 /******************************************************************************
