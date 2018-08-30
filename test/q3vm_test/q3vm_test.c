@@ -53,14 +53,21 @@ void testArguments(void)
 {
     vm_t vm;
 
+    VM_ArgPtr(0, NULL);
+
     loadImage(NULL);
     loadImage("invalidpathfoobar");
+    VM_Create(NULL, NULL, NULL, NULL);
+    VM_Create(&vm, NULL, NULL, NULL);
     VM_Create(&vm, NULL, NULL, systemCalls);
     VM_Create(&vm, "test", NULL, systemCalls);
 
     uint8_t bogus[] = "bogusbogusbogus";
     VM_Create(&vm, "test", bogus, NULL);
     VM_Create(&vm, "test", bogus, systemCalls);
+
+    VM_Call(NULL, 0);
+
     VM_Free(NULL);
 
     vm.callLevel = 1;

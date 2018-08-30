@@ -401,21 +401,20 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
         Com_Error(VM_INVALID_POINTER, "Invalid vm pointer.\n");
         return -1;
     }
-    Com_Memset(vm, 0, sizeof(vm_t));
+    if (!systemCalls)
+    {
+        vm->lastError = VM_NO_SYSCALL_CALLBACK;
+        Com_Error(vm->lastError, "No systemcalls provided.\n");
+        return -1;
+    }
 
+    Com_Memset(vm, 0, sizeof(vm_t));
     Q_strncpyz(vm->name, name, sizeof(vm->name));
     header = VM_LoadQVM(vm, bytecode);
     if (!header)
     {
         vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
         Com_Error(vm->lastError, "Failed to load bytecode.\n");
-        return -1;
-    }
-
-    if (!systemCalls)
-    {
-        vm->lastError = VM_NO_SYSCALL_CALLBACK;
-        Com_Error(vm->lastError, "No systemcalls provided.\n");
         return -1;
     }
 
@@ -503,11 +502,6 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     {
         Com_Error(VM_INVALID_POINTER, "VM_Call with NULL vm");
         return -1;
-    }
-
-    if (vm_debugLevel)
-    {
-        Com_Printf("VM_Call( %d )\n", command);
     }
 
     args[0] = command;

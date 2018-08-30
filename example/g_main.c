@@ -37,3 +37,4 @@ void printf(const char* fmt, ...)
 
     trap_Printf(text);
 }
+

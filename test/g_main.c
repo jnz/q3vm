@@ -8,6 +8,9 @@ void printf(const char* fmt, ...);
   @return test number. */
 int testCase(const char* f);
 
+/* this call is supposed to fail */
+int badcall(int i);
+
 /*
 ================
 vmMain
@@ -59,6 +62,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
 
     printf(str, "World");
     trap_Error("Testing Error Callback\n");
+    badcall(9001);
 
     /* float */
     for (i = 0; i < 20000000; i++)
