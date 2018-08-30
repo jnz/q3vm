@@ -34,19 +34,18 @@ int testNominal(const char* filepath)
 
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
-        /* let's call with some unexpected arguments, we expect a -1 as a result
-         */
-        retVal = VM_Call(&vm, 0, 9001, -1000, 0);
+        /* normal call, should give us 0 */
+        retVal = VM_Call(&vm, 0);
         /* now do the proper call, this should give us 333 */
         retVal += VM_Call(&vm, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-        /* so now retVal should be 332 if everything is as expected */
-        printf("Result (should be 332): %i\n", retVal);
+        /* so now retVal should be 333 if everything is as expected */
+        printf("Result (should be 333): %i\n", retVal);
     }
 
     VM_Free(&vm);
-    free(image); /* we can release the memory now */
+    free(image);
 
-    return (retVal == 332) ? 0 : -1;
+    return (retVal == 333) ? 0 : -1;
 }
 
 void testArguments(void)

@@ -1,6 +1,11 @@
+#ifdef Q3_VM
 #include "bg_lib.h"
-
 void printf(const char* fmt, ...);
+#else
+#include <stdio.h>
+#include <string.h>
+#define trap_Error(x) printf("%s\n", x)
+#endif
 
 /** @brief Simple function to sum up character values.
   This is used for a test in the makefile.
@@ -52,14 +57,6 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     printf("arg11: %i\n", arg11);
     */
 
-    if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
-        arg5 != 5 || arg6 != 6 || arg7 != 7 || arg8 != 8 || arg9 != 9 ||
-        arg10 != 10 || arg11 != 11)
-    {
-        trap_Error("Argument test case: arguments invalid\n");
-        return -1;
-    }
-
     printf(str, "World");
     trap_Error("Testing Error Callback\n");
     badcall(9001);
@@ -82,7 +79,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     if (mem1[0] != 'H' || mem1[1] != 'e' || mem1[2] != 'l' || mem1[3] != 'l' ||
         mem1[4] != 'o' || mem1[5] != '\0' || mem1[6] != 0)
     {
-        printf("memcpy / memset error\n", f);
+        printf("memcpy / memset error\n");
         return -1;
     }
 
@@ -231,10 +228,29 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
     }
 
-    /* test host expects 333 as a return value */
-    return 333;
+    if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
+        arg5 != 5 || arg6 != 6 || arg7 != 7 || arg8 != 8 || arg9 != 9 ||
+        arg10 != 10 || arg11 != 11)
+    {
+        return 0;
+    }
+    else
+    {
+        return 333; /* test case expects 333 in this case */
+    }
 }
 
+#ifndef Q3_VM
+int main(int argc, char** argv)
+{
+    return vmMain(0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+}
+
+int badcall(int i)
+{
+    return 0;
+}
+#else
 void printf(const char* fmt, ...)
 {
     va_list argptr;
@@ -246,3 +262,4 @@ void printf(const char* fmt, ...)
 
     trap_Printf(text);
 }
+#endif
