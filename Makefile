@@ -99,6 +99,7 @@ test: $(TARGET) test/q3vm_test/q3vm_test test/test.qvm example/bytecode.qvm
 	@echo "Running "$@
 	./q3vm example/bytecode.qvm
 	./test/q3vm_test/q3vm_test test/test.qvm
+	./test/test_native
 
 dump: $(TARGET)
 	objdump -S --disassemble $(TARGET) > $(TARGET_BASE).dmp
