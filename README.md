@@ -322,6 +322,15 @@ Known limitations, bugs, missing features:
  * Some 16 bit int operations won't compile with LCC (op code not supported).
  * Debug features (`DEBUG_VM`) are not working at the moment. Will be added later.
 
+LICENSE
+-------
+
+See COPYING.txt for details on the license. Basically the Quake III Arena
+GPL 2 source code license has been inherited.
+
+Be aware that LCC has its own non-commercial license which is described in
+lcc/COPYRIGHT.
+
 Further information
 -------------------
 
