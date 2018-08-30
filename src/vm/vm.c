@@ -240,6 +240,8 @@ typedef enum {
  * LOCAL DATA DEFINITIONS
  ******************************************************************************/
 
+static int vm_debugLevel; /**< 0: be quiet, otherwise print informations */
+
 /******************************************************************************
  * LOCAL FUNCTION PROTOTYPES
  ******************************************************************************/
@@ -281,7 +283,6 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
 #ifdef DEBUG_VM
 #include <stdio.h> /* fopen to read symbols */
 /* WARNING: DEBUG_VM is not thread safe */
-static int vm_debugLevel = 0; /**< if 0, be quiet, otherwise emit printf informations */
 static char com_token[MAX_TOKEN_CHARS];
 static int com_lines;
 static int com_tokenline;
@@ -941,7 +942,6 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             {
                 // system call
                 int r;
-//              int     temp;
 #ifdef DEBUG_VM
                 if (vm_debugLevel)
                 {
@@ -1417,6 +1417,11 @@ done:
 /* DEBUG FUNCTIONS */
 /* --------------- */
 
+void VM_Debug(int level)
+{
+    vm_debugLevel = level;
+}
+
 #ifdef DEBUG_VM
 static char* VM_Indent(vm_t* vm)
 {
@@ -1694,7 +1699,7 @@ static void VM_LoadSymbols(vm_t* vm)
 
     COM_StripExtension(vm->name, name);
     snprintf(symbols, sizeof(symbols), "%s.map", name);
-    Com_Printf("Loading symbol file: %s\n", symbols);
+    Com_Printf("Loading symbol file: %s...\n", symbols);
     mapfile.v = loadImage(symbols);
 
     if (!mapfile.c)

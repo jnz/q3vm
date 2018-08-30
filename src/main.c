@@ -40,6 +40,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    VM_Debug(2);
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
         retVal = VM_Call(&vm, 0);
