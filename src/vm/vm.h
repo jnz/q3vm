@@ -9,6 +9,9 @@
    Quake III Arena Virtual Machine
 */
 
+#ifndef __Q3VM_H
+#define __Q3VM_H
+
 /******************************************************************************
  * SYSTEM INCLUDE FILES
  ******************************************************************************/
@@ -237,3 +240,5 @@ static ID_INLINE float _vmf(intptr_t x)
     fi.i = (int)x;
     return fi.f;
 }
+
+#endif /* __Q3VM_H */
