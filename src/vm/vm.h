@@ -29,7 +29,7 @@
  * DEFINES
  ******************************************************************************/
 
-#define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
+// #define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
 #define ID_INLINE inline /**< Mark function as inline */
 #define MAX_QPATH 64     /**< Maximum length of a pathname */
 
