@@ -29,7 +29,7 @@
  * DEFINES
  ******************************************************************************/
 
-// #define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
+#define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
 #define ID_INLINE inline /**< Mark function as inline */
 #define MAX_QPATH 64     /**< Maximum length of a pathname */
 
@@ -218,6 +218,10 @@ intptr_t VM_Call(vm_t* vm, int command, ...);
  * @param[in,out] vm Current VM
  * @return translated address. */
 void* VM_ArgPtr(intptr_t intValue, vm_t* vm);
+
+/** Print profile statistics. Only useful with #define DEBUG_VM.
+ * @param[in] vm VM to profile */
+void VM_VmProfile_f(const vm_t* vm);
 
 /******************************************************************************
  * INLINE

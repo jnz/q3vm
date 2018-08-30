@@ -321,6 +321,7 @@ Known limitations, bugs, missing features:
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
  * Some 16 bit int operations won't compile with LCC (op code not supported).
  * Debug features (`DEBUG_VM`) are not working at the moment. Will be added later.
+ * `DEBUG_VM` builds are not thread-safe.
 
 LICENSE
 -------
