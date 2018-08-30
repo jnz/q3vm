@@ -243,7 +243,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
 #ifndef Q3_VM
 int main(int argc, char** argv)
 {
-    return vmMain(0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+    return vmMain(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 int badcall(int i)
