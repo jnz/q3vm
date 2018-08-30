@@ -471,6 +471,14 @@ void VM_Free(vm_t* vm)
         return;
     }
 
+    vmSymbol_t* sym = vm->symbols;
+    while (sym)
+    {
+        vmSymbol_t* next = sym->next;
+        Com_free(sym, NULL, VM_ALLOC_TYPE_MAX);
+        sym = next;
+    }
+
     if (vm->callLevel)
     {
         vm->lastError = VM_FREE_ON_RUNNING_VM;
@@ -1745,7 +1753,6 @@ static void VM_LoadSymbols(vm_t* vm)
             break;
         }
         chars     = strlen(token);
-        // sym       = Hunk_Alloc(sizeof(*sym) + chars, h_high);
         sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_TYPE_MAX);
         *prev     = sym;
         prev      = &sym->next;
