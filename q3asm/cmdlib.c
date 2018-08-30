@@ -34,6 +34,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+#include <unistd.h>
+#endif
+
 #ifdef NeXT
 #include <libc.h>
 #endif
@@ -350,7 +354,7 @@ char* ExpandGamePath(const char* path)
 char* ExpandPathAndArchive(const char* path)
 {
     char* expanded;
-    char  archivename[1024];
+    char  archivename[2*1024+4];
 
     expanded = ExpandPath(path);
 

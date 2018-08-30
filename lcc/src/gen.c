@@ -292,7 +292,7 @@ static void dumptree(Node p) {
 			dumptree(p->kids[0]);
 			break;
 		}
-		/* else fall thru */
+		/* else fall through */
 	case EQ: case NE: case GT: case GE: case LE: case LT:
 	case ASGN: case BOR: case BAND: case BXOR: case RSH: case LSH:
 	case ADD: case SUB:  case DIV: case MUL: case MOD:
@@ -368,7 +368,7 @@ static unsigned emitasm(Node p, int nt) {
 void emit(Node p) {
 	for (; p; p = p->x.next) {
 		assert(p->x.registered);
-		if (p->x.equatable && requate(p) || moveself(p))
+		if ((p->x.equatable && requate(p)) || moveself(p))
 			;
 		else
 			(*emitter)(p, p->x.inst);
