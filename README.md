@@ -61,7 +61,7 @@ Call `VM_Create` and `VM_Call` to run the bytecode in your application:
     int result;
     
     VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
-    result = VM_Call(&vm, 0);
+    result = VM_Call(&vm, 12345);
     VM_Free(&vm);
     
 The `pointerToByteCodeBuffer` is some memory location where the bytecode is
@@ -69,15 +69,17 @@ located. You can e.g. load it from a file and store it in a byte array. See
 `main.c` for an example implementation.
 
 Data can be exchanged with the bytecode by the return value (result) and
-arguments to `VM_Call`. Here just a 0 is passed to the bytecode. It is up to
+arguments to `VM_Call`. Here just a 1234 is passed to the bytecode. It is up to
 the `vmMain` function in the bytecode what to do with that 0.  You can pass
 more (up to 12) optional arguments to the bytecode:
-`VM_Call(&vm, 0, 1, 2, 3, 4)`.
+e.g. `VM_Call(&vm, 0, 1, 2, 3, 4)`.
 
 The `sysCall` is a callback function that you define so that the interpreter
 can call native functions from your code. E.g. a logging function or some time
 critical function that you don't want to implement in the bytecode. Again,
-check `main.c` for an example.
+check `main.c` for an example. Also check the section *How to add a custom native function* for more information.
+
+A few callback functions are required, read the section *Callback functions required in host application* for more information.
 
 And normally you should also check if `VM_Create` returns 0 (i.e. everything is
 OK).
@@ -283,7 +285,7 @@ Edit `example/main.c` and add the function declaration:
 
     int stringToInt(const char* a);
 
-And call it somewhere from the main function:
+And call it somewhere from the `vmMain` function:
 
     char* myStr = "1234";
     printf("\"%s\" -> %i\n", myStr, stringToInt(myStr));
