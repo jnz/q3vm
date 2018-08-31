@@ -20,14 +20,14 @@ Features
 
  * Small and lightweight (one .c file to include without dependencies)
  * Battle-tested (20 years of use in Quake III Arena)
- * Forked from the well maintained ioquake3 code base
+ * VM forked from the well maintained ioquake3 code base
  * Tool tested (static code analysis, test coverage, Valgrind)
  * No need to learn a new scripting language (e.g. Lua)
  * Strong typing in the scripting language (C)
  * Static memory allocation in C, no unpredictable garbage collector
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
- * Computed gotos are used to speed up the interpreter if you compile with GCC
+ * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section)
 
 Use Cases
 ---------
@@ -320,6 +320,32 @@ Debugging
 Build `vm.c` with `#define DEBUG_VM` in `vm.h` to enable more checks and debug
 functions. Call `VM_Debug(1)` or `VM_Debug(2)` to enable debug printfs.
 Call at the end of a session `VM_VmProfile_f(vm)` to see a VM usage summary.
+
+Benchmarks
+----------
+
+Time to run `test/test.qvm`:
+
+
+| Interpreter          | Time     |
+|----------------------|----------|
+| Default Interpreter  |  3.063 s |
+| w. computed gotos    |  1.771 s |
+| Native executable    |  0.307 s |
+
+
+Environment:
+
+ * Ubuntu 17.10
+ * GCC: 7.2.0-8ubuntu3.2
+ * CPU: Intel(R) Core(TM) i5-3320M CPU @ 2.60GHz
+ * Version: 8e46048f475a53f99f9e6656e030835b6011f2ca
+ * Date: 2018.08.31
+
+Command line:
+
+    time ./q3vm test/test.qvm
+    time ./test/test_native
 
 
 TODO
