@@ -64,17 +64,18 @@ $(TARGET): $(OBJDIR) $(OBJS)
 	@echo 'Executable created: '$@
 
 # Optional: build g_main.c as native application for benchmarks
-$(TARGET_NATIVE): g_main.o
+$(TARGET_NATIVE): $(OBJDIR)/g_main.o
 	$(LINK_NATIVE) -o"$(TARGET_NATIVE)" $< $(LOCAL_LIBRARIES)
 	@echo 'Executable created: '$@
 
 $(OBJDIR)/g_main.o: g_main.c
-	$(CC) $(CFLAGS) -o $(OBJDIR)/g_main.o g_main.c
+	$(CC) $(CFLAGS) -c -o"$(OBJDIR)/g_main.o" "g_main.c"
 
 clean:
 	@echo 'Cleanup...'
 	$(CLEANUP) $(OBJDIR)/*.asm
 	$(CLEANUP) $(OBJDIR)/*.o
+	$(CLEANUP) $(OBJDIR)/*.d
 	$(CLEANUP) $(TARGET_BASE).map
 	$(CLEANUP) $(TARGET)
 	$(CLEANUP) $(TARGET_NATIVE)
