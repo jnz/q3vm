@@ -32,6 +32,7 @@ int testNominal(const char* filepath)
         return retVal;
     }
 
+    VM_Debug(1);
     if (VM_Create(&vm, filepath, image, systemCalls) == 0)
     {
         /* normal call, should give us 0 */
@@ -41,7 +42,7 @@ int testNominal(const char* filepath)
         /* so now retVal should be 333 if everything is as expected */
         printf("Result (should be 333): %i\n", retVal);
     }
-
+    VM_VmProfile_f(&vm);
     VM_Free(&vm);
     free(image);
 
@@ -171,7 +172,7 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         return 0;
 
     default:
-        fprintf(stderr, "Bad system call: %ld", (long int)args[0]);
+        fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);
     }
     return 0;
 }

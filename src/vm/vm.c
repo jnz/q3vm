@@ -283,20 +283,27 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
  ******************************************************************************/
 
 #ifdef DEBUG_VM
-#include <stdio.h> /* fopen to read symbols */
+#include <stdio.h>           /* fopen to read symbols */
 #define MAX_TOKEN_CHARS 1024 /**< max length of an individual token */
 /* WARNING: DEBUG_VM is not thread safe */
-static char com_token[MAX_TOKEN_CHARS];
-static int com_lines;
-static int com_tokenline;
-static int ParseHex(const char* text);
-static void COM_StripExtension(const char* in, char* out);
+static char com_token[MAX_TOKEN_CHARS]; /**< helper for COM_Parse */
+static int  com_lines;                  /**< helper for COM_Parse */
+static int  com_tokenline;              /**< helper for COM_Parse */
+static int ParseHex(const char* text);  /**< helper for VM_LoadSymbols */
+static void COM_StripExtension(const char* in,
+                               char* out); /**< helper for VM_LoadSymbols */
 static char* VM_Indent(vm_t* vm);
 /** For profiling, find the symbol behind this value */
-static vmSymbol_t *VM_ValueToFunctionSymbol( vm_t *vm, int value );
-static const char *VM_ValueToSymbol( vm_t *vm, int value );
+static vmSymbol_t* VM_ValueToFunctionSymbol(vm_t* vm, int value);
+static const char* VM_ValueToSymbol(vm_t* vm, int value);
+/** Load a .map file for the virtual machine. The .map file
+ * should have the same path as the .qvm file. */
 static void VM_LoadSymbols(vm_t* vm);
+/** Load the file into a malloc'd buffer.
+ * @param[in] filepath File to load.
+ * @return file content in buffer. Call Com_free() to cleanup. */
 static uint8_t* loadImage(const char* filepath);
+/** Print a stack trace on OP_ENTER if vm_debugLevel is > 0 */
 static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
 #endif
 
@@ -374,7 +381,7 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
 
 #ifdef DEBUG_VM
     // load the map file
-    VM_LoadSymbols( vm );
+    VM_LoadSymbols(vm);
 #endif
 
     // the stack is implicitly at the end of the image
@@ -474,7 +481,7 @@ void VM_Free(vm_t* vm)
     while (sym)
     {
         vmSymbol_t* next = sym->next;
-        Com_free(sym, NULL, VM_ALLOC_TYPE_MAX);
+        Com_free(sym, NULL, VM_ALLOC_DEBUG);
         sym = next;
     }
 
@@ -559,15 +566,18 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
 const static char* opnames[256] = {
     "OP_UNDEF",
 
-    "OP_IGNORE", "OP_BREAK", "OP_ENTER", "OP_LEAVE", "OP_CALL", "OP_PUSH",
-    "OP_POP", "OP_CONST", "OP_LOCAL", "OP_JUMP", "OP_EQ", "OP_NE", "OP_LTI",
-    "OP_LEI", "OP_GTI", "OP_GEI", "OP_LTU", "OP_LEU", "OP_GTU", "OP_GEU",
-    "OP_EQF", "OP_NEF", "OP_LTF", "OP_LEF", "OP_GTF", "OP_GEF", "OP_LOAD1",
-    "OP_LOAD2", "OP_LOAD4", "OP_STORE1", "OP_STORE2", "OP_STORE4", "OP_ARG",
-    "OP_BLOCK_COPY", "OP_SEX8", "OP_SEX16", "OP_NEGI", "OP_ADD", "OP_SUB",
-    "OP_DIVI", "OP_DIVU", "OP_MODI", "OP_MODU", "OP_MULI", "OP_MULU",
-    "OP_BAND", "OP_BOR", "OP_BXOR", "OP_BCOM", "OP_LSH", "OP_RSHI", "OP_RSHU",
-    "OP_NEGF", "OP_ADDF", "OP_SUBF", "OP_DIVF", "OP_MULF", "OP_CVIF", "OP_CVFI"
+    "OP_IGNORE", "OP_BREAK",  "OP_ENTER", "OP_LEAVE",      "OP_CALL",
+    "OP_PUSH",   "OP_POP",    "OP_CONST", "OP_LOCAL",      "OP_JUMP",
+    "OP_EQ",     "OP_NE",     "OP_LTI",   "OP_LEI",        "OP_GTI",
+    "OP_GEI",    "OP_LTU",    "OP_LEU",   "OP_GTU",        "OP_GEU",
+    "OP_EQF",    "OP_NEF",    "OP_LTF",   "OP_LEF",        "OP_GTF",
+    "OP_GEF",    "OP_LOAD1",  "OP_LOAD2", "OP_LOAD4",      "OP_STORE1",
+    "OP_STORE2", "OP_STORE4", "OP_ARG",   "OP_BLOCK_COPY", "OP_SEX8",
+    "OP_SEX16",  "OP_NEGI",   "OP_ADD",   "OP_SUB",        "OP_DIVI",
+    "OP_DIVU",   "OP_MODI",   "OP_MODU",  "OP_MULI",       "OP_MULU",
+    "OP_BAND",   "OP_BOR",    "OP_BXOR",  "OP_BCOM",       "OP_LSH",
+    "OP_RSHI",   "OP_RSHU",   "OP_NEGF",  "OP_ADDF",       "OP_SUBF",
+    "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI"
 };
 #endif
 
@@ -690,8 +700,9 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
             if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
             {
                 vm->lastError = VM_JUMP_TO_INVALID_INSTRUCTION;
-                Com_Error(vm->lastError, "VM_PrepareInterpreter: Jump to invalid "
-                                     "instruction number");
+                Com_Error(vm->lastError,
+                          "VM_PrepareInterpreter: Jump to invalid "
+                          "instruction number");
                 return -1;
             }
 
@@ -952,8 +963,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 #ifdef DEBUG_VM
                 if (vm_debugLevel)
                 {
-                    Com_Printf("%s%i---> systemcall(%i)\n",
-                               VM_Indent(vm), opStackOfs, -1 - programCounter);
+                    Com_Printf("%s%i---> systemcall(%i)\n", VM_Indent(vm),
+                               opStackOfs, -1 - programCounter);
                 }
 #endif
                 // save the stack to allow recursive VM entry
@@ -1539,7 +1550,7 @@ static uint8_t* loadImage(const char* filepath)
     sz = ftell(f);
     rewind(f);
 
-    image = (uint8_t*)Com_malloc(sz, NULL, VM_ALLOC_TYPE_MAX);
+    image = (uint8_t*)Com_malloc(sz, NULL, VM_ALLOC_DEBUG);
     if (!image)
     {
         fclose(f);
@@ -1548,7 +1559,7 @@ static uint8_t* loadImage(const char* filepath)
 
     if (fread(image, 1, sz, f) != sz)
     {
-        Com_free(image, NULL, VM_ALLOC_TYPE_MAX);
+        Com_free(image, NULL, VM_ALLOC_DEBUG);
         fclose(f);
         return NULL;
     }
@@ -1557,15 +1568,18 @@ static uint8_t* loadImage(const char* filepath)
     return image;
 }
 
-static char* SkipWhitespace(char *data, int *hasNewLines)
+static char* SkipWhitespace(char* data, int* hasNewLines)
 {
     int c;
 
-    while( (c = *data) <= ' ') {
-        if( !c ) {
+    while ((c = *data) <= ' ')
+    {
+        if (!c)
+        {
             return NULL;
         }
-        if( c == '\n' ) {
+        if (c == '\n')
+        {
             com_lines++;
             *hasNewLines = 1;
         }
@@ -1575,35 +1589,35 @@ static char* SkipWhitespace(char *data, int *hasNewLines)
     return data;
 }
 
-static char* COM_Parse(char **data_p)
+static char* COM_Parse(char** data_p)
 {
-    int c = 0, len;
-    int hasNewLines = 0;
-    char *data;
-    int allowLineBreaks = 1;
+    int   c           = 0, len;
+    int   hasNewLines = 0;
+    char* data;
+    int   allowLineBreaks = 1;
 
-    data = *data_p;
-    len = 0;
-    com_token[0] = 0;
+    data          = *data_p;
+    len           = 0;
+    com_token[0]  = 0;
     com_tokenline = 0;
 
     // make sure incoming data is valid
-    if ( !data )
+    if (!data)
     {
         *data_p = NULL;
         return com_token;
     }
 
-    while ( 1 )
+    while (1)
     {
         // skip whitespace
-        data = SkipWhitespace( data, &hasNewLines );
-        if ( !data )
+        data = SkipWhitespace(data, &hasNewLines);
+        if (!data)
         {
             *data_p = NULL;
             return com_token;
         }
-        if ( hasNewLines && !allowLineBreaks )
+        if (hasNewLines && !allowLineBreaks)
         {
             *data_p = data;
             return com_token;
@@ -1612,26 +1626,27 @@ static char* COM_Parse(char **data_p)
         c = *data;
 
         // skip double slash comments
-        if ( c == '/' && data[1] == '/' )
+        if (c == '/' && data[1] == '/')
         {
             data += 2;
-            while (*data && *data != '\n') {
+            while (*data && *data != '\n')
+            {
                 data++;
             }
         }
         // skip /* */ comments
-        else if ( c=='/' && data[1] == '*' ) 
+        else if (c == '/' && data[1] == '*')
         {
             data += 2;
-            while ( *data && ( *data != '*' || data[1] != '/' ) ) 
+            while (*data && (*data != '*' || data[1] != '/'))
             {
-                if ( *data == '\n' )
+                if (*data == '\n')
                 {
                     com_lines++;
                 }
                 data++;
             }
-            if ( *data ) 
+            if (*data)
             {
                 data += 2;
             }
@@ -1652,13 +1667,13 @@ static char* COM_Parse(char **data_p)
         while (1)
         {
             c = *data++;
-            if (c=='\"' || !c)
+            if (c == '\"' || !c)
             {
                 com_token[len] = 0;
-                *data_p = ( char * ) data;
+                *data_p        = (char*)data;
                 return com_token;
             }
-            if ( c == '\n' )
+            if (c == '\n')
             {
                 com_lines++;
             }
@@ -1680,11 +1695,11 @@ static char* COM_Parse(char **data_p)
         }
         data++;
         c = *data;
-    } while (c>32);
+    } while (c > 32);
 
     com_token[len] = 0;
 
-    *data_p = ( char * ) data;
+    *data_p = (char*)data;
     return com_token;
 }
 
@@ -1752,7 +1767,7 @@ static void VM_LoadSymbols(vm_t* vm)
             break;
         }
         chars     = strlen(token);
-        sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_TYPE_MAX);
+        sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_DEBUG);
         *prev     = sym;
         prev      = &sym->next;
         sym->next = NULL;
@@ -1771,7 +1786,7 @@ static void VM_LoadSymbols(vm_t* vm)
 
     vm->numSymbols = count;
     Com_Printf("%i symbols parsed from %s\n", count, symbols);
-    Com_free(mapfile.v, NULL, VM_ALLOC_TYPE_MAX);
+    Com_free(mapfile.v, NULL, VM_ALLOC_DEBUG);
 }
 
 static void VM_StackTrace(vm_t* vm, int programCounter, int programStack)
@@ -1821,7 +1836,7 @@ void VM_VmProfile_f(const vm_t* vm)
         return;
     }
 
-    sorted    = Com_malloc(vm->numSymbols * sizeof(*sorted), NULL, VM_ALLOC_TYPE_MAX);
+    sorted = Com_malloc(vm->numSymbols * sizeof(*sorted), NULL, VM_ALLOC_DEBUG);
     sorted[0] = vm->symbols;
     total     = sorted[0]->profileCount;
     for (i = 1; i < vm->numSymbols; i++)
@@ -1845,7 +1860,7 @@ void VM_VmProfile_f(const vm_t* vm)
 
     Com_Printf("    %9.0f total\n", total);
 
-    Com_free(sorted, NULL, VM_ALLOC_TYPE_MAX);
+    Com_free(sorted, NULL, VM_ALLOC_DEBUG);
 }
 #else
 void VM_VmProfile_f(const vm_t* vm)

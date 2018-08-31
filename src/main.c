@@ -119,6 +119,7 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
     case -1: /* PRINTF */
         printf("%s", (const char*)VMA(1, vm));
         return 0;
+
     case -2: /* ERROR */
         fprintf(stderr, "%s", (const char*)VMA(1, vm));
         return 0;
@@ -132,7 +133,7 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         return 0;
 
     default:
-        fprintf(stderr, "Bad system call: %ld", (long int)args[0]);
+        fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);
     }
     return 0;
 }

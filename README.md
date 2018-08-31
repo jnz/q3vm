@@ -320,7 +320,10 @@ Debugging
 ---------
 
 Build `vm.c` with `#define DEBUG_VM` in `vm.h` to enable more checks and debug
-functions. Call `VM_Debug(1)` or `VM_Debug(2)` to enable debug printfs.
+functions. Call `VM_Debug(1)` or `VM_Debug(2)` to enable debug printfs.  This
+requires the symbol file of the `.qvm`: the `.map` file in the same directory
+as the `.qvm`. The `.map` file is automatically generated for each `.qvm`.
+
 Call at the end of a session `VM_VmProfile_f(vm)` to see a VM usage summary.
 
 Benchmarks
