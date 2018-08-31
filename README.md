@@ -355,8 +355,9 @@ Command line:
 Version History
 ---------------
 
-v1.2 - Debug features enabled (compile with `-DDEBUG_VM`)
-v1.1 - LCC from ioquake3 added
+ * v1.2 - Debug features enabled (compile with `-DDEBUG_VM`)
+
+ * v1.1 - LCC from ioquake3 added
 
 TODO
 ----
