@@ -229,6 +229,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     }
 
 #ifdef Q3_VM
+    printf(str, "Trying to copy outside of vm sandbox:\n");
     memcpy(mem1, mem2, 1000000); /* try to escape the sandbox */
 #endif
     if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
