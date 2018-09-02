@@ -53,7 +53,9 @@ void testArguments(void)
 {
     vm_t vm;
 
-    VM_ArgPtr(0, NULL);
+    VM_ArgPtr(0, NULL, sizeof(int));
+    vm.dataMask = 128;
+    VM_ArgPtr(1, &vm, 256);
 
     loadImage(NULL);
     loadImage("invalidpathfoobar");

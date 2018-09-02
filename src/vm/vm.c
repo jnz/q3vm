@@ -338,13 +338,13 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
 
     if (!vm)
     {
-        Com_Error(VM_INVALID_POINTER, "Invalid vm pointer.\n");
+        Com_Error(VM_INVALID_POINTER, "Invalid vm pointer");
         return -1;
     }
     if (!systemCalls)
     {
         vm->lastError = VM_NO_SYSCALL_CALLBACK;
-        Com_Error(vm->lastError, "No systemcalls provided.\n");
+        Com_Error(vm->lastError, "No systemcalls provided");
         return -1;
     }
 
@@ -354,7 +354,7 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     if (!header)
     {
         vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
-        Com_Error(vm->lastError, "Failed to load bytecode.\n");
+        Com_Error(vm->lastError, "Failed to load bytecode");
         return -1;
     }
 
@@ -508,13 +508,18 @@ void VM_Free(vm_t* vm)
     Com_Memset(vm, 0, sizeof(*vm));
 }
 
-void* VM_ArgPtr(intptr_t intValue, vm_t* vm)
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm, size_t len)
 {
-    if (!intValue || vm == NULL)
+    const unsigned dest = vmAddr;
+    const unsigned dataMask = vm->dataMask;
+
+    if (!vmAddr || vm == NULL ||
+       ((dest + len) & dataMask) != dest + len)
     {
+        Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
         return NULL;
     }
-    return (void*)(vm->dataBase + (intValue & vm->dataMask));
+    return (void*)(vm->dataBase + (vmAddr & vm->dataMask));
 }
 
 intptr_t VM_Call(vm_t* vm, int command, ...)
@@ -555,7 +560,7 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
         ((src + n) & dataMask) != src + n)
     {
         vm->lastError = VM_BLOCKCOPY_OUT_OF_RANGE;
-        Com_Error(vm->lastError, "OP_BLOCK_COPY out of range!");
+        Com_Error(vm->lastError, "OP_BLOCK_COPY out of range");
         return;
     }
 

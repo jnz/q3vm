@@ -123,11 +123,11 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         return fprintf(stderr, "%s", (const char*)VMA(1, vm));
 
     case -3: /* MEMSET */
-        memset(VMA(1, vm), args[2], args[3]);
+        memset(VMAX(1, vm, args[3]), args[2], args[3]);
         return args[1];
 
     case -4: /* MEMCPY */
-        memcpy(VMA(1, vm), VMA(2, vm), args[3]);
+        memcpy(VMAX(1, vm, args[3]), VMAX(2, vm, args[3]), args[3]);
         return args[1];
 
     default:

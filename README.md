@@ -256,6 +256,10 @@ machine address space, so we can't directly use that argument (`args[1]`) for
 the native call to `atoi`. There is a helper macro that will translate the
 address for use: `VMA`. We need to give `VMA` the pointer argument from the
 bytecode and the virtual machine context (`vm`) to translate it.
+The macro `VMAX` makes sure that a memory range is valid. This is e.g.
+important for the memcpy call, so that the VM cannot write outside of
+the sandbox memory.
+
 
     /* Call native functions from the bytecode: */
     intptr_t systemCalls(vm_t* vm, intptr_t* args)
@@ -271,11 +275,11 @@ bytecode and the virtual machine context (`vm`) to translate it.
             return fprintf(stderr, "%s", (const char*)VMA(1, vm));
     
         case -3: /* MEMSET */
-            memset(VMA(1, vm), args[2], args[3]);
+            memset(VMAX(1, vm, args[3]), args[2], args[3]);
             return args[1];
     
         case -4: /* MEMCPY */
-            memcpy(VMA(1, vm), VMA(2, vm), args[3]);
+            memcpy(VMAX(1, vm, args[3]), VMA(2, vm, args[3]), args[3]);
             return args[1];
 
         case -5: /* stringToInt */                             // < NEW
