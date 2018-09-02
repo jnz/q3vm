@@ -15,6 +15,10 @@ A lightweight (single file: `vm.c`) embeddable interpreter/Virtual Machine (VM) 
 
 Jan Zwiener, 2018. Mail: jan@zwiener.org
 
+Read the excellent introduction to the Q3VM by Fabien Sanglard:
+
+ * http://fabiensanglard.net/quake3/qvm.php
+
 Features
 --------
 
@@ -38,6 +42,22 @@ Use Cases
  * Learn about virtual machines in general, but directly have a C compiler available for the virtual machine
  * Sandbox for embedded applications, e.g. plug-ins for IoT applications on microcontrollers (bounded CPU time, bounded memory area, restrict access to peripheral devices)
  * There is also a historical value: learn about the Quake III engine
+
+Original comments by John Carmack
+---------------------------------
+
+John Carmack's .plan for Nov 03, 1998:
+
+*I had been working under the assumption that Java was the right way to go, but recently I reached a better conclusion.*
+*The programming language for QuakeArena mods is interpreted ANSI C. (well, I am dropping the double data type, but otherwise it should be pretty conformant)*
+*The game will have an interpreter for a virtual RISC-like CPU. This should have a minor speed benefit over a byte-coded, stack based java interpreter. Loads and stores are confined to a preset block of memory, and access to all external system facilities is done with system traps to the main game code, so it is completely secure.*
+*The tools necessary for building mods will all be freely available: a modified version of LCC and a new program called q3asm. LCC is a wonderful project - a cross platform, cross compiling ANSI C compiler done in under 20K lines of code. Anyone interested in compilers should pick up a copy of "A retargetable C compiler: design and implementation" by Fraser and Hanson.*
+*You can't link against any libraries, so every function must be resolved. Things like strcmp, memcpy, rand, etc. must all be implemented directly. I have code for all the ones I use, but some people may have to modify their coding styles or provide implementations for other functions.*
+*It is a fair amount of work to restructure all the interfaces to not share pointers between the system and the games, but it is a whole lot easier than porting everything to a new language. The client game code is about 10k lines, and the server game code is about 20k lines.*
+*The drawback is performance. It will probably perform somewhat like QC. Most of the heavy lifting is still done in the builtin functions for path tracing and world sampling, but you could still hurt yourself by looping over tons of objects every frame. Yes, this does mean more load on servers, but I am making some improvements in other parts that I hope will balance things to about the way Q2 was on previous generation hardware.*
+*There is also the amusing avenue of writing hand tuned virtual assembly assembly language for critical functions.*
+*I think this is The Right Thing.*
+
 
 Quick Intro
 -----------
@@ -69,17 +89,19 @@ located. You can e.g. load it from a file and store it in a byte array. See
 `main.c` for an example implementation.
 
 Data can be exchanged with the bytecode by the return value (result) and
-arguments to `VM_Call`. Here just a 1234 is passed to the bytecode. It is up to
-the `vmMain` function in the bytecode what to do with that 0.  You can pass
-more (up to 12) optional arguments to the bytecode:
+arguments to `VM_Call`. Here just a 12345 is passed to the bytecode. It is up
+to the `vmMain` function in the bytecode what to do with that 0.  You can pass
+more (up to 11) optional arguments to the bytecode:
 e.g. `VM_Call(&vm, 0, 1, 2, 3, 4)`.
 
 The `sysCall` is a callback function that you define so that the interpreter
 can call native functions from your code. E.g. a logging function or some time
 critical function that you don't want to implement in the bytecode. Again,
-check `main.c` for an example. Also check the section *How to add a custom native function* for more information.
+check `main.c` for an example. Also check the section *How to add a custom
+native function* for more information.
 
-A few callback functions are required, read the section *Callback functions required in host application* for more information.
+A few callback functions are required, read the section *Callback functions
+required in host application* for more information.
 
 And normally you should also check if `VM_Create` returns 0 (i.e. everything is
 OK).
@@ -219,7 +241,7 @@ How to add a custom native function
 Let's say we want to add a native function to convert a string to an integer:
 `stringToInt`.  We want to add the function to our virtual machine (step 1) and
 call it from our example code (step 2).  (Note: there is already the atoi function in
-the bytecode, but this is just an example on how to call atoi as a native
+the bytecode, but this is just an example on how to call `atoi` as a native
 function and deal with address translation) 
 
 
@@ -233,29 +255,39 @@ machine address space, so we can't directly use that argument (`args[1]`) for
 the native call to `atoi`. There is a helper macro that will translate the
 address for use: `VMA`. We need to give `VMA` the pointer argument from the
 bytecode and the virtual machine context (`vm`) to translate it.
+The macro `VMAX` makes sure that a memory range is valid. This is e.g.
+important for the memcpy call, so that the VM cannot write outside of
+the sandbox memory.
+
 
     /* Call native functions from the bytecode: */
     intptr_t systemCalls(vm_t* vm, intptr_t* args)
     {
-        int id = -1 - args[0];
+        const int id = -1 - args[0];
     
         switch (id)
         {
         case -1: /* PRINTF */
-            printf("%s", (const char*)VMA(1, vm));
-            return 0;
+            return printf("%s", (const char*)VMA(1, vm));
+
         case -2: /* ERROR */
-            fprintf(stderr, "%s", (const char*)VMA(1, vm));
-            return 0;
+            return fprintf(stderr, "%s", (const char*)VMA(1, vm));
     
         case -3: /* MEMSET */
-            memset(VMA(1, vm), args[2], args[3]);
-            return 0;
+            if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0)
+            {
+                memset(VMA(1, vm), args[2], args[3]);
+            }
+            return args[1];
     
         case -4: /* MEMCPY */
-            memcpy(VMA(1, vm), VMA(2, vm), args[3]);
-            return 0;
-
+            if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0 &&
+                VM_MemoryRangeValid(args[2]/*addr*/, args[3]/*len*/, vm) == 0)
+            {
+                memcpy(VMA(1, vm), VMA(2, vm), args[3]);
+            }
+            return args[1];
+    
         case -5: /* stringToInt */                             // < NEW
             return atoi(VMA(1, vm));                           // < NEW
     

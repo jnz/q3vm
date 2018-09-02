@@ -67,6 +67,7 @@ typedef enum {
     VM_STACK_MISALIGNED            = -9,
     VM_OP_LOAD4_MISALIGNED         = -10,
     VM_STACK_ERROR                 = -11,
+    VM_DATA_OUT_OF_RANGE           = -12,
 } vmErrorCode_t;
 
 /** VM alloc type */
@@ -214,11 +215,19 @@ void VM_Free(vm_t* vm);
  * @return Return value of the function call. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
-/**< Helper function for the VMA macro
- * @param[in] intValue argument id
+/**< Translate from virtual machine memory to real machine memory
+ * @param[in] vmAddr address in virtual machine memory
  * @param[in,out] vm Current VM
+ * @param[in] len Length in bytes
  * @return translated address. */
-void* VM_ArgPtr(intptr_t intValue, vm_t* vm);
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
+
+/**< Check if address + range in in the valid VM memory range.
+ * @param[in] vmAddr address in virtual machine memory
+ * @param[in] len Length in bytes
+ * @param[in] vm Current VM
+ * @return 0 if valid, -1 if invalid. */
+int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm);
 
 /** Print profile statistics. Only useful with #define DEBUG_VM.
  * Does nothing if DEBUG_VM is not defined.
