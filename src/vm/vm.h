@@ -41,9 +41,7 @@
 #define Com_Memcpy memcpy
 
 /** Translate pointer from VM memory to system memory */
-#define VMA(x, vm) VM_ArgPtr(args[x], vm, sizeof(int))
-/** Translate pointer + memory length from VM memory to system memory */
-#define VMAX(x, vm, len) VM_ArgPtr(args[x], vm, len)
+#define VMA(x, vm) VM_ArgPtr(args[x], vm)
 /** Get float argument in syscall (used in system calls) and
  * don't cast it. */
 #define VMF(x) _vmf(args[x])
@@ -222,7 +220,14 @@ intptr_t VM_Call(vm_t* vm, int command, ...);
  * @param[in,out] vm Current VM
  * @param[in] len Length in bytes
  * @return translated address. */
-void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm, size_t len);
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
+
+/**< Check if address + range in in the valid VM memory range.
+ * @param[in] vmAddr address in virtual machine memory
+ * @param[in] len Length in bytes
+ * @param[in] vm Current VM
+ * @return 0 if valid, -1 if invalid. */
+int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm);
 
 /** Print profile statistics. Only useful with #define DEBUG_VM.
  * Does nothing if DEBUG_VM is not defined.

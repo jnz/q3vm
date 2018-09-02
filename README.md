@@ -46,8 +46,7 @@ Use Cases
 Original comments by John Carmack
 ---------------------------------
 
-*John Carmack's .plan for Nov 03, 1998:*
-
+John Carmack's .plan for Nov 03, 1998:
 
 *I had been working under the assumption that Java was the right way to go, but recently I reached a better conclusion.*
 *The programming language for QuakeArena mods is interpreted ANSI C. (well, I am dropping the double data type, but otherwise it should be pretty conformant)*
@@ -56,7 +55,7 @@ Original comments by John Carmack
 *You can't link against any libraries, so every function must be resolved. Things like strcmp, memcpy, rand, etc. must all be implemented directly. I have code for all the ones I use, but some people may have to modify their coding styles or provide implementations for other functions.*
 *It is a fair amount of work to restructure all the interfaces to not share pointers between the system and the games, but it is a whole lot easier than porting everything to a new language. The client game code is about 10k lines, and the server game code is about 20k lines.*
 *The drawback is performance. It will probably perform somewhat like QC. Most of the heavy lifting is still done in the builtin functions for path tracing and world sampling, but you could still hurt yourself by looping over tons of objects every frame. Yes, this does mean more load on servers, but I am making some improvements in other parts that I hope will balance things to about the way Q2 was on previous generation hardware.*
-*There is also the amusing avenue of writing hand tuned virtual assembly assembly language for critical functions..*
+*There is also the amusing avenue of writing hand tuned virtual assembly assembly language for critical functions.*
 *I think this is The Right Thing.*
 
 
@@ -275,13 +274,20 @@ the sandbox memory.
             return fprintf(stderr, "%s", (const char*)VMA(1, vm));
     
         case -3: /* MEMSET */
-            memset(VMAX(1, vm, args[3]), args[2], args[3]);
+            if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0)
+            {
+                memset(VMA(1, vm), args[2], args[3]);
+            }
             return args[1];
     
         case -4: /* MEMCPY */
-            memcpy(VMAX(1, vm, args[3]), VMA(2, vm, args[3]), args[3]);
+            if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0 &&
+                VM_MemoryRangeValid(args[2]/*addr*/, args[3]/*len*/, vm) == 0)
+            {
+                memcpy(VMA(1, vm), VMA(2, vm), args[3]);
+            }
             return args[1];
-
+    
         case -5: /* stringToInt */                             // < NEW
             return atoi(VMA(1, vm));                           // < NEW
     

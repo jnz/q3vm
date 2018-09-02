@@ -508,18 +508,38 @@ void VM_Free(vm_t* vm)
     Com_Memset(vm, 0, sizeof(*vm));
 }
 
-void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm, size_t len)
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm)
 {
-    const unsigned dest = vmAddr;
-    const unsigned dataMask = vm->dataMask;
-
-    if (!vmAddr || vm == NULL ||
-       ((dest + len) & dataMask) != dest + len)
+    if (!vmAddr)
     {
-        Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
         return NULL;
     }
+    if (vm == NULL)
+    {
+        Com_Error(VM_INVALID_POINTER, "Invalid VM pointer");
+        return NULL;
+    }
+
     return (void*)(vm->dataBase + (vmAddr & vm->dataMask));
+}
+
+int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
+{
+    if (!vmAddr || !vm)
+    {
+        return -1;
+    }
+    const unsigned dest = vmAddr;
+    const unsigned dataMask = vm->dataMask;
+    if (((dest + len) & dataMask) != dest + len)
+    {
+        Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 intptr_t VM_Call(vm_t* vm, int command, ...)

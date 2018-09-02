@@ -228,6 +228,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
     }
 
+#ifdef Q3_VM
+    memcpy(mem1, mem2, 1000000); /* try to escape the sandbox */
+#endif
     if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
         arg5 != 5 || arg6 != 6 || arg7 != 7 || arg8 != 8 || arg9 != 9 ||
         arg10 != 10 || arg11 != 11)
