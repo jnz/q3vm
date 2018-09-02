@@ -112,25 +112,23 @@ uint8_t* loadImage(const char* filepath)
 /* Callback from the VM: system function call */
 intptr_t systemCalls(vm_t* vm, intptr_t* args)
 {
-    int id = -1 - args[0];
+    const int id = -1 - args[0];
 
     switch (id)
     {
     case -1: /* PRINTF */
-        printf("%s", (const char*)VMA(1, vm));
-        return 0;
+        return printf("%s", (const char*)VMA(1, vm));
 
     case -2: /* ERROR */
-        fprintf(stderr, "%s", (const char*)VMA(1, vm));
-        return 0;
+        return fprintf(stderr, "%s", (const char*)VMA(1, vm));
 
     case -3: /* MEMSET */
         memset(VMA(1, vm), args[2], args[3]);
-        return 0;
+        return args[1];
 
     case -4: /* MEMCPY */
         memcpy(VMA(1, vm), VMA(2, vm), args[3]);
-        return 0;
+        return args[1];
 
     default:
         fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);
