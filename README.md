@@ -255,7 +255,7 @@ machine address space, so we can't directly use that argument (`args[1]`) for
 the native call to `atoi`. There is a helper macro that will translate the
 address for use: `VMA`. We need to give `VMA` the pointer argument from the
 bytecode and the virtual machine context (`vm`) to translate it.
-The macro `VMAX` makes sure that a memory range is valid. This is e.g.
+The function `VM_MemoryRangeValid` makes sure that the memory range is valid. This is e.g.
 important for the memcpy call, so that the VM cannot write outside of
 the sandbox memory.
 
