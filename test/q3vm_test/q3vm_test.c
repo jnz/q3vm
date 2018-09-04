@@ -12,6 +12,8 @@
 #include "vm.h"
 #include <stdio.h>
 
+static int g_mallocFail = -1; /* if this is not -1, malloc will fail */
+
 /* The compiled bytecode calls native functions,
    defined in this file. */
 intptr_t systemCalls(vm_t* vm, intptr_t* args);
@@ -54,6 +56,8 @@ void testArguments(void)
     vm_t vm;
 
     VM_ArgPtr(0, NULL);
+    VM_ArgPtr(1, NULL);
+    VM_MemoryRangeValid(0, 0, NULL);
     loadImage(NULL);
     loadImage("invalidpathfoobar");
     VM_Create(NULL, NULL, NULL, NULL);
@@ -85,8 +89,18 @@ int main(int argc, char** argv)
 
     testArguments();
 
-    /* finally: test the normal case */
+    /* <malloc fail tests> */
+    for (int i=0;i<VM_ALLOC_TYPE_MAX-1;i++)
+    {
+        g_mallocFail = i;
+        testNominal(argv[1]);
+    }
+    g_mallocFail = -1;
+    /* </malloc fail tests> */
+    for (int i=0;i<VM_ALLOC_TYPE_MAX-1;i++)
+
     testNominal(NULL);
+    /* finally: test the normal case */
     return testNominal(argv[1]);
 }
 
@@ -100,6 +114,13 @@ void* Com_malloc(size_t size, vm_t* vm, vmMallocType_t type)
 {
     (void)vm;
     (void)type;
+    if (g_mallocFail != -1)
+    {
+        if (type == g_mallocFail)
+        {
+            return NULL;
+        }
+    }
     return malloc(size);
 }
 
