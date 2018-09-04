@@ -497,14 +497,6 @@ void VM_Free(vm_t* vm)
         return;
     }
 
-    vmSymbol_t* sym = vm->symbols;
-    while (sym)
-    {
-        vmSymbol_t* next = sym->next;
-        Com_free(sym, NULL, VM_ALLOC_DEBUG);
-        sym = next;
-    }
-
     if (vm->callLevel)
     {
         vm->lastError = VM_FREE_ON_RUNNING_VM;
@@ -527,6 +519,16 @@ void VM_Free(vm_t* vm)
         Com_free(vm->instructionPointers, vm, VM_ALLOC_INSTRUCTION_POINTERS);
         vm->instructionPointers = NULL;
     }
+
+#ifdef DEBUG_VM
+    vmSymbol_t* sym = vm->symbols;
+    while (sym)
+    {
+        vmSymbol_t* next = sym->next;
+        Com_free(sym, NULL, VM_ALLOC_DEBUG);
+        sym = next;
+    }
+#endif
 
     Com_Memset(vm, 0, sizeof(*vm));
 }
