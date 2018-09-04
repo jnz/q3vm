@@ -16,7 +16,7 @@ int testCase(const char* f);
 /* this call is supposed to fail */
 int badcall(int i);
 
-volatile int bssTest; /* don't initialize, should be zero */
+volatile int        bssTest;         /* don't initialize, should be zero */
 volatile static int dataTest = -999; /* don't change, should be 999 */
 
 /*

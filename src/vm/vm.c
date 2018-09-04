@@ -368,7 +368,8 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
         VM_ALLOC_INSTRUCTION_POINTERS);
     if (!vm->instructionPointers)
     {
-        Com_Error(VM_MALLOC_FAILED, "Instr. pointer malloc failed: out of memory?");
+        Com_Error(VM_MALLOC_FAILED,
+                  "Instr. pointer malloc failed: out of memory?");
         VM_Free(vm);
         return -1;
     }
@@ -551,10 +552,9 @@ int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
     {
         return -1;
     }
-    const unsigned dest = vmAddr;
+    const unsigned dest     = vmAddr;
     const unsigned dataMask = vm->dataMask;
-    if ((dest & dataMask) != dest ||
-        ((dest + len) & dataMask) != dest + len)
+    if ((dest & dataMask) != dest || ((dest + len) & dataMask) != dest + len)
     {
         Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
         return -1;
@@ -650,7 +650,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         vm->codeLength * 4, vm, VM_ALLOC_CODE_SEC); // we're now int aligned
     if (!vm->codeBase)
     {
-        Com_Error(VM_MALLOC_FAILED, "Data pointer malloc failed: out of memory?");
+        Com_Error(VM_MALLOC_FAILED,
+                  "Data pointer malloc failed: out of memory?");
         return -1;
     }
 
@@ -1821,12 +1822,13 @@ static void VM_LoadSymbols(vm_t* vm)
             Com_Printf("WARNING: incomplete line at end of file\n");
             break;
         }
-        chars     = strlen(token);
-        sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_DEBUG);
-        *prev     = sym;
+        chars = strlen(token);
+        sym   = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_DEBUG);
+        *prev = sym;
         if (!sym)
         {
-            Com_Error(VM_MALLOC_FAILED, "Sym. pointer malloc failed: out of memory?");
+            Com_Error(VM_MALLOC_FAILED,
+                      "Sym. pointer malloc failed: out of memory?");
             break;
         }
         Com_Memset(sym, 0, sizeof(*sym) + chars);
@@ -1900,7 +1902,8 @@ void VM_VmProfile_f(const vm_t* vm)
     sorted = Com_malloc(vm->numSymbols * sizeof(*sorted), NULL, VM_ALLOC_DEBUG);
     if (!sorted)
     {
-        Com_Error(VM_MALLOC_FAILED, "Symbol pointer malloc failed: out of memory?");
+        Com_Error(VM_MALLOC_FAILED,
+                  "Symbol pointer malloc failed: out of memory?");
         return;
     }
     sorted[0] = vm->symbols;
