@@ -24,7 +24,7 @@ Features
 
  * Small and lightweight (one .c file to include without dependencies)
  * Battle-tested (20 years of use in Quake III Arena)
- * VM forked from the well maintained ioquake3 code base
+ * VM and LCC forked from the well maintained ioquake3 code base
  * Tool tested (static code analysis, test coverage, Valgrind)
  * No need to learn a new scripting language (e.g. Lua)
  * Strong typing in the scripting language (C)
@@ -37,7 +37,7 @@ Use Cases
 ---------
 
  * Sandbox for code you don't fully trust (e.g. download the bytecode from a web server)
- * Mods for small hobby game engines
+ * Mods for hobby game engines
  * There are many virtual machines, but not many are so small, with strong typing and no garbage collector
  * Learn about virtual machines in general, but directly have a C compiler available for the virtual machine
  * Sandbox for embedded applications, e.g. plug-ins for IoT applications on microcontrollers (bounded CPU time, bounded memory area, restrict access to peripheral devices)
@@ -71,9 +71,10 @@ Run:
 
     > q3vm.exe bytecode.qvm
 
-The q3vm.exe standalone interpreter is not required. You can easily add the
-interpreter as a single .c file to your project (`vm.c` and the header `vm.h`).
-Call `VM_Create` and `VM_Call` to run the bytecode in your application:
+The q3vm.exe standalone interpreter is not required, it is more of a demo
+application.  You can easily add the interpreter as a single .c file to your
+project (`vm.c` and the header `vm.h`).  Call `VM_Create` and `VM_Call` to run
+the bytecode in your application:
 
     #include "vm.h"
 
@@ -90,8 +91,8 @@ located. You can e.g. load it from a file and store it in a byte array. See
 
 Data can be exchanged with the bytecode by the return value (result) and
 arguments to `VM_Call`. Here just a 12345 is passed to the bytecode. It is up
-to the `vmMain` function in the bytecode what to do with that 0.  You can pass
-more (up to 11) optional arguments to the bytecode:
+to the `vmMain` function in the bytecode what to do with that value.  You can pass
+more (up to 12) optional arguments to the bytecode:
 e.g. `VM_Call(&vm, 0, 1, 2, 3, 4)`.
 
 The `sysCall` is a callback function that you define so that the interpreter
@@ -242,7 +243,7 @@ Let's say we want to add a native function to convert a string to an integer:
 `stringToInt`.  We want to add the function to our virtual machine (step 1) and
 call it from our example code (step 2).  (Note: there is already the atoi function in
 the bytecode, but this is just an example on how to call `atoi` as a native
-function and deal with address translation) 
+function and deal with address translation).
 
 
 **Step 1)** Add the native function to the host application
@@ -352,7 +353,7 @@ Debugging
 ---------
 
 Build `vm.c` with `#define DEBUG_VM` in `vm.h` to enable more checks and debug
-functions. Call `VM_Debug(1)` or `VM_Debug(2)` to enable debug printfs.  This
+functions. Call `VM_Debug()` to enable debug printfs.  This
 requires the symbol file of the `.qvm`: the `.map` file in the same directory
 as the `.qvm`. The `.map` file is automatically generated for each `.qvm`.
 
