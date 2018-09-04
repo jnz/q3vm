@@ -476,6 +476,16 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
         *(int*)(vm->dataBase + i) = LittleLong(*(int*)(vm->dataBase + i));
     }
 
+#ifdef DEBUG_VM
+    Com_Printf("VM:\n");
+    Com_Printf(".code length: %6i bytes\n", header.h->codeLength);
+    Com_Printf(".data length: %6i bytes\n", header.h->dataLength);
+    Com_Printf(".lit  length: %6i bytes\n", header.h->litLength);
+    Com_Printf(".bss  length: %6i bytes\n", header.h->bssLength);
+    Com_Printf("Allocated memory for .data+.lit+.bss: %6i bytes\n",
+               vm->dataAlloc);
+#endif
+
     return header.h;
 }
 
