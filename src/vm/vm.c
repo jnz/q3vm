@@ -531,7 +531,8 @@ int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
     }
     const unsigned dest = vmAddr;
     const unsigned dataMask = vm->dataMask;
-    if (((dest + len) & dataMask) != dest + len)
+    if ((dest & dataMask) != dest ||
+        ((dest + len) & dataMask) != dest + len)
     {
         Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
         return -1;
