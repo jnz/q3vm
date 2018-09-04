@@ -16,8 +16,8 @@ int testCase(const char* f);
 /* this call is supposed to fail */
 int badcall(int i);
 
-static int bssTest; /* don't initialize, should be zero */
-static int dataTest = -999; /* don't change, should be 999 */
+volatile int bssTest; /* don't initialize, should be zero */
+volatile static int dataTest = -999; /* don't change, should be 999 */
 
 /*
 ================
@@ -232,12 +232,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     }
 
     /* test bss section: should be zero */
+    printf("bssTest: %i\n", bssTest);
     if (bssTest != 0)
     {
         return -1;
     }
 
     /* test data section: should be -999 */
+    printf("dataTest: %i\n", dataTest);
     if (dataTest != -999)
     {
         return -1;

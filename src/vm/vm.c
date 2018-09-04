@@ -462,6 +462,9 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
         Com_Error(VM_MALLOC_FAILED, "Data malloc failed: out of memory?\n");
         return NULL;
     }
+    /* make sure data section is always initialized with 0
+     * (bss would be enough) */
+    Com_Memset(vm->dataBase, 0, vm->dataAlloc);
 
     // copy the intialized data
     Com_Memcpy(vm->dataBase, (uint8_t*)header.h + header.h->dataOffset,
@@ -564,6 +567,7 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
         return -1;
     }
 
+    /* FIXME this is not nice. we should check the actual number of arguments */
     args[0] = command;
     va_start(ap, command);
     for (i = 1; i < ARRAY_LEN(args); i++)
@@ -1814,6 +1818,7 @@ static void VM_LoadSymbols(vm_t* vm)
             Com_Error(VM_MALLOC_FAILED, "Sym. pointer malloc failed: out of memory?");
             break;
         }
+        Com_Memset(sym, 0, sizeof(*sym) + chars);
         prev      = &sym->next;
         sym->next = NULL;
 
