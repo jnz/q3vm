@@ -366,6 +366,12 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     vm->instructionPointers = (intptr_t*)Com_malloc(
         vm->instructionCount * sizeof(*vm->instructionPointers), vm,
         VM_ALLOC_INSTRUCTION_POINTERS);
+    if (!vm->instructionPointers)
+    {
+        Com_Error(VM_MALLOC_FAILED, "Instr. pointer malloc failed: out of memory?");
+        VM_Free(vm);
+        return -1;
+    }
 
     // copy or compile the instructions
     vm->codeLength = header->codeLength;
@@ -375,6 +381,7 @@ int VM_Create(vm_t* vm, const char* name, uint8_t* bytecode,
     {
         if (VM_PrepareInterpreter(vm, header) != 0)
         {
+            VM_Free(vm);
             return -1;
         }
     }
@@ -450,10 +457,9 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     vm->dataAlloc = dataLength + 4;
     vm->dataBase  = (uint8_t*)Com_malloc(vm->dataAlloc, vm, VM_ALLOC_DATA_SEC);
     vm->dataMask  = dataLength - 1;
-
     if (vm->dataBase == NULL)
     {
-        Com_Printf("Out of memory\n");
+        Com_Error(VM_MALLOC_FAILED, "Data malloc failed: out of memory?\n");
         return NULL;
     }
 
@@ -495,14 +501,17 @@ void VM_Free(vm_t* vm)
     if (vm->codeBase)
     {
         Com_free(vm->codeBase, vm, VM_ALLOC_CODE_SEC);
+        vm->codeBase = NULL;
     }
     if (vm->dataBase)
     {
         Com_free(vm->dataBase, vm, VM_ALLOC_DATA_SEC);
+        vm->dataBase = NULL;
     }
     if (vm->instructionPointers)
     {
         Com_free(vm->instructionPointers, vm, VM_ALLOC_INSTRUCTION_POINTERS);
+        vm->instructionPointers = NULL;
     }
 
     Com_Memset(vm, 0, sizeof(*vm));
@@ -624,6 +633,12 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
 
     vm->codeBase = (uint8_t*)Com_malloc(
         vm->codeLength * 4, vm, VM_ALLOC_CODE_SEC); // we're now int aligned
+    if (!vm->codeBase)
+    {
+        Com_Error(VM_MALLOC_FAILED, "Data pointer malloc failed: out of memory?");
+        return -1;
+    }
+
     Com_Memcpy(vm->codeBase, (uint8_t*)header + header->codeOffset,
                vm->codeLength);
 
@@ -1794,6 +1809,11 @@ static void VM_LoadSymbols(vm_t* vm)
         chars     = strlen(token);
         sym       = Com_malloc(sizeof(*sym) + chars, NULL, VM_ALLOC_DEBUG);
         *prev     = sym;
+        if (!sym)
+        {
+            Com_Error(VM_MALLOC_FAILED, "Sym. pointer malloc failed: out of memory?");
+            break;
+        }
         prev      = &sym->next;
         sym->next = NULL;
 
@@ -1862,6 +1882,11 @@ void VM_VmProfile_f(const vm_t* vm)
     }
 
     sorted = Com_malloc(vm->numSymbols * sizeof(*sorted), NULL, VM_ALLOC_DEBUG);
+    if (!sorted)
+    {
+        Com_Error(VM_MALLOC_FAILED, "Symbol pointer malloc failed: out of memory?");
+        return;
+    }
     sorted[0] = vm->symbols;
     total     = sorted[0]->profileCount;
     for (i = 1; i < vm->numSymbols; i++)
