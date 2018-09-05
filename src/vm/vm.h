@@ -46,9 +46,6 @@
  * don't cast it. */
 #define VMF(x) _vmf(args[x])
 
-/** Define endianess of target platform */
-#define Q3VM_LITTLE_ENDIAN
-
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
