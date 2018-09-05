@@ -27,7 +27,7 @@ Features
  * VM and LCC forked from the well maintained ioquake3 code base
  * Tool tested (static code analysis, test coverage, Valgrind)
  * No need to learn a new scripting language (e.g. Lua)
- * Strong typing in the scripting language (C)
+ * Static type checking in the language (C)
  * Static memory allocation in C, no unpredictable garbage collector
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
