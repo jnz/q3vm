@@ -39,33 +39,13 @@
  * syscall number + 15 arguments */
 #define MAX_VMSYSCALL_ARGS 16
 
-/* Max number of arguments to pass from engine to vm's vmMain function.
+/** Max number of arguments to pass from engine to vm's vmMain function.
  * command number + 12 arguments */
 #define MAX_VMMAIN_ARGS 13
 
-#if defined(Q3VM_BIG_ENDIAN) && defined(Q3VM_LITTLE_ENDIAN)
-#error "Endianness defined as both big and little"
-#elif defined(Q3VM_BIG_ENDIAN)
-/** Helper function to swap bytes for the big endian version.
- * @param[in] l Input value
- * @return swapped output value. */
-static ID_INLINE int LongSwap(int l)
-{
-    uint8_t b1, b2, b3, b4;
-
-    b1 = l & 255;
-    b2 = (l >> 8) & 255;
-    b3 = (l >> 16) & 255;
-    b4 = (l >> 24) & 255;
-
-    return ((int)b1 << 24) + ((int)b2 << 16) + ((int)b3 << 8) + b4;
-}
-#define LittleLong(x) LongSwap(x)
-#elif defined(Q3VM_LITTLE_ENDIAN)
-#define LittleLong
-#else
-#error "Endianness not defined"
-#endif
+/** Macro to read little endian (from the .qvm file) to the native
+ * byte order */
+#define LittleLong(x) LittleEndianToHost((const uint8_t*)&(x))
 
 /* GCC can do computed gotos */
 #ifdef __GNUC__
@@ -278,6 +258,11 @@ static int VM_CallInterpreted(vm_t* vm, int* args);
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
                          vm_t* vm);
 
+/** Read a little endian value and convert it to host representation.
+ * @param[in] b Bytes
+ * @return (swapped) output value. */
+static ID_INLINE int LittleEndianToHost(const uint8_t b[4]);
+
 /******************************************************************************
  * DEBUG FUNCTIONS
  ******************************************************************************/
@@ -405,7 +390,7 @@ static vmHeader_t* VM_LoadQVM(vm_t* vm, uint8_t* bytecode)
     int i;
     union {
         vmHeader_t* h;
-        void*       v;
+        uint8_t*    v;
     } header;
 
     // load the image
@@ -613,6 +598,11 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
     Com_Memcpy(vm->dataBase + dest, vm->dataBase + src, n);
 }
 
+static ID_INLINE int LittleEndianToHost(const uint8_t b[4])
+{
+    return (b[0] << 0) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
+}
+
 #ifdef DEBUG_VM
 const static char* opnames[256] = {
     "OP_UNDEF",
@@ -631,13 +621,6 @@ const static char* opnames[256] = {
     "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI"
 };
 #endif
-
-static ID_INLINE int loadWord(void* addr)
-{
-    int word;
-    Com_Memcpy(&word, addr, 4);
-    return LittleLong(word);
-}
 
 static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
 {
@@ -710,7 +693,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_GTF:
         case OP_GEF:
         case OP_BLOCK_COPY:
-            codeBase[int_pc] = loadWord(&code[byte_pc]);
+            codeBase[int_pc] = LittleEndianToHost(&code[byte_pc]);
             byte_pc += 4;
             int_pc++;
             break;
