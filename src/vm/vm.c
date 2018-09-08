@@ -931,6 +931,12 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         switch (opcode)
 #endif /* !USE_COMPUTED_GOTOS */
         {
+#ifdef DEBUG_VM /* not for USE_COMPUTED_GOTOS: in DEBUG_VM it is switch/case */
+		default:
+            vm->lastError = VM_BAD_INSTRUCTION;
+            Com_Error(vm->lastError, "Bad VM instruction");
+			return -1;
+#endif
         goto_OP_BREAK:
             vm->breakCount++;
             DISPATCH2();
@@ -1872,7 +1878,7 @@ void VM_VmProfile_f(const vm_t* vm)
 {
     vmSymbol_t **sorted, *sym;
     int          i;
-    double       total;
+    float        total;
 
     if (!vm)
     {
@@ -1892,7 +1898,7 @@ void VM_VmProfile_f(const vm_t* vm)
         return;
     }
     sorted[0] = vm->symbols;
-    total     = sorted[0]->profileCount;
+    total     = (float)sorted[0]->profileCount;
     for (i = 1; i < vm->numSymbols; i++)
     {
         sorted[i] = sorted[i - 1]->next;
@@ -1907,7 +1913,7 @@ void VM_VmProfile_f(const vm_t* vm)
 
         sym = sorted[i];
 
-        perc = 100 * (float)sym->profileCount / total;
+        perc = (int)(100 * (float)sym->profileCount / total);
         Com_Printf("%2i%% %9i %s\n", perc, sym->profileCount, sym->symName);
         sym->profileCount = 0;
     }
