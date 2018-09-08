@@ -37,7 +37,7 @@ CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall
 CFLAGS += -O2
-CC=$(TOOLCHAIN)cc
+CC=$(TOOLCHAIN)gcc
 LINK_NATIVE := $(CC)
 LOCAL_LIBRARIES := -lm
 
