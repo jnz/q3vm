@@ -54,6 +54,9 @@
 #endif
 #endif
 
+#define OPCODE_TABLE_SIZE 64
+#define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
+
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
@@ -143,13 +146,16 @@ typedef enum {
     OP_MULF,
 
     OP_CVIF,
-    OP_CVFI
+    OP_CVFI,
+
+    OP_MAX /* make this the last item */
 } opcode_t;
 
 #ifndef USE_COMPUTED_GOTOS
 /* for the the computed gotos we need labels,
  * but for the normal switch case we need the cases */
-#define goto_OP_BREAK case OP_BREAK
+#define goto_OP_UNDEF case OP_UNDEF
+#define goto_OP_IGNORE case OP_IGNORE
 #define goto_OP_BREAK case OP_BREAK
 #define goto_OP_ENTER case OP_ENTER
 #define goto_OP_LEAVE case OP_LEAVE
@@ -604,7 +610,7 @@ static ID_INLINE int LittleEndianToHost(const uint8_t b[4])
 }
 
 #ifdef DEBUG_VM
-const static char* opnames[256] = {
+const static char* opnames[OPCODE_TABLE_SIZE] = {
     "OP_UNDEF",
 
     "OP_IGNORE", "OP_BREAK",  "OP_ENTER", "OP_LEAVE",      "OP_CALL",
@@ -618,7 +624,11 @@ const static char* opnames[256] = {
     "OP_DIVU",   "OP_MODI",   "OP_MODU",  "OP_MULI",       "OP_MULU",
     "OP_BAND",   "OP_BOR",    "OP_BXOR",  "OP_BCOM",       "OP_LSH",
     "OP_RSHI",   "OP_RSHU",   "OP_NEGF",  "OP_ADDF",       "OP_SUBF",
-    "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI"
+    "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI",
+    "OP_UNDEF",
+    "OP_UNDEF",
+    "OP_UNDEF",
+    "OP_UNDEF",
 };
 #endif
 
@@ -703,6 +713,12 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
             int_pc++;
             break;
         default:
+            if (op < 0 || op >= OP_MAX)
+            {
+                vm->lastError = VM_BAD_INSTRUCTION;
+                Com_Error(vm->lastError, "Bad VM instruction");
+                return -1;
+            }
             break;
         }
     }
@@ -854,9 +870,9 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 #define r2 codeImage[programCounter]
 
 #ifdef USE_COMPUTED_GOTOS
-    static const void* dispatch_table[] = {
-        &&goto_OP_LEAVE, /* OP_UNDEF */
-        &&goto_OP_LEAVE, /* OP_IGNORE */
+    static const void* dispatch_table[OPCODE_TABLE_SIZE] = {
+        &&goto_OP_UNDEF,
+        &&goto_OP_IGNORE,
         &&goto_OP_BREAK,  &&goto_OP_ENTER,  &&goto_OP_LEAVE,
         &&goto_OP_CALL,   &&goto_OP_PUSH,   &&goto_OP_POP,
         &&goto_OP_CONST,  &&goto_OP_LOCAL,  &&goto_OP_JUMP,
@@ -877,10 +893,14 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_NEGF,   &&goto_OP_ADDF,   &&goto_OP_SUBF,
         &&goto_OP_DIVF,   &&goto_OP_MULF,   &&goto_OP_CVIF,
         &&goto_OP_CVFI,
+        &&goto_OP_UNDEF, /* INVALID OP CODE */
+        &&goto_OP_UNDEF, /* INVALID OP CODE */
+        &&goto_OP_UNDEF, /* INVALID OP CODE */
+        &&goto_OP_UNDEF, /* INVALID OP CODE */
     };
 #define DISPATCH2()                                                            \
     opcode = codeImage[programCounter++];                                      \
-    goto* dispatch_table[opcode]
+    goto* dispatch_table[opcode & OPCODE_TABLE_MASK]
 #define DISPATCH()                                                             \
     r0 = opStack[opStackOfs];                                                  \
     r1 = opStack[(uint8_t)(opStackOfs - 1)];                                   \
@@ -924,19 +944,23 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 
         if (vm_debugLevel > 1)
         {
-            Com_Printf("%s%i %s\n", VM_Indent(vm), opStackOfs, opnames[opcode]);
+            Com_Printf("%s%i %s\n", VM_Indent(vm), opStackOfs,
+                       opnames[opcode & OPCODE_TABLE_MASK]);
         }
         profileSymbol->profileCount++;
 #endif /* DEBUG_VM */
         switch (opcode)
 #endif /* !USE_COMPUTED_GOTOS */
         {
-#ifdef DEBUG_VM /* not for USE_COMPUTED_GOTOS: in DEBUG_VM it is switch/case */
-		default:
+#ifdef DEBUG_VM
+        default: /* fall through */
+#endif
+        goto_OP_UNDEF:
             vm->lastError = VM_BAD_INSTRUCTION;
             Com_Error(vm->lastError, "Bad VM instruction");
-			return -1;
-#endif
+            return -1;
+        goto_OP_IGNORE:
+            DISPATCH2();
         goto_OP_BREAK:
             vm->breakCount++;
             DISPATCH2();
