@@ -66,6 +66,7 @@ typedef enum {
     VM_STACK_ERROR                 = -11,
     VM_DATA_OUT_OF_RANGE           = -12,
     VM_MALLOC_FAILED               = -13,
+    VM_BAD_INSTRUCTION             = -14,
 } vmErrorCode_t;
 
 /** VM alloc type */
