@@ -37,17 +37,7 @@ int testInject(const char* filepath, int offset, int opcode)
     fprintf(stderr, "Injecting wrong OP code %s at %i: %i\n",
             filepath, offset, opcode);
     image[offset] = opcode; /* INJECT */
-    VM_Debug(1);
-    if (VM_Create(&vm, filepath, image, systemCalls) == 0)
-    {
-        /* normal call, should give us 0 */
-        retVal = VM_Call(&vm, 0);
-        /* now do the proper call, this should give us 333 */
-        retVal += VM_Call(&vm, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-        /* so now retVal should be 333 if everything is as expected */
-        printf("Result (should be 333): %i\n", retVal);
-    }
-    VM_VmProfile_f(&vm);
+    VM_Create(&vm, filepath, image, systemCalls);
     VM_Free(&vm);
     free(image);
 
