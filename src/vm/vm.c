@@ -25,13 +25,6 @@
  * DEFINES
  ******************************************************************************/
 
-/** File start magic number for .qvm files */
-#define VM_MAGIC 0x12721444
-
-/** Don't change stack size: Hardcoded in q3asm a reserved at end of bss */
-#define PROGRAM_STACK_SIZE 0x10000
-#define PROGRAM_STACK_MASK (PROGRAM_STACK_SIZE - 1)
-
 #define OPSTACK_SIZE 1024
 
 /** Max number of arguments to pass from a vm to engine's syscall handler
@@ -267,7 +260,14 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
 /** Read a little endian value and convert it to host representation.
  * @param[in] b Bytes
  * @return (swapped) output value. */
-static ID_INLINE int LittleEndianToHost(const uint8_t b[4]);
+inline int LittleEndianToHost(const uint8_t b[4])
+{
+    return (b[0] << 0) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
+}
+extern int LittleEndianToHost(const uint8_t b[4]);
+
+/** for the _vmf inline function _vmf in vm.h */
+extern float _vmf(intptr_t x);
 
 /******************************************************************************
  * DEBUG FUNCTIONS
@@ -602,11 +602,6 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
     }
 
     Com_Memcpy(vm->dataBase + dest, vm->dataBase + src, n);
-}
-
-static ID_INLINE int LittleEndianToHost(const uint8_t b[4])
-{
-    return (b[0] << 0) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 }
 
 #ifdef DEBUG_VM
