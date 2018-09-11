@@ -29,8 +29,14 @@
  * DEFINES
  ******************************************************************************/
 
+/** File start magic number for .qvm files */
+#define VM_MAGIC 0x12721444
+
+/** Don't change stack size: Hardcoded in q3asm a reserved at end of bss */
+#define PROGRAM_STACK_SIZE 0x10000
+#define PROGRAM_STACK_MASK (PROGRAM_STACK_SIZE - 1)
+
 // #define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
-#define ID_INLINE inline /**< Mark function as inline */
 #define MAX_QPATH 64     /**< Maximum length of a pathname */
 
 /** Redirect printf() calls with this macro */
@@ -244,7 +250,7 @@ void VM_Debug(int level);
 /** Helper function for VMF. Used for float arguments on system calls.
  * @param[in] x Argument on call stack.
  * @return Value as float. */
-static ID_INLINE float _vmf(intptr_t x)
+inline float _vmf(intptr_t x)
 {
     union {
         float    f;  /**< float IEEE 754 32-bit single */
