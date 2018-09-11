@@ -163,7 +163,7 @@ post-build:
 
 .FORCE:
 
-.PHONY: all test doxygen .FORCE
+.PHONY: all q3asm/q3asm$(TARGET_EXTENSION) $(LCCTOOLPATH)/lcc test analysis doxygen .FORCE
 
 .SECONDARY: post-build
 
