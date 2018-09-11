@@ -180,9 +180,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define PATH_SEP '/'
 
-#if !defined(ARCH_STRING)
-# error ARCH_STRING should be defined by the Makefile
-#endif
+#define ARCH_STRING "x86"
 
 #if defined __x86_64__
 #undef idx64
