@@ -215,7 +215,6 @@ intptr_t VM_Call(vm_t* vm, int command, ...);
 /** Translate from virtual machine memory to real machine memory
  * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
- * @param[in] len Length in bytes
  * @return translated address. */
 void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
 
@@ -227,12 +226,12 @@ void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
  * @return 0 if valid, -1 if invalid. */
 int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm);
 
-/** Print call statistics for every function. Only works with
- * #define DEBUG_VM. Does nothing if DEBUG_VM is not defined.
+/** Print call statistics for every function. Only works with DEBUG_VM.
+ * Does nothing if DEBUG_VM is not defined.
  * @param[in] vm VM to profile */
 void VM_VmProfile_f(const vm_t* vm);
 
-/** Set the printf debug level. Only useful with #define DEBUG_VM.
+/** Set the printf debug level. Only useful with DEBUG_VM.
  * Set to 1 for general informations and 2 to output every opcode name.
  * @param[in] level If level is 0: be quiet (default). */
 void VM_Debug(int level);

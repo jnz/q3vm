@@ -403,8 +403,8 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode,
     Com_Printf(".lit  length: %6i bytes\n", header->litLength);
     Com_Printf(".bss  length: %6i bytes\n", header->bssLength);
     Com_Printf("Stack size:   %6i bytes\n", PROGRAM_STACK_SIZE);
-    Com_Printf("Allocated memory:  %6i bytes\n", vm->dataAlloc);
-    Com_Printf("Instruction count: %6i\n", header->instructionCount);
+    Com_Printf("Allocated memory: %6i bytes\n", vm->dataAlloc);
+    Com_Printf("Instruction count: %i\n", header->instructionCount);
 #endif
 
     return 0;
