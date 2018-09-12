@@ -438,7 +438,9 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
 
         // validate
         if (header.h->bssLength < 0 || header.h->dataLength < 0 ||
-            header.h->litLength < 0 || header.h->codeLength <= 0)
+            header.h->litLength < 0 || header.h->codeLength <= 0 ||
+            header.h->codeOffset < 0 || header.h->dataOffset < 0 ||
+            header.h->instructionCount <= 0)
         {
             Com_Printf("Warning: %s has bad header\n", vm->name);
             return NULL;

@@ -83,18 +83,6 @@ typedef enum {
     VM_ALLOC_TYPE_MAX                  /**< Make this the last item */
 } vmMallocType_t;
 
-/** For debugging: symbols */
-typedef struct vmSymbol_s
-{
-    struct vmSymbol_s* next;     /**< Linked list of symbols */
-    int                symValue; /**< Value of symbol that we want to have the
-                                   ASCII name for */
-    int profileCount;            /**< For the runtime profiler. +1 for each
-                                   call. */
-    char symName[1];             /**< Variable sized symbol name. Space is
-                                   reserved by malloc at load time. */
-} vmSymbol_t;
-
 /** File header of a bytecode .qvm file. Can be directly mapped to the start of
  *  the file. */
 typedef struct
@@ -112,6 +100,18 @@ typedef struct
             litLength; /**< (dataLength-litLength) should be byteswapped on load */
     int32_t bssLength; /**< Zero filled memory appended to datalength */
 } vmHeader_t;
+
+/** For debugging: symbols */
+typedef struct vmSymbol_s
+{
+    struct vmSymbol_s* next;     /**< Linked list of symbols */
+    int                symValue; /**< Value of symbol that we want to have the
+                                   ASCII name for */
+    int profileCount;            /**< For the runtime profiler. +1 for each
+                                   call. */
+    char symName[1];             /**< Variable sized symbol name. Space is
+                                   reserved by malloc at load time. */
+} vmSymbol_t;
 
 /** Main struct (think of a kind of a main class) to keep all information of
  * the virtual machine together. Has pointer to the bytecode, the stack and
