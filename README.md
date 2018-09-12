@@ -110,18 +110,18 @@ OK).
 Folder structure
 ----------------
 
-    ├─ bin/
-    │  ├─ linux/        Target folder for Linux lcc and q3asm builds
+    ├─ bin/             LCC compiler and q3asm linker output binaries
+    │  ├─ linux/        Linux target folder for LCC compiler and q3asm linker
     │  └─ win32/        Precompiled lcc.exe and q3asm.exe for Windows
-    ├─ build/           Target folder for q3vm build
-    ├─ doxygen/         Doxygen config and output
-    ├─ example/         Example bytecode.qvm
+    ├─ build/           Temp. directory for object files
+    ├─ doxygen/         Doxygen config and API documentation output
+    ├─ example/         Example "hello world" firmware project (bytecode.qvm)
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
-    ├─ q3asm/           Link the LCC .asm to a .qvm bytecode file
-    ├─ src/             q3vm standalone application source code
+    ├─ q3asm/           Linker: link the LCC .asm files to a .qvm bytecode file
+    ├─ src/             q3vm standalone console application source code
     │  └─ vm/           The core VM source, copy that folder into your project
-    └─ test/            test bytecode qvm
+    └─ test/            Test environment
 
 API Documentation
 -----------------

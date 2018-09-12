@@ -16,14 +16,9 @@
  * SYSTEM INCLUDE FILES
  ******************************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
-
-/******************************************************************************
- * PROJECT INCLUDE FILES
- ******************************************************************************/
+#include <stdio.h> /* remove this if Com_Printf does not point to printf */
+#include <string.h> /* remove this if Com_Mem*** does not point to memcpy */
 
 /******************************************************************************
  * DEFINES
@@ -41,13 +36,16 @@
 
 /** Redirect printf() calls with this macro */
 #define Com_Printf printf
+
 /** Redirect memset() calls with this macro */
 #define Com_Memset memset
+
 /** Redirect memcpy() calls with this macro */
 #define Com_Memcpy memcpy
 
 /** Translate pointer from VM memory to system memory */
 #define VMA(x, vm) VM_ArgPtr(args[x], vm)
+
 /** Get float argument in syscall (used in system calls) and
  * don't cast it. */
 #define VMF(x) _vmf(args[x])
@@ -73,6 +71,7 @@ typedef enum {
     VM_DATA_OUT_OF_RANGE           = -12,
     VM_MALLOC_FAILED               = -13,
     VM_BAD_INSTRUCTION             = -14,
+    VM_NOT_LOADED                  = -15,
 } vmErrorCode_t;
 
 /** VM alloc type */
@@ -83,18 +82,6 @@ typedef enum {
     VM_ALLOC_DEBUG                = 3, /**< DEBUG_VM functions */
     VM_ALLOC_TYPE_MAX                  /**< Make this the last item */
 } vmMallocType_t;
-
-/** For debugging: symbols */
-typedef struct vmSymbol_s
-{
-    struct vmSymbol_s* next;     /**< Linked list of symbols */
-    int                symValue; /**< Value of symbol that we want to have the
-                                   ASCII name for */
-    int profileCount;            /**< For the runtime profiler. +1 for each
-                                   call. */
-    char symName[1];             /**< Variable sized symbol name. Space is
-                                   reserved by malloc at load time. */
-} vmSymbol_t;
 
 /** File header of a bytecode .qvm file. Can be directly mapped to the start of
  *  the file. */
@@ -113,6 +100,18 @@ typedef struct
             litLength; /**< (dataLength-litLength) should be byteswapped on load */
     int32_t bssLength; /**< Zero filled memory appended to datalength */
 } vmHeader_t;
+
+/** For debugging: symbols */
+typedef struct vmSymbol_s
+{
+    struct vmSymbol_s* next;     /**< Linked list of symbols */
+    int                symValue; /**< Value of symbol that we want to have the
+                                   ASCII name for */
+    int profileCount;            /**< For the runtime profiler. +1 for each
+                                   call. */
+    char symName[1];             /**< Variable sized symbol name. Space is
+                                   reserved by malloc at load time. */
+} vmSymbol_t;
 
 /** Main struct (think of a kind of a main class) to keep all information of
  * the virtual machine together. Has pointer to the bytecode, the stack and
@@ -135,32 +134,24 @@ typedef struct vm_s
 
     //------------------------------------
 
-    char  name[MAX_QPATH]; /** File name of the bytecode */
-    void* searchPath;      /** unused */
-
-    int currentlyInterpreting; /** Is the interpreter currently running? */
-
-    int      compiled; /** Is a JIT active? Otherwise interpreted */
-    uint8_t* codeBase; /** Bytecode code segment */
-    int      entryOfs; /** unused */
-    int      codeLength;
-
+    char      name[MAX_QPATH]; /** File name of the bytecode */
+    void*     searchPath;      /**< unused */
+    int       currentlyInterpreting; /**< Is the vm currently running? */
+    int       compiled; /**< Is a JIT active? Otherwise interpreted */
+    uint8_t*  codeBase; /**< Bytecode code segment */
+    int       entryOfs; /**< unused */
+    int       codeLength;
     intptr_t* instructionPointers;
     int       instructionCount;
-
-    uint8_t* dataBase;
-    int      dataMask;
-    int      dataAlloc; /**< Number of bytes allocated for dataBase */
-
-    int stackBottom; /**< If programStack < stackBottom, error */
-
-    int         numSymbols; /**< Number of loaded symbols */
-    vmSymbol_t* symbols;    /**< Loaded symbols for debugging */
-
-    int callLevel;     /**< Counts recursive VM_Call */
-    int breakFunction; /**< Debug breakpoints: increment breakCount on function
-                         entry to this */
-    int breakCount;    /**< Used for breakpoints (triggered by OP_BREAK) */
+    uint8_t*  dataBase;
+    int       dataMask;
+    int       dataAlloc;     /**< Number of bytes allocated for dataBase */
+    int       stackBottom;   /**< If programStack < stackBottom, error */
+    int       numSymbols;    /**< Number of loaded symbols */
+    vmSymbol_t* symbols;     /**< Loaded symbols for debugging */
+    int       callLevel;     /**< Counts recursive VM_Call */
+    int       breakFunction; /**< For debugging: break at this function */
+    int       breakCount;    /**< Used for breakpoints, triggered by OP_BREAK */
     vmErrorCode_t lastError; /**< Last known error */
 } vm_t;
 
@@ -206,7 +197,7 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type);
  *   g_syscalls.asm equals to 0 in the systemCall parms argument, -2 in
  *   g_syscalls.asm is 1 in parms, -3 is 2 and so on.
  * @return 0 if everything is OK. -1 if something went wrong. */
-int VM_Create(vm_t* vm, const char* module, uint8_t* bytecode,
+int VM_Create(vm_t* vm, const char* module, const uint8_t* bytecode,
               intptr_t (*systemCalls)(vm_t*, intptr_t*));
 
 /** Free the memory of the virtual machine.
@@ -214,32 +205,34 @@ int VM_Create(vm_t* vm, const char* module, uint8_t* bytecode,
 void VM_Free(vm_t* vm);
 
 /** Run a function from the virtual machine.
+ * Use the command argument to tell the VM what to do.
+ * You can supply additional (up to 12) parameters to pass to the bytecode.
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] command Basic parameter passed to the bytecode.
- * You can supply additional (up to 12) parameters to pass to the bytecode.
- * @return Return value of the function call. */
+ * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
-/**< Translate from virtual machine memory to real machine memory
- * @param[in] vmAddr address in virtual machine memory
+/** Translate from virtual machine memory to real machine memory
+ * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
- * @param[in] len Length in bytes
  * @return translated address. */
 void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
 
-/**< Check if address + range in in the valid VM memory range.
- * @param[in] vmAddr address in virtual machine memory
+/** Check if address + range in in the valid VM memory range.
+ * Use this function in the syscall callback to keep the VM in its sandbox.
+ * @param[in] vmAddr Address in virtual machine memory
  * @param[in] len Length in bytes
  * @param[in] vm Current VM
  * @return 0 if valid, -1 if invalid. */
 int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm);
 
-/** Print profile statistics. Only useful with #define DEBUG_VM.
+/** Print call statistics for every function. Only works with DEBUG_VM.
  * Does nothing if DEBUG_VM is not defined.
  * @param[in] vm VM to profile */
 void VM_VmProfile_f(const vm_t* vm);
 
-/** Set the printf debug level. Only useful with #define DEBUG_VM.
+/** Set the printf debug level. Only useful with DEBUG_VM.
+ * Set to 1 for general informations and 2 to output every opcode name.
  * @param[in] level If level is 0: be quiet (default). */
 void VM_Debug(int level);
 
@@ -257,7 +250,7 @@ inline float _vmf(intptr_t x)
         int32_t  i;  /**< int32 part */
         uint32_t ui; /**< unsigned int32 part */
     } fi;
-    fi.i = (int)x;
+    fi.i = (int32_t)x;
     return fi.f;
 }
 

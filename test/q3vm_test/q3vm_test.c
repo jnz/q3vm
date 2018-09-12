@@ -11,6 +11,7 @@
 
 #include "vm.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 static int g_mallocFail = -1; /* if this is not -1, malloc will fail */
 
@@ -36,12 +37,12 @@ int testInject(const char* filepath, int offset, int opcode)
 
     fprintf(stderr, "Injecting wrong OP code %s at %i: %i\n",
             filepath, offset, opcode);
-    image[offset] = opcode; /* INJECT */
-    VM_Create(&vm, filepath, image, systemCalls);
+    memcpy(&image[offset], &opcode, sizeof(opcode)); /* INJECT */
+    retVal = VM_Create(&vm, filepath, image, systemCalls);
     VM_Free(&vm);
     free(image);
 
-    return (retVal == 333) ? 0 : -1;
+    return (retVal == -1) ? 0 : -1;
 }
 
 
@@ -76,7 +77,10 @@ int testNominal(const char* filepath)
 
 void testArguments(void)
 {
-    vm_t vm;
+    vm_t vm = {0};
+
+    vm.codeLength = 0;
+    VM_Call(&vm, 0);
 
     VM_ArgPtr(0, NULL);
     VM_ArgPtr(1, NULL);
@@ -120,13 +124,13 @@ int main(int argc, char** argv)
     }
     g_mallocFail = -1;
     /* </malloc fail tests> */
-    for (int i=0;i<VM_ALLOC_TYPE_MAX-1;i++)
 
     testInject(NULL, 0, 0);
     testNominal(NULL);
     testInject(argv[1], 32, 0);
     testInject(argv[1], 32, 63);
     testInject(argv[1], 32, 65);
+    testInject(argv[1], 4, -1);
     /* finally: test the normal case */
     return testNominal(argv[1]);
 }

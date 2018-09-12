@@ -221,9 +221,13 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             f = 0.0f;
         }
-        if (f == 0.0f)
+        if (f == df)
         {
             f = -f;
+        }
+        else
+        {
+            f = 2*f;
         }
         if (f != 0.0f)
         {
