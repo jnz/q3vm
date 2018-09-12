@@ -21,10 +21,6 @@
 #include <string.h> /* remove this if Com_Mem*** does not point to memcpy */
 
 /******************************************************************************
- * PROJECT INCLUDE FILES
- ******************************************************************************/
-
-/******************************************************************************
  * DEFINES
  ******************************************************************************/
 
@@ -138,24 +134,24 @@ typedef struct vm_s
 
     //------------------------------------
 
-    char  name[MAX_QPATH]; /** File name of the bytecode */
-    void* searchPath;      /** unused */
-    int currentlyInterpreting; /** Is the interpreter currently running? */
-    int      compiled; /** Is a JIT active? Otherwise interpreted */
-    uint8_t* codeBase; /** Bytecode code segment */
-    int      entryOfs; /** unused */
-    int      codeLength;
+    char      name[MAX_QPATH]; /** File name of the bytecode */
+    void*     searchPath;      /**< unused */
+    int       currentlyInterpreting; /**< Is the vm currently running? */
+    int       compiled; /**< Is a JIT active? Otherwise interpreted */
+    uint8_t*  codeBase; /**< Bytecode code segment */
+    int       entryOfs; /**< unused */
+    int       codeLength;
     intptr_t* instructionPointers;
     int       instructionCount;
-    uint8_t* dataBase;
-    int      dataMask;
-    int      dataAlloc; /**< Number of bytes allocated for dataBase */
-    int stackBottom; /**< If programStack < stackBottom, error */
-    int         numSymbols; /**< Number of loaded symbols */
-    vmSymbol_t* symbols;    /**< Loaded symbols for debugging */
-    int callLevel;     /**< Counts recursive VM_Call */
-    int breakFunction; /**< For debugging: break at this function */
-    int breakCount;    /**< Used for breakpoints (triggered by OP_BREAK) */
+    uint8_t*  dataBase;
+    int       dataMask;
+    int       dataAlloc;     /**< Number of bytes allocated for dataBase */
+    int       stackBottom;   /**< If programStack < stackBottom, error */
+    int       numSymbols;    /**< Number of loaded symbols */
+    vmSymbol_t* symbols;     /**< Loaded symbols for debugging */
+    int       callLevel;     /**< Counts recursive VM_Call */
+    int       breakFunction; /**< For debugging: break at this function */
+    int       breakCount;    /**< Used for breakpoints, triggered by OP_BREAK */
     vmErrorCode_t lastError; /**< Last known error */
 } vm_t;
 
@@ -209,14 +205,15 @@ int VM_Create(vm_t* vm, const char* module, const uint8_t* bytecode,
 void VM_Free(vm_t* vm);
 
 /** Run a function from the virtual machine.
+ * Use the command argument to tell the VM what to do.
+ * You can supply additional (up to 12) parameters to pass to the bytecode.
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] command Basic parameter passed to the bytecode.
- * You can supply additional (up to 12) parameters to pass to the bytecode.
- * @return Return value of the function call. */
+ * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
 /** Translate from virtual machine memory to real machine memory
- * @param[in] vmAddr address in virtual machine memory
+ * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
  * @param[in] len Length in bytes
  * @return translated address. */
@@ -224,7 +221,7 @@ void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
 
 /** Check if address + range in in the valid VM memory range.
  * Use this function in the syscall callback to keep the VM in its sandbox.
- * @param[in] vmAddr address in virtual machine memory
+ * @param[in] vmAddr Address in virtual machine memory
  * @param[in] len Length in bytes
  * @param[in] vm Current VM
  * @return 0 if valid, -1 if invalid. */

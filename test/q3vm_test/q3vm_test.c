@@ -11,6 +11,7 @@
 
 #include "vm.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 static int g_mallocFail = -1; /* if this is not -1, malloc will fail */
 

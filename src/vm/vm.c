@@ -396,6 +396,17 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode,
     vm->programStack = vm->dataMask + 1;
     vm->stackBottom  = vm->programStack - PROGRAM_STACK_SIZE;
 
+#if 1
+    Com_Printf("VM:\n");
+    Com_Printf(".code length: %6i bytes\n", header->codeLength);
+    Com_Printf(".data length: %6i bytes\n", header->dataLength);
+    Com_Printf(".lit  length: %6i bytes\n", header->litLength);
+    Com_Printf(".bss  length: %6i bytes\n", header->bssLength);
+    Com_Printf("Stack size:   %6i bytes\n", PROGRAM_STACK_SIZE);
+    Com_Printf("Allocated memory:  %6i bytes\n", vm->dataAlloc);
+    Com_Printf("Instruction count: %6i\n", header->instructionCount);
+#endif
+
     return 0;
 }
 
@@ -474,14 +485,6 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
         *(int*)(vm->dataBase + i) = LittleLong(*(int*)(vm->dataBase + i));
     }
 
-    Com_Printf("VM:\n");
-    Com_Printf(".code length: %6i bytes\n", header.h->codeLength);
-    Com_Printf(".data length: %6i bytes\n", header.h->dataLength);
-    Com_Printf(".lit  length: %6i bytes\n", header.h->litLength);
-    Com_Printf(".bss  length: %6i bytes\n", header.h->bssLength);
-    Com_Printf("Allocated memory for .data+.lit+.bss: %6i bytes\n",
-               vm->dataAlloc);
-
     return header.h;
 }
 
@@ -501,6 +504,7 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     {
         vm->lastError = VM_NOT_LOADED;
         Com_Error(vm->lastError, "VM not loaded");
+        return -1;
     }
 
     /* FIXME this is not nice. we should check the actual number of arguments */
