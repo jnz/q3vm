@@ -43,7 +43,7 @@ CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -fno-common: This has the effect that if the same variable is declared (without extern) in two different compilations, you get a multiple-definition error when you link them
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
-CFLAGS += -Wall
+CFLAGS += -Wall -Wextra
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 CFLAGS += -O2
 

@@ -76,7 +76,10 @@ int testNominal(const char* filepath)
 
 void testArguments(void)
 {
-    vm_t vm;
+    vm_t vm = {0};
+
+    vm.codeLength = 0;
+    VM_Call(&vm, 0);
 
     VM_ArgPtr(0, NULL);
     VM_ArgPtr(1, NULL);
