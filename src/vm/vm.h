@@ -186,6 +186,7 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type);
  *                   symbols. Otherwise not strictly required.
  * @param[in] bytecode Pointer to the bytecode. Directly byte by byte
  *                     the content of the .qvm file.
+ * @param[in] length Length of the bytecode array.
  * @param[in] systemCalls Function pointer to callback function for native
  *   functions called by the bytecode. The function is identified by an integer
  *   id that corresponds to the bytecode function ids defined in g_syscalls.asm.
@@ -193,7 +194,8 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type);
  *   g_syscalls.asm equals to 0 in the systemCall parms argument, -2 in
  *   g_syscalls.asm is 1 in parms, -3 is 2 and so on.
  * @return 0 if everything is OK. -1 if something went wrong. */
-int VM_Create(vm_t* vm, const char* module, const uint8_t* bytecode,
+int VM_Create(vm_t* vm, const char* module,
+              const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*));
 
 /** Free the memory of the virtual machine.
@@ -208,13 +210,15 @@ void VM_Free(vm_t* vm);
  * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
-/** Translate from virtual machine memory to real machine memory
+/** Helper function for syscalls:
+ * Translate from virtual machine memory to real machine memory.
  * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
  * @return translated address. */
 void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
 
-/** Check if address + range in in the valid VM memory range.
+/** Helper function for syscalls:
+ * Check if address + range in in the valid VM memory range.
  * Use this function in the syscall callback to keep the VM in its sandbox.
  * @param[in] vmAddr Address in virtual machine memory
  * @param[in] len Length in bytes
