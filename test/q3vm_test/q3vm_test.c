@@ -112,7 +112,7 @@ void testArguments(void)
     vmHeader.dataLength = 2048;
     vmHeader.litLength = 0;
     vmHeader.bssLength = 256;
-    VM_Create(&vm, "test", &vmHeader,
+    VM_Create(&vm, "test", (uint8_t*)&vmHeader,
               vmHeader.dataOffset + vmHeader.dataLength + vmHeader.litLength - 1,
               systemCalls);
 
