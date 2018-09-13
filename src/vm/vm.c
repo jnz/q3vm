@@ -245,8 +245,10 @@ const static char* opnames[OPCODE_TABLE_SIZE] = {
  * Copy the data from the file input (bytecode) to the vm.
  * @param[in,out] vm Pointer to virtual machine, prepared by VM_Create.
  * @param[in] bytecode Pointer to bytecode.
+ * @param[in] length Number of bytes in bytecode array.
  * @return Pointer to start/header of vm bytecode. */
-static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode);
+static const vmHeader_t* VM_LoadQVM(vm_t* vm,
+                                    const uint8_t* bytecode, int length);
 
 /** Helper function for VM_Create: Set up the virtual machine during loading.
  * Ensure consistency and prepare the jumps.
@@ -313,7 +315,7 @@ static void VM_LoadSymbols(vm_t* vm);
 /** Load the file into a malloc'd buffer.
  * @param[in] filepath File to load.
  * @return file content in buffer. Call Com_free() to cleanup. */
-static uint8_t* loadImage(const char* filepath);
+static uint8_t* loadImage(const char* filepath, int* imageSize);
 /** Print a stack trace on OP_ENTER if vm_debugLevel is > 0 */
 static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
 #endif
@@ -332,7 +334,8 @@ static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
  * FUNCTION BODIES
  ******************************************************************************/
 
-int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode,
+int VM_Create(vm_t* vm, const char* name,
+              const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*))
 {
     if (!vm)
@@ -349,7 +352,7 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode,
 
     Com_Memset(vm, 0, sizeof(vm_t));
     Q_strncpyz(vm->name, name, sizeof(vm->name));
-    const vmHeader_t* header = VM_LoadQVM(vm, bytecode);
+    const vmHeader_t* header = VM_LoadQVM(vm, bytecode, length);
     if (!header)
     {
         vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
@@ -410,7 +413,9 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode,
     return 0;
 }
 
-static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
+static const vmHeader_t* VM_LoadQVM(vm_t* vm,
+                                    const uint8_t* bytecode,
+                                    int length)
 {
     int dataLength;
     int i;
@@ -421,7 +426,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
 
     Com_Printf("Loading vm file %s...\n", vm->name);
 
-    if (!header.h)
+    if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t))
     {
         Com_Printf("Failed.\n");
         return NULL;
@@ -440,7 +445,11 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
         if (header.h->bssLength < 0 || header.h->dataLength < 0 ||
             header.h->litLength < 0 || header.h->codeLength <= 0 ||
             header.h->codeOffset < 0 || header.h->dataOffset < 0 ||
-            header.h->instructionCount <= 0)
+            header.h->instructionCount <= 0 ||
+            header.h->codeOffset + header.h->codeLength > length ||
+            header.h->dataOffset
+                + header.h->dataLength
+                + header.h->litLength > length)
         {
             Com_Printf("Warning: %s has bad header\n", vm->name);
             return NULL;
@@ -478,7 +487,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode)
     Com_Memset(vm->dataBase, 0, vm->dataAlloc);
 
     // copy the intialized data
-    Com_Memcpy(vm->dataBase, (uint8_t*)header.h + header.h->dataOffset,
+    Com_Memcpy(vm->dataBase, header.v + header.h->dataOffset,
                header.h->dataLength + header.h->litLength);
 
     // byte swap the longs
@@ -1597,15 +1606,17 @@ static void COM_StripExtension(const char* in, char* out)
     *out = 0;
 }
 
-static uint8_t* loadImage(const char* filepath)
+uint8_t* loadImage(const char* filepath, int* size)
 {
-    FILE*    f;            /* input file */
-    uint8_t* image = NULL; /* buffer */
+    FILE*    f;            /* bytecode input file */
+    uint8_t* image = NULL; /* bytecode buffer */
     size_t   sz;           /* bytecode file size */
 
+    *size = 0;
     f = fopen(filepath, "rb");
     if (!f)
     {
+        fprintf(stderr, "Failed to open file %s.\n", filepath);
         return NULL;
     }
     /* calculate file size */
@@ -1613,7 +1624,7 @@ static uint8_t* loadImage(const char* filepath)
     sz = ftell(f);
     rewind(f);
 
-    image = (uint8_t*)Com_malloc(sz, NULL, VM_ALLOC_DEBUG);
+    image = (uint8_t*)malloc(sz);
     if (!image)
     {
         fclose(f);
@@ -1622,12 +1633,13 @@ static uint8_t* loadImage(const char* filepath)
 
     if (fread(image, 1, sz, f) != sz)
     {
-        Com_free(image, NULL, VM_ALLOC_DEBUG);
+        free(image);
         fclose(f);
         return NULL;
     }
 
     fclose(f);
+    *size = (int)sz;
     return image;
 }
 
@@ -1781,11 +1793,12 @@ static void VM_LoadSymbols(vm_t* vm)
     int          chars;
     int          segment;
     int          numInstructions;
+    int          imageSize;
 
     COM_StripExtension(vm->name, name);
     snprintf(symbols, sizeof(symbols), "%s.map", name);
     Com_Printf("Loading symbol file: %s...\n", symbols);
-    mapfile.v = loadImage(symbols);
+    mapfile.v = loadImage(symbols, &imageSize);
 
     if (!mapfile.c)
     {

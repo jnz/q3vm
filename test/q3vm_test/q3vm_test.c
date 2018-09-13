@@ -21,12 +21,13 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args);
 
 /* Load an image from a file. Data is allocated with malloc.
    Call free() to unload image. */
-uint8_t* loadImage(const char* filepath);
+uint8_t* loadImage(const char* filepath, int* size);
 
 int testInject(const char* filepath, int offset, int opcode)
 {
     vm_t     vm;
-    uint8_t* image  = loadImage(filepath);
+    int      imageSize;
+    uint8_t* image  = loadImage(filepath, &imageSize);
     int      retVal = -1;
 
     if (!image)
@@ -38,18 +39,18 @@ int testInject(const char* filepath, int offset, int opcode)
     fprintf(stderr, "Injecting wrong OP code %s at %i: %i\n",
             filepath, offset, opcode);
     memcpy(&image[offset], &opcode, sizeof(opcode)); /* INJECT */
-    retVal = VM_Create(&vm, filepath, image, systemCalls);
+    retVal = VM_Create(&vm, filepath, image, imageSize, systemCalls);
     VM_Free(&vm);
     free(image);
 
     return (retVal == -1) ? 0 : -1;
 }
 
-
 int testNominal(const char* filepath)
 {
     vm_t     vm;
-    uint8_t* image  = loadImage(filepath);
+    int      imageSize;
+    uint8_t* image  = loadImage(filepath, &imageSize);
     int      retVal = -1;
 
     if (!image)
@@ -59,7 +60,7 @@ int testNominal(const char* filepath)
     }
 
     VM_Debug(1);
-    if (VM_Create(&vm, filepath, image, systemCalls) == 0)
+    if (VM_Create(&vm, filepath, image, imageSize, systemCalls) == 0)
     {
         /* normal call, should give us 0 */
         retVal = VM_Call(&vm, 0);
@@ -78,6 +79,7 @@ int testNominal(const char* filepath)
 void testArguments(void)
 {
     vm_t vm = {0};
+    int  imageSize;
 
     vm.codeLength = 0;
     VM_Call(&vm, 0);
@@ -85,16 +87,34 @@ void testArguments(void)
     VM_ArgPtr(0, NULL);
     VM_ArgPtr(1, NULL);
     VM_MemoryRangeValid(0, 0, NULL);
-    loadImage(NULL);
-    loadImage("invalidpathfoobar");
-    VM_Create(NULL, NULL, NULL, NULL);
-    VM_Create(&vm, NULL, NULL, NULL);
-    VM_Create(&vm, NULL, NULL, systemCalls);
-    VM_Create(&vm, "test", NULL, systemCalls);
+    loadImage(NULL, &imageSize);
+    loadImage("invalidpathfoobar", &imageSize);
+    VM_Create(NULL, NULL, NULL, 0, NULL);
+    VM_Create(&vm, NULL, NULL, 0, NULL);
+    VM_Create(&vm, NULL, NULL, 0, systemCalls);
+    VM_Create(&vm, "test", NULL, 0, systemCalls);
 
-    uint8_t bogus[] = "bogusbogusbogus";
-    VM_Create(&vm, "test", bogus, NULL);
-    VM_Create(&vm, "test", bogus, systemCalls);
+    uint8_t bogus[] =
+        "bogusbogusbogubogusbogus"
+        "bogusbogusbogubogusbogus"
+        "bogusbogusbogubogusbogus"
+        "bogusbogusbogubogusbogus";
+    VM_Create(&vm, "test", bogus, sizeof(bogus), NULL);
+    VM_Create(&vm, "test", bogus, sizeof(bogus), systemCalls);
+    VM_Create(&vm, "test", bogus, sizeof(vmHeader_t) - 4, systemCalls);
+
+    vmHeader_t vmHeader = {0};
+    vmHeader.vmMagic = VM_MAGIC;
+    vmHeader.instructionCount = 1000;
+    vmHeader.codeOffset = sizeof(vmHeader_t);
+    vmHeader.codeLength = 1024;
+    vmHeader.dataOffset = vmHeader.codeOffset + vmHeader.codeLength;
+    vmHeader.dataLength = 2048;
+    vmHeader.litLength = 0;
+    vmHeader.bssLength = 256;
+    VM_Create(&vm, "test", (uint8_t*)&vmHeader,
+              vmHeader.dataOffset + vmHeader.dataLength + vmHeader.litLength - 1,
+              systemCalls);
 
     VM_Call(NULL, 0);
 
@@ -163,7 +183,7 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type)
     free(p);
 }
 
-uint8_t* loadImage(const char* filepath)
+uint8_t* loadImage(const char* filepath, int* size)
 {
     FILE*    f;            /* bytecode input file */
     uint8_t* image = NULL; /* bytecode buffer */
@@ -174,6 +194,7 @@ uint8_t* loadImage(const char* filepath)
         return NULL;
     }
 
+    *size = 0;
     f = fopen(filepath, "rb");
     if (!f)
     {
@@ -195,8 +216,8 @@ uint8_t* loadImage(const char* filepath)
     */
 
     fread(image, 1, sz, f);
-
     fclose(f);
+    *size = (int)sz;
     return image;
 }
 
