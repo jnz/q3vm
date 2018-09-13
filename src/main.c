@@ -21,12 +21,13 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args);
 
 /* Load an image from a file. Data is allocated with malloc.
    Call free() to unload image. */
-uint8_t* loadImage(const char* filepath);
+uint8_t* loadImage(const char* filepath, int* size);
 
 int main(int argc, char** argv)
 {
     vm_t vm;
     int  retVal = -1;
+    int  imageSize;
 
     if (argc < 2)
     {
@@ -35,13 +36,13 @@ int main(int argc, char** argv)
     }
 
     char*    filepath = argv[1];
-    uint8_t* image    = loadImage(filepath);
+    uint8_t* image    = loadImage(filepath, &imageSize);
     if (!image)
     {
         return -1;
     }
 
-    if (VM_Create(&vm, filepath, image, systemCalls) == 0)
+    if (VM_Create(&vm, filepath, image, imageSize, systemCalls) == 0)
     {
         retVal = VM_Call(&vm, 0);
     }
@@ -75,12 +76,13 @@ void Com_free(void* p, vm_t* vm, vmMallocType_t type)
     free(p);
 }
 
-uint8_t* loadImage(const char* filepath)
+uint8_t* loadImage(const char* filepath, int* size)
 {
     FILE*    f;            /* bytecode input file */
     uint8_t* image = NULL; /* bytecode buffer */
     size_t   sz;           /* bytecode file size */
 
+    *size = 0;
     f = fopen(filepath, "rb");
     if (!f)
     {
@@ -107,6 +109,7 @@ uint8_t* loadImage(const char* filepath)
     }
 
     fclose(f);
+    *size = (int)sz;
     return image;
 }
 
