@@ -189,6 +189,11 @@ uint8_t* loadImage(const char* filepath, int* size)
     uint8_t* image = NULL; /* bytecode buffer */
     size_t   sz;           /* bytecode file size */
 
+    if (!filepath || filepath[0] == '\0')
+    {
+        return NULL;
+    }
+
     *size = 0;
     f = fopen(filepath, "rb");
     if (!f)
@@ -210,13 +215,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     }
     */
 
-    if (fread(image, 1, sz, f) != sz)
-    {
-        free(image);
-        fclose(f);
-        return NULL;
-    }
-
+    fread(image, 1, sz, f);
     fclose(f);
     *size = (int)sz;
     return image;
