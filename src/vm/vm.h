@@ -88,16 +88,12 @@ typedef enum {
 typedef struct
 {
     int32_t vmMagic; /**< Bytecode image shall start with VM_MAGIC */
-
     int32_t instructionCount;
-
     int32_t codeOffset;
     int32_t codeLength;
-
     int32_t dataOffset;
     int32_t dataLength;
-    int32_t
-            litLength; /**< (dataLength-litLength) should be byteswapped on load */
+    int32_t litLength; /**< (dataLength-litLength) should be byteswapped on load */
     int32_t bssLength; /**< Zero filled memory appended to datalength */
 } vmHeader_t;
 
