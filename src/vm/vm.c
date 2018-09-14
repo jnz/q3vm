@@ -57,6 +57,9 @@
 /** Max. number of bytes in .qvm */
 #define VM_MAX_SIZE 104857600
 
+/** Max. size of BSS section */
+#define VM_MAX_BSS_LENGTH 10485760
+
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
@@ -453,6 +456,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
             header.h->litLength < 0 || header.h->codeLength <= 0 ||
             header.h->codeOffset < 0 || header.h->dataOffset < 0 ||
             header.h->instructionCount <= 0 ||
+            header.h->bssLength > VM_MAX_BSS_LENGTH ||
             header.h->codeOffset + header.h->codeLength > length ||
             header.h->dataOffset
                 + header.h->dataLength
