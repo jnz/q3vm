@@ -49,8 +49,13 @@
 #endif
 #endif
 
+/** Max. number of op codes in op codes table */
 #define OPCODE_TABLE_SIZE 64
+/** Mask for a valid opcode (so no one can escape the sandbox) */
 #define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
+
+/** Max. number of bytes in .qvm */
+#define VM_MAX_SIZE 104857600
 
 /******************************************************************************
  * TYPEDEFS
@@ -426,7 +431,9 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
 
     Com_Printf("Loading vm file %s...\n", vm->name);
 
-    if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t))
+    if (!header.h || !bytecode ||
+        length <= (int)sizeof(vmHeader_t) ||
+        length > VM_MAX_SIZE)
     {
         Com_Printf("Failed.\n");
         return NULL;
@@ -491,7 +498,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
                header.h->dataLength + header.h->litLength);
 
     // byte swap the longs
-    for (i = 0; i < header.h->dataLength; i += 4)
+    for (i = 0; i < header.h->dataLength; i += sizeof(int))
     {
         *(int*)(vm->dataBase + i) = LittleLong(*(int*)(vm->dataBase + i));
     }
