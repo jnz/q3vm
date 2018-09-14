@@ -80,7 +80,7 @@ uint8_t* loadImage(const char* filepath, int* size)
 {
     FILE*    f;            /* bytecode input file */
     uint8_t* image = NULL; /* bytecode buffer */
-    size_t   sz;           /* bytecode file size */
+    int      sz;           /* bytecode file size */
 
     *size = 0;
     f = fopen(filepath, "rb");
@@ -92,6 +92,11 @@ uint8_t* loadImage(const char* filepath, int* size)
     /* calculate file size */
     fseek(f, 0L, SEEK_END);
     sz = ftell(f);
+    if (sz < 1)
+    {
+        fclose(f);
+        return NULL;
+    }
     rewind(f);
 
     image = (uint8_t*)malloc(sz);
@@ -101,7 +106,7 @@ uint8_t* loadImage(const char* filepath, int* size)
         return NULL;
     }
 
-    if (fread(image, 1, sz, f) != sz)
+    if (fread(image, 1, sz, f) != (size_t)sz)
     {
         free(image);
         fclose(f);
@@ -109,7 +114,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     }
 
     fclose(f);
-    *size = (int)sz;
+    *size = sz;
     return image;
 }
 
