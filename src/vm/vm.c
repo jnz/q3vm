@@ -49,8 +49,16 @@
 #endif
 #endif
 
+/** Max. number of op codes in op codes table */
 #define OPCODE_TABLE_SIZE 64
+/** Mask for a valid opcode (so no one can escape the sandbox) */
 #define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
+
+/** Max. number of bytes in .qvm */
+#define VM_MAX_SIZE 104857600
+
+/** Max. size of BSS section */
+#define VM_MAX_BSS_LENGTH 10485760
 
 /******************************************************************************
  * TYPEDEFS
@@ -426,7 +434,9 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
 
     Com_Printf("Loading vm file %s...\n", vm->name);
 
-    if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t))
+    if (!header.h || !bytecode ||
+        length <= (int)sizeof(vmHeader_t) ||
+        length > VM_MAX_SIZE)
     {
         Com_Printf("Failed.\n");
         return NULL;
@@ -446,6 +456,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
             header.h->litLength < 0 || header.h->codeLength <= 0 ||
             header.h->codeOffset < 0 || header.h->dataOffset < 0 ||
             header.h->instructionCount <= 0 ||
+            header.h->bssLength > VM_MAX_BSS_LENGTH ||
             header.h->codeOffset + header.h->codeLength > length ||
             header.h->dataOffset
                 + header.h->dataLength
@@ -491,7 +502,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
                header.h->dataLength + header.h->litLength);
 
     // byte swap the longs
-    for (i = 0; i < header.h->dataLength; i += 4)
+    for (i = 0; i < header.h->dataLength; i += sizeof(int))
     {
         *(int*)(vm->dataBase + i) = LittleLong(*(int*)(vm->dataBase + i));
     }
@@ -1610,7 +1621,7 @@ uint8_t* loadImage(const char* filepath, int* size)
 {
     FILE*    f;            /* bytecode input file */
     uint8_t* image = NULL; /* bytecode buffer */
-    size_t   sz;           /* bytecode file size */
+    int      sz;           /* bytecode file size */
 
     *size = 0;
     f = fopen(filepath, "rb");
@@ -1622,6 +1633,11 @@ uint8_t* loadImage(const char* filepath, int* size)
     /* calculate file size */
     fseek(f, 0L, SEEK_END);
     sz = ftell(f);
+    if (sz < 1)
+    {
+        fclose(f);
+        return NULL;
+    }
     rewind(f);
 
     image = (uint8_t*)malloc(sz);
@@ -1631,7 +1647,7 @@ uint8_t* loadImage(const char* filepath, int* size)
         return NULL;
     }
 
-    if (fread(image, 1, sz, f) != sz)
+    if (fread(image, 1, sz, f) != (size_t)sz)
     {
         free(image);
         fclose(f);
@@ -1639,7 +1655,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     }
 
     fclose(f);
-    *size = (int)sz;
+    *size = sz;
     return image;
 }
 
