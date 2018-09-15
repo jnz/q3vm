@@ -47,6 +47,12 @@
 /** Redirect memcpy() calls with this macro */
 #define Com_Memcpy memcpy
 
+/** Translate from virtual machine memory to real machine memory. */
+#define VMA(x, vm) VMA_(args[x], vm)
+
+/** Get float argument in syscall (used in system calls) and don't cast it */
+#define VMF(x) VMF_(args[x])
+
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
@@ -187,23 +193,23 @@ void VM_Free(vm_t* vm);
  * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
-/** Helper function for syscalls:
+/** Helper function for syscalls VMA(x) macro:
  * Translate from virtual machine memory to real machine memory.
  * If this is a memory range, use the VM_MemoryRangeValid() function to
  * make sure that this syscall does not escape from the sandbox.
  * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
  * @return translated address. */
-void* VMA(intptr_t vmAddr, vm_t* vm);
+void* VMA_(intptr_t vmAddr, vm_t* vm);
 
-/** Helper function for syscalls:
+/** Helper function for syscalls VMF(x) macro:
  * Get float argument in syscall (used in system calls) and don't cast it.
  * E.g. if the VM calls a native function with a float argument: don't
  * cast the int argument to a float, but rather interpret it directly
  * as a floating point variable.
  * @param[in] x Argument on call stack.
  * @return Value as float. */
-float VMF(intptr_t x);
+float VMF_(intptr_t x);
 
 /** Helper function for syscalls:
  * Check if address + range in in the valid VM memory range.

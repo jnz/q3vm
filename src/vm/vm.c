@@ -586,7 +586,7 @@ void VM_Free(vm_t* vm)
     Com_Memset(vm, 0, sizeof(*vm));
 }
 
-void* VMA(intptr_t vmAddr, vm_t* vm)
+void* VMA_(intptr_t vmAddr, vm_t* vm)
 {
     if (!vmAddr)
     {
@@ -601,7 +601,7 @@ void* VMA(intptr_t vmAddr, vm_t* vm)
     return (void*)(vm->dataBase + (vmAddr & vm->dataMask));
 }
 
-float VMF(intptr_t x)
+float VMF_(intptr_t x)
 {
     union {
         float    f;  /**< float IEEE 754 32-bit single */
