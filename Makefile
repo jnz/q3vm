@@ -71,10 +71,12 @@ $(OBJDIR)/%.o: %.c
 	@echo 'CC: $<'
 	@$(CC) $(CFLAGS) $(C_INCLUDES) -c -o"$@" "$<"
 
-all: $(TARGET) example/bytecode.qvm q3asm lcc test/test.qvm
+default: $(TARGET) q3asm lcc example/bytecode.qvm
+
+all: $(TARGET) q3asm lcc example/bytecode.qvm test/test.qvm
 
 $(TARGET): $(OBJDIR) $(OBJS)
-	@echo 'CFLAGS: '$(CFLAGS)
+# @echo 'CFLAGS: '$(CFLAGS)
 	$(LINK) $(LINK_FLAGS) -o"$@" $(OBJS) $(LOCAL_LIBRARIES)
 	@echo 'Executable created: '$@
 
