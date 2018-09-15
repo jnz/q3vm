@@ -302,6 +302,7 @@ static void Q_strncpyz(char* dest, const char* src, int destsize);
 
 #ifdef DEBUG_VM
 #include <stdio.h>           /* fopen to read symbols */
+#include <stdlib.h>          /* qsort */
 #define MAX_TOKEN_CHARS 1024 /**< max length of an individual token */
 /* WARNING: DEBUG_VM is not thread safe */
 static char com_token[MAX_TOKEN_CHARS]; /**< helper for COM_Parse */

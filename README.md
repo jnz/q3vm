@@ -19,6 +19,12 @@ Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
  * http://fabiensanglard.net/quake3/qvm.php
 
+Installation
+------------
+
+The [vm.c](src/vm/vm.c?raw=1) and [vm.h](src/vm/vm.h?raw=1) files can be
+dropped into an existing C project and compiled along with it.
+
 Features
 --------
 
@@ -259,6 +265,7 @@ bytecode and the virtual machine context (`vm`) to translate it.
 The function `VM_MemoryRangeValid` makes sure that the memory range is valid. This is e.g.
 important for the memcpy call, so that the VM cannot write outside of
 the sandbox memory.
+It is also possible to call the VM recursively again with `VM_Call`.
 
 
     /* Call native functions from the bytecode: */

@@ -19,6 +19,9 @@ int badcall(int i);
 /* test float system calls */
 float floatff(float f);
 
+/* test recursive calls */
+int recursive(int i);
+
 volatile int        bssTest;         /* don't initialize, should be zero */
 volatile static int dataTest = -999; /* don't change, should be 999 */
 
@@ -63,9 +66,23 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     printf("arg11: %i\n", arg11);
     */
 
+    if (command == 1)
+    {
+        return arg0; /* just return arg0, used for "recursive()" test */
+    }
+
     printf(str, "World");
     trap_Error("Testing Error Callback\n");
     badcall(9001);
+
+    /* call a native function that will call us back here with command == 1 */
+    printf("Test recursive VM call... ");
+    if (recursive(666) != 666) /* we expect our input back */
+    {
+        printf("failed\n");
+        return -1;
+    }
+    printf("passed\n");
 
     /* float */
     for (i = 0; i < 20000000; i++)
@@ -290,6 +307,11 @@ int badcall(int i)
 float floatff(float f)
 {
     return 2.0f*f;
+}
+
+int recursive(int i)
+{
+    return vmMain(1, i, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 #else
 void printf(const char* fmt, ...)

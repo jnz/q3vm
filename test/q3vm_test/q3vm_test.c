@@ -73,7 +73,16 @@ int testNominal(const char* filepath)
     VM_Free(&vm);
     free(image);
 
-    return (retVal == 333) ? 0 : -1;
+    if (retVal == 333)
+    {
+        printf("All tests passed [x]\n");
+        return 0;
+    }
+    else
+    {
+        printf("Test suite failed!!! [ ]\n");
+        return -1;
+    }
 }
 
 void testArguments(void)
@@ -256,6 +265,9 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
 
     case -6: /* FLOATFF */
         return VM_FloatToInt(VMF(1)*2.0f);
+
+    case -7: /* RECURSIVE */
+        return VM_Call(vm, 1, args[1]);
 
     default:
         fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);

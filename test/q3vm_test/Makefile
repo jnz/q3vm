@@ -1,5 +1,5 @@
 # Makefile to build the Q3VM test interpreter
-# 
+#
 # Run 'make'
 #
 # Jan Zwiener 2018
