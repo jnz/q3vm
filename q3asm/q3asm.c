@@ -22,17 +22,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "q_platform.h"
 #include "cmdlib.h"
-#include "mathlib.h"
-// #include "qfiles.h"
 #include "../src/vm/vm.h"
 
 /* 19079 total symbols in FI, 2002 Jan 23 */
 #define DEFAULT_HASHTABLE_SIZE 2048
 
 char	outputFilename[MAX_OS_PATH];
-
-// the zero page size is just used for detecting run time faults
-#define	ZERO_PAGE_SIZE	0		// 256
 
 typedef enum {
 	OP_UNDEF, 
@@ -120,13 +115,6 @@ typedef enum {
 	OP_CVFI
 } opcode_t;
 
-typedef struct {
-	int		imageBytes;		// after decompression
-	int		entryPoint;
-	int		stackBase;
-	int		stackSize;
-} executableHeader_t;
-
 typedef enum {
 	CODESEG,
 	DATASEG,	// initialized 32 bit data, will be byte swapped
@@ -136,10 +124,8 @@ typedef enum {
 	NUM_SEGMENTS
 } segmentName_t;
 
-#define	MAX_IMAGE	0x400000
-
 typedef struct {
-	byte	image[MAX_IMAGE];
+	byte	image[VM_MAX_IMAGE_SIZE];
 	int		imageUsed;
 	int		segmentBase;		// only valid on second pass
 } segment_t;
@@ -196,7 +182,7 @@ char	*currentFileName;
 int		currentFileLine;
 
 //int		stackSize = 16384;
-int		stackSize = PROGRAM_STACK_SIZE;
+int		stackSize = VM_PROGRAM_STACK_SIZE;
 
 // we need to convert arg and ret instructions to
 // stores to the local stack frame, so we need to track the
@@ -505,8 +491,8 @@ EmitByte
 ============
 */
 static void EmitByte( segment_t *seg, int v ) {
-	if ( seg->imageUsed >= MAX_IMAGE ) {
-		Error( "MAX_IMAGE" );
+	if ( seg->imageUsed >= VM_MAX_IMAGE_SIZE ) {
+		Error( "VM_MAX_IMAGE_SIZE" );
 	}
 	seg->image[ seg->imageUsed ] = v;
 	seg->imageUsed++;
@@ -518,8 +504,8 @@ EmitInt
 ============
 */
 static void EmitInt( segment_t *seg, int v ) {
-	if ( seg->imageUsed >= MAX_IMAGE - 4) {
-		Error( "MAX_IMAGE" );
+	if ( seg->imageUsed >= VM_MAX_IMAGE_SIZE - 4) {
+		Error( "VM_MAX_IMAGE_SIZE" );
 	}
 	seg->image[ seg->imageUsed ] = v & 255;
 	seg->image[ seg->imageUsed + 1 ] = ( v >> 8 ) & 255;
@@ -538,7 +524,7 @@ Symbols can only be defined on pass 0
 static void DefineSymbol( char *sym, int value ) {
 	/* Hand optimization by PhaethonH */
 	symbol_t	*s;
-	char		expanded[MAX_LINE_LENGTH];
+	char		expanded[MAX_LINE_LENGTH*2];
 	int			hash;
 
 	if ( passNumber == 1 ) {
@@ -593,7 +579,7 @@ Symbols can only be evaluated on pass 1
 */
 static int LookupSymbol( char *sym ) {
 	symbol_t	*s;
-	char		expanded[MAX_LINE_LENGTH];
+	char		expanded[MAX_LINE_LENGTH + 16];
 	int			hash;
 	hashchain_t *hc;
 
@@ -1295,7 +1281,7 @@ InitTables
 ==============
 */
 void InitTables( void ) {
-	int i;
+	unsigned i;
 
 	symtable = hashtable_new(symtablelen);
 	optable = hashtable_new(100);  /* There's hardly 100 opcodes anyway. */
@@ -1546,6 +1532,9 @@ int main( int argc, char **argv ) {
 	// default filename is "q3asm"
 	strcpy( outputFilename, "q3asm" );
 	numAsmFiles = 0;	
+
+    // Q3 compatible by default
+    options.vanillaQ3Compatibility = qtrue;
 
 	for ( i = 1 ; i < argc ; i++ ) {
 		if ( argv[i][0] != '-' ) {

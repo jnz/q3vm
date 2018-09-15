@@ -54,9 +54,6 @@
 /** Mask for a valid opcode (so no one can escape the sandbox) */
 #define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
 
-/** Max. number of bytes in .qvm */
-#define VM_MAX_SIZE 104857600
-
 /** Max. size of BSS section */
 #define VM_MAX_BSS_LENGTH 10485760
 
@@ -346,7 +343,7 @@ int VM_Create(vm_t* vm, const char* name,
               const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*))
 {
-    if (!vm)
+    if (vm == NULL)
     {
         Com_Error(VM_INVALID_POINTER, "Invalid vm pointer");
         return -1;
@@ -405,7 +402,7 @@ int VM_Create(vm_t* vm, const char* name,
 
     // the stack is implicitly at the end of the image
     vm->programStack = vm->dataMask + 1;
-    vm->stackBottom  = vm->programStack - PROGRAM_STACK_SIZE;
+    vm->stackBottom  = vm->programStack - VM_PROGRAM_STACK_SIZE;
 
 #if 1
     Com_Printf("VM:\n");
@@ -413,7 +410,7 @@ int VM_Create(vm_t* vm, const char* name,
     Com_Printf(".data length: %6i bytes\n", header->dataLength);
     Com_Printf(".lit  length: %6i bytes\n", header->litLength);
     Com_Printf(".bss  length: %6i bytes\n", header->bssLength);
-    Com_Printf("Stack size:   %6i bytes\n", PROGRAM_STACK_SIZE);
+    Com_Printf("Stack size:   %6i bytes\n", VM_PROGRAM_STACK_SIZE);
     Com_Printf("Allocated memory: %6i bytes\n", vm->dataAlloc);
     Com_Printf("Instruction count: %i\n", header->instructionCount);
 #endif
@@ -436,7 +433,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
 
     if (!header.h || !bytecode ||
         length <= (int)sizeof(vmHeader_t) ||
-        length > VM_MAX_SIZE)
+        length > VM_MAX_IMAGE_SIZE)
     {
         Com_Printf("Failed.\n");
         return NULL;
@@ -517,7 +514,7 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     va_list  ap;
     int      i;
 
-    if (!vm)
+    if (vm == NULL)
     {
         Com_Error(VM_INVALID_POINTER, "VM_Call with NULL vm");
         return -1;
@@ -589,7 +586,7 @@ void VM_Free(vm_t* vm)
     Com_Memset(vm, 0, sizeof(*vm));
 }
 
-void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm)
+void* VMA(intptr_t vmAddr, vm_t* vm)
 {
     if (!vmAddr)
     {
@@ -602,6 +599,17 @@ void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm)
     }
 
     return (void*)(vm->dataBase + (vmAddr & vm->dataMask));
+}
+
+float VMF(intptr_t x)
+{
+    union {
+        float    f;  /**< float IEEE 754 32-bit single */
+        int32_t  i;  /**< int32 part */
+        uint32_t ui; /**< unsigned int32 part */
+    } fi;
+    fi.i = (int32_t)x;
+    return fi.f;
 }
 
 int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
@@ -1801,8 +1809,8 @@ static void VM_LoadSymbols(vm_t* vm)
         void* v;
     } mapfile;
     char *       text_p, *token;
-    char         name[MAX_QPATH];
-    char         symbols[MAX_QPATH];
+    char         name[VM_MAX_QPATH];
+    char         symbols[VM_MAX_QPATH];
     vmSymbol_t **prev, *sym;
     int          count;
     int          value;

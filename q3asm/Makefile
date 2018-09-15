@@ -1,7 +1,7 @@
 # yeah, couldn't do more simple really
 
 CC=gcc
-CFLAGS=-g -Wall
+CFLAGS=-g -Wall -Wextra -O2
 
 default:	q3asm
 
