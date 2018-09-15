@@ -101,6 +101,8 @@ void ExpandWildcards( int *argc, char ***argv )
 #else
 void ExpandWildcards (int *argc, char ***argv)
 {
+    (void)argc;
+    (void)argv;
 }
 #endif
 
