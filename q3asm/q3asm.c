@@ -266,11 +266,17 @@ static void hashtable_add (hashtable_t *H, int hashvalue, void *datum)
     {
       /* Get hc to point to last node in chain. */
       for (hc = *hb; hc && hc->next; hc = hc->next);
-      hc->next = calloc(1, sizeof(*hc));
-      hc = hc->next;
+      if (hc)
+      {
+          hc->next = calloc(1, sizeof(*hc));
+          hc = hc->next;
+      }
     }
-  hc->data = datum;
-  hc->next = 0;
+  if (hc)
+  {
+      hc->data = datum;
+      hc->next = 0;
+  }
 }
 
 static hashchain_t *hashtable_get (hashtable_t *H, int hashvalue)

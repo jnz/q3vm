@@ -646,7 +646,7 @@ static FILE* myfopen(const char* filename, const char* mode)
 	char fn[MAX_PATH];
 
 	fn[0] = '\0';
-	strncat(fn, filename, sizeof(fn)-1);
+	strncat(fn, filename, sizeof(fn)-strlen(fn)-1);
 
 	for(p=fn;*p;++p) if(*p == '\\') *p = '/';
 
