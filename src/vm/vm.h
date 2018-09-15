@@ -51,7 +51,7 @@
 #define VMA(x, vm) VMA_(args[x], vm)
 
 /** Get float argument in syscall (used in system calls) and don't cast it */
-#define VMF(x) VMF_(args[x])
+#define VMF(x) VM_IntToFloat(args[x])
 
 /******************************************************************************
  * TYPEDEFS
@@ -209,7 +209,14 @@ void* VMA_(intptr_t vmAddr, vm_t* vm);
  * as a floating point variable.
  * @param[in] x Argument on call stack.
  * @return Value as float. */
-float VMF_(intptr_t x);
+float VM_IntToFloat(int32_t x);
+
+/** Helper function for syscalls:
+ * Convert a 32-bit floating point variable to an integer variable without
+ * converting it.
+ * @param[in] f Floating point number.
+ * @return Floating point number as integer */
+int32_t VM_FloatToInt(float f);
 
 /** Helper function for syscalls:
  * Check if address + range in in the valid VM memory range.

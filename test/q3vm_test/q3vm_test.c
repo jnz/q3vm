@@ -254,6 +254,9 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         }
         return args[1];
 
+    case -6: /* FLOATFF */
+        return VM_FloatToInt(VMF(1)*2.0f);
+
     default:
         fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);
     }

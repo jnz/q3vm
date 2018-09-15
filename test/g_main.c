@@ -16,6 +16,9 @@ int testCase(const char* f);
 /* this call is supposed to fail */
 int badcall(int i);
 
+/* test float system calls */
+float floatff(float f);
+
 volatile int        bssTest;         /* don't initialize, should be zero */
 volatile static int dataTest = -999; /* don't change, should be 999 */
 
@@ -249,6 +252,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         return -1;
     }
 
+    printf("Float system call test: ");
+    if (floatff(3.33f) != 6.66f)
+    {
+        printf("failed\n");
+        return -1;
+    }
+    printf("passed\n");
+
 #ifdef Q3_VM
     printf(str, "Trying to copy outside of vm sandbox:\n");
     memcpy(mem1, mem2, 1000000); /* try to escape the sandbox */
@@ -274,6 +285,11 @@ int main(int argc, char** argv)
 int badcall(int i)
 {
     return 0;
+}
+
+float floatff(float f)
+{
+    return 2.0f*f;
 }
 #else
 void printf(const char* fmt, ...)

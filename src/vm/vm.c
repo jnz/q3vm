@@ -601,15 +601,26 @@ void* VMA_(intptr_t vmAddr, vm_t* vm)
     return (void*)(vm->dataBase + (vmAddr & vm->dataMask));
 }
 
-float VMF_(intptr_t x)
+float VM_IntToFloat(int32_t x)
 {
     union {
         float    f;  /**< float IEEE 754 32-bit single */
         int32_t  i;  /**< int32 part */
         uint32_t ui; /**< unsigned int32 part */
     } fi;
-    fi.i = (int32_t)x;
+    fi.i = x;
     return fi.f;
+}
+
+int32_t VM_FloatToInt(float f)
+{
+    union {
+        float    f;  /**< float IEEE 754 32-bit single */
+        int32_t  i;  /**< int32 part */
+        uint32_t ui; /**< unsigned int32 part */
+    } fi;
+    fi.f = f;
+    return fi.i;
 }
 
 int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
