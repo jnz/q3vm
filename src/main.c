@@ -83,7 +83,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     int      sz;           /* bytecode file size */
 
     *size = 0;
-    f = fopen(filepath, "rb");
+    f     = fopen(filepath, "rb");
     if (!f)
     {
         fprintf(stderr, "Failed to open file %s.\n", filepath);

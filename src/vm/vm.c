@@ -225,20 +225,19 @@ static int vm_debugLevel; /**< 0: be quiet, 1: debug msgs, 2: print op codes */
 #ifdef DEBUG_VM
 /** Table to convert op codes to readable names */
 const static char* opnames[OPCODE_TABLE_SIZE] = {
-    "OP_UNDEF",
-    "OP_IGNORE", "OP_BREAK",  "OP_ENTER", "OP_LEAVE",      "OP_CALL",
-    "OP_PUSH",   "OP_POP",    "OP_CONST", "OP_LOCAL",      "OP_JUMP",
-    "OP_EQ",     "OP_NE",     "OP_LTI",   "OP_LEI",        "OP_GTI",
-    "OP_GEI",    "OP_LTU",    "OP_LEU",   "OP_GTU",        "OP_GEU",
-    "OP_EQF",    "OP_NEF",    "OP_LTF",   "OP_LEF",        "OP_GTF",
-    "OP_GEF",    "OP_LOAD1",  "OP_LOAD2", "OP_LOAD4",      "OP_STORE1",
-    "OP_STORE2", "OP_STORE4", "OP_ARG",   "OP_BLOCK_COPY", "OP_SEX8",
-    "OP_SEX16",  "OP_NEGI",   "OP_ADD",   "OP_SUB",        "OP_DIVI",
-    "OP_DIVU",   "OP_MODI",   "OP_MODU",  "OP_MULI",       "OP_MULU",
-    "OP_BAND",   "OP_BOR",    "OP_BXOR",  "OP_BCOM",       "OP_LSH",
-    "OP_RSHI",   "OP_RSHU",   "OP_NEGF",  "OP_ADDF",       "OP_SUBF",
-    "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI",
-    "OP_UNDEF",  "OP_UNDEF",  "OP_UNDEF", "OP_UNDEF",
+    "OP_UNDEF",  "OP_IGNORE", "OP_BREAK",  "OP_ENTER", "OP_LEAVE",
+    "OP_CALL",   "OP_PUSH",   "OP_POP",    "OP_CONST", "OP_LOCAL",
+    "OP_JUMP",   "OP_EQ",     "OP_NE",     "OP_LTI",   "OP_LEI",
+    "OP_GTI",    "OP_GEI",    "OP_LTU",    "OP_LEU",   "OP_GTU",
+    "OP_GEU",    "OP_EQF",    "OP_NEF",    "OP_LTF",   "OP_LEF",
+    "OP_GTF",    "OP_GEF",    "OP_LOAD1",  "OP_LOAD2", "OP_LOAD4",
+    "OP_STORE1", "OP_STORE2", "OP_STORE4", "OP_ARG",   "OP_BLOCK_COPY",
+    "OP_SEX8",   "OP_SEX16",  "OP_NEGI",   "OP_ADD",   "OP_SUB",
+    "OP_DIVI",   "OP_DIVU",   "OP_MODI",   "OP_MODU",  "OP_MULI",
+    "OP_MULU",   "OP_BAND",   "OP_BOR",    "OP_BXOR",  "OP_BCOM",
+    "OP_LSH",    "OP_RSHI",   "OP_RSHU",   "OP_NEGF",  "OP_ADDF",
+    "OP_SUBF",   "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI",
+    "OP_UNDEF",  "OP_UNDEF",  "OP_UNDEF",  "OP_UNDEF",
 };
 #endif
 
@@ -252,8 +251,8 @@ const static char* opnames[OPCODE_TABLE_SIZE] = {
  * @param[in] bytecode Pointer to bytecode.
  * @param[in] length Number of bytes in bytecode array.
  * @return Pointer to start/header of vm bytecode. */
-static const vmHeader_t* VM_LoadQVM(vm_t* vm,
-                                    const uint8_t* bytecode, int length);
+static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
+                                    int length);
 
 /** Helper function for VM_Create: Set up the virtual machine during loading.
  * Ensure consistency and prepare the jumps.
@@ -340,8 +339,7 @@ static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
  * FUNCTION BODIES
  ******************************************************************************/
 
-int VM_Create(vm_t* vm, const char* name,
-              const uint8_t* bytecode, int length,
+int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*))
 {
     if (vm == NULL)
@@ -419,8 +417,7 @@ int VM_Create(vm_t* vm, const char* name,
     return 0;
 }
 
-static const vmHeader_t* VM_LoadQVM(vm_t* vm,
-                                    const uint8_t* bytecode,
+static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
                                     int length)
 {
     int dataLength;
@@ -428,12 +425,11 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
     const union {
         const vmHeader_t* h;
         const uint8_t*    v;
-    } header = {.v = bytecode};
+    } header = {.v = bytecode };
 
     Com_Printf("Loading vm file %s...\n", vm->name);
 
-    if (!header.h || !bytecode ||
-        length <= (int)sizeof(vmHeader_t) ||
+    if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t) ||
         length > VM_MAX_IMAGE_SIZE)
     {
         Com_Printf("Failed.\n");
@@ -456,9 +452,8 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm,
             header.h->instructionCount <= 0 ||
             header.h->bssLength > VM_MAX_BSS_LENGTH ||
             header.h->codeOffset + header.h->codeLength > length ||
-            header.h->dataOffset
-                + header.h->dataLength
-                + header.h->litLength > length)
+            header.h->dataOffset + header.h->dataLength + header.h->litLength >
+                length)
         {
             Com_Printf("Warning: %s has bad header\n", vm->name);
             return NULL;
@@ -877,9 +872,9 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
     vm->breakFunction = 0;
 #endif
 
-    image     = vm->dataBase;
-    codeImage = (int*)vm->codeBase;
-    dataMask  = vm->dataMask;
+    image          = vm->dataBase;
+    codeImage      = (int*)vm->codeBase;
+    dataMask       = vm->dataMask;
     programCounter = 0;
     programStack -= (8 + 4 * MAX_VMMAIN_ARGS);
 
@@ -906,28 +901,26 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 
 #ifdef USE_COMPUTED_GOTOS
     static const void* dispatch_table[OPCODE_TABLE_SIZE] = {
-        &&goto_OP_UNDEF,
-        &&goto_OP_IGNORE,
-        &&goto_OP_BREAK,  &&goto_OP_ENTER,  &&goto_OP_LEAVE,
-        &&goto_OP_CALL,   &&goto_OP_PUSH,   &&goto_OP_POP,
-        &&goto_OP_CONST,  &&goto_OP_LOCAL,  &&goto_OP_JUMP,
-        &&goto_OP_EQ,     &&goto_OP_NE,     &&goto_OP_LTI,
-        &&goto_OP_LEI,    &&goto_OP_GTI,    &&goto_OP_GEI,
-        &&goto_OP_LTU,    &&goto_OP_LEU,    &&goto_OP_GTU,
-        &&goto_OP_GEU,    &&goto_OP_EQF,    &&goto_OP_NEF,
-        &&goto_OP_LTF,    &&goto_OP_LEF,    &&goto_OP_GTF,
-        &&goto_OP_GEF,    &&goto_OP_LOAD1,  &&goto_OP_LOAD2,
-        &&goto_OP_LOAD4,  &&goto_OP_STORE1, &&goto_OP_STORE2,
-        &&goto_OP_STORE4, &&goto_OP_ARG,    &&goto_OP_BLOCK_COPY,
-        &&goto_OP_SEX8,   &&goto_OP_SEX16,  &&goto_OP_NEGI,
-        &&goto_OP_ADD,    &&goto_OP_SUB,    &&goto_OP_DIVI,
-        &&goto_OP_DIVU,   &&goto_OP_MODI,   &&goto_OP_MODU,
-        &&goto_OP_MULI,   &&goto_OP_MULU,   &&goto_OP_BAND,
-        &&goto_OP_BOR,    &&goto_OP_BXOR,   &&goto_OP_BCOM,
-        &&goto_OP_LSH,    &&goto_OP_RSHI,   &&goto_OP_RSHU,
-        &&goto_OP_NEGF,   &&goto_OP_ADDF,   &&goto_OP_SUBF,
-        &&goto_OP_DIVF,   &&goto_OP_MULF,   &&goto_OP_CVIF,
-        &&goto_OP_CVFI,
+        &&goto_OP_UNDEF,  &&goto_OP_IGNORE,     &&goto_OP_BREAK,
+        &&goto_OP_ENTER,  &&goto_OP_LEAVE,      &&goto_OP_CALL,
+        &&goto_OP_PUSH,   &&goto_OP_POP,        &&goto_OP_CONST,
+        &&goto_OP_LOCAL,  &&goto_OP_JUMP,       &&goto_OP_EQ,
+        &&goto_OP_NE,     &&goto_OP_LTI,        &&goto_OP_LEI,
+        &&goto_OP_GTI,    &&goto_OP_GEI,        &&goto_OP_LTU,
+        &&goto_OP_LEU,    &&goto_OP_GTU,        &&goto_OP_GEU,
+        &&goto_OP_EQF,    &&goto_OP_NEF,        &&goto_OP_LTF,
+        &&goto_OP_LEF,    &&goto_OP_GTF,        &&goto_OP_GEF,
+        &&goto_OP_LOAD1,  &&goto_OP_LOAD2,      &&goto_OP_LOAD4,
+        &&goto_OP_STORE1, &&goto_OP_STORE2,     &&goto_OP_STORE4,
+        &&goto_OP_ARG,    &&goto_OP_BLOCK_COPY, &&goto_OP_SEX8,
+        &&goto_OP_SEX16,  &&goto_OP_NEGI,       &&goto_OP_ADD,
+        &&goto_OP_SUB,    &&goto_OP_DIVI,       &&goto_OP_DIVU,
+        &&goto_OP_MODI,   &&goto_OP_MODU,       &&goto_OP_MULI,
+        &&goto_OP_MULU,   &&goto_OP_BAND,       &&goto_OP_BOR,
+        &&goto_OP_BXOR,   &&goto_OP_BCOM,       &&goto_OP_LSH,
+        &&goto_OP_RSHI,   &&goto_OP_RSHU,       &&goto_OP_NEGF,
+        &&goto_OP_ADDF,   &&goto_OP_SUBF,       &&goto_OP_DIVF,
+        &&goto_OP_MULF,   &&goto_OP_CVIF,       &&goto_OP_CVFI,
         &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
         &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
         &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
@@ -1644,7 +1637,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     int      sz;           /* bytecode file size */
 
     *size = 0;
-    f = fopen(filepath, "rb");
+    f     = fopen(filepath, "rb");
     if (!f)
     {
         fprintf(stderr, "Failed to open file %s.\n", filepath);

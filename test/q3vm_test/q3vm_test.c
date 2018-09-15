@@ -36,8 +36,8 @@ int testInject(const char* filepath, int offset, int opcode)
         return retVal;
     }
 
-    fprintf(stderr, "Injecting wrong OP code %s at %i: %i\n",
-            filepath, offset, opcode);
+    fprintf(stderr, "Injecting wrong OP code %s at %i: %i\n", filepath, offset,
+            opcode);
     memcpy(&image[offset], &opcode, sizeof(opcode)); /* INJECT */
     retVal = VM_Create(&vm, filepath, image, imageSize, systemCalls);
     VM_Free(&vm);
@@ -87,7 +87,7 @@ int testNominal(const char* filepath)
 
 void testArguments(void)
 {
-    vm_t vm = {0};
+    vm_t vm = { 0 };
     int  imageSize;
 
     vm.codeLength = 0;
@@ -103,26 +103,26 @@ void testArguments(void)
     VM_Create(&vm, NULL, NULL, 0, systemCalls);
     VM_Create(&vm, "test", NULL, 0, systemCalls);
 
-    uint8_t bogus[] =
-        "bogusbogusbogubogusbogus"
-        "bogusbogusbogubogusbogus"
-        "bogusbogusbogubogusbogus"
-        "bogusbogusbogubogusbogus";
+    uint8_t bogus[] = "bogusbogusbogubogusbogus"
+                      "bogusbogusbogubogusbogus"
+                      "bogusbogusbogubogusbogus"
+                      "bogusbogusbogubogusbogus";
     VM_Create(&vm, "test", bogus, sizeof(bogus), NULL);
     VM_Create(&vm, "test", bogus, sizeof(bogus), systemCalls);
     VM_Create(&vm, "test", bogus, sizeof(vmHeader_t) - 4, systemCalls);
 
-    vmHeader_t vmHeader = {0};
-    vmHeader.vmMagic = VM_MAGIC;
+    vmHeader_t vmHeader       = { 0 };
+    vmHeader.vmMagic          = VM_MAGIC;
     vmHeader.instructionCount = 1000;
-    vmHeader.codeOffset = sizeof(vmHeader_t);
-    vmHeader.codeLength = 1024;
-    vmHeader.dataOffset = vmHeader.codeOffset + vmHeader.codeLength;
-    vmHeader.dataLength = 2048;
-    vmHeader.litLength = 0;
-    vmHeader.bssLength = 256;
+    vmHeader.codeOffset       = sizeof(vmHeader_t);
+    vmHeader.codeLength       = 1024;
+    vmHeader.dataOffset       = vmHeader.codeOffset + vmHeader.codeLength;
+    vmHeader.dataLength       = 2048;
+    vmHeader.litLength        = 0;
+    vmHeader.bssLength        = 256;
     VM_Create(&vm, "test", (uint8_t*)&vmHeader,
-              vmHeader.dataOffset + vmHeader.dataLength + vmHeader.litLength - 1,
+              vmHeader.dataOffset + vmHeader.dataLength + vmHeader.litLength -
+                  1,
               systemCalls);
 
     VM_Call(NULL, 0);
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     testArguments();
 
     /* <malloc fail tests> */
-    for (int i=0;i<VM_ALLOC_TYPE_MAX-1;i++)
+    for (int i = 0; i < VM_ALLOC_TYPE_MAX - 1; i++)
     {
         g_mallocFail = i;
         testNominal(argv[1]);
@@ -204,7 +204,7 @@ uint8_t* loadImage(const char* filepath, int* size)
     }
 
     *size = 0;
-    f = fopen(filepath, "rb");
+    f     = fopen(filepath, "rb");
     if (!f)
     {
         fprintf(stderr, "Failed to open file %s.\n", filepath);
@@ -249,22 +249,22 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         return fprintf(stderr, "%s", (const char*)VMA(1, vm));
 
     case -3: /* MEMSET */
-        if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0)
+        if (VM_MemoryRangeValid(args[1] /*addr*/, args[3] /*len*/, vm) == 0)
         {
             memset(VMA(1, vm), args[2], args[3]);
         }
         return args[1];
 
     case -4: /* MEMCPY */
-        if (VM_MemoryRangeValid(args[1]/*addr*/, args[3]/*len*/, vm) == 0 &&
-            VM_MemoryRangeValid(args[2]/*addr*/, args[3]/*len*/, vm) == 0)
+        if (VM_MemoryRangeValid(args[1] /*addr*/, args[3] /*len*/, vm) == 0 &&
+            VM_MemoryRangeValid(args[2] /*addr*/, args[3] /*len*/, vm) == 0)
         {
             memcpy(VMA(1, vm), VMA(2, vm), args[3]);
         }
         return args[1];
 
     case -6: /* FLOATFF */
-        return VM_FloatToInt(VMF(1)*2.0f);
+        return VM_FloatToInt(VMF(1) * 2.0f);
 
     case -7: /* RECURSIVE */
         return VM_Call(vm, 1, args[1]);

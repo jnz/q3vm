@@ -17,7 +17,7 @@
  ******************************************************************************/
 
 #include <stdint.h>
-#include <stdio.h> /* remove this if Com_Printf does not point to printf */
+#include <stdio.h>  /* remove this if Com_Printf does not point to printf */
 #include <string.h> /* remove this if Com_Mem*** does not point to memcpy */
 
 /******************************************************************************
@@ -59,7 +59,7 @@
 
 /** VM error codes */
 typedef enum {
-    VM_NO_ERROR                    =  0,  /**< 0 = OK */
+    VM_NO_ERROR                    = 0,   /**< 0 = OK */
     VM_INVALID_POINTER             = -1,  /**< NULL pointer for vm_t */
     VM_FAILED_TO_LOAD_BYTECODE     = -2,  /**< Invalid byte code */
     VM_NO_SYSCALL_CALLBACK         = -3,  /**< Syscall pointer missing */
@@ -90,24 +90,26 @@ typedef enum {
  *  the file. This is always little endian encoded in the file. */
 typedef struct
 {
-    int32_t vmMagic; /**< Bytecode image shall start with VM_MAGIC */
+    int32_t vmMagic;          /**< Bytecode image shall start with VM_MAGIC */
     int32_t instructionCount; /**< Number of instructions in .qvm */
-    int32_t codeOffset; /**< Byte offset in .qvm file of .code segment */
-    int32_t codeLength; /**< Bytes in code segment */
-    int32_t dataOffset; /**< Byte offset in .qvm file of .data segment */
-    int32_t dataLength; /**< Bytes in .data segment */
-    int32_t litLength;  /**< Bytes in strings segment (after .data segment) */
-    int32_t bssLength;  /**< How many bytes should be used for .bss segment */
+    int32_t codeOffset;       /**< Byte offset in .qvm file of .code segment */
+    int32_t codeLength;       /**< Bytes in code segment */
+    int32_t dataOffset;       /**< Byte offset in .qvm file of .data segment */
+    int32_t dataLength;       /**< Bytes in .data segment */
+    int32_t litLength; /**< Bytes in strings segment (after .data segment) */
+    int32_t bssLength; /**< How many bytes should be used for .bss segment */
 } vmHeader_t;
 
 /** For debugging (DEBUG_VM): symbol list */
 typedef struct vmSymbol_s
 {
-    struct vmSymbol_s* next;  /**< Linked list of symbols */
+    struct vmSymbol_s* next; /**< Linked list of symbols */
 
-    int  symValue;      /**< Value of symbol that we want to have the ASCII name for */
-    int  profileCount;  /**< For the runtime profiler. +1 for each call. */
-    char symName[1];    /**< Variable sized symbol name. Space is reserved by malloc at load time. */
+    int symValue; /**< Value of symbol that we want to have the ASCII name for
+                     */
+    int  profileCount; /**< For the runtime profiler. +1 for each call. */
+    char symName[1];   /**< Variable sized symbol name. Space is reserved by
+                          malloc at load time. */
 } vmSymbol_t;
 
 /** Main struct (think of a kind of a main class) to keep all information of
@@ -134,28 +136,28 @@ typedef struct vm_s
 
     //------------------------------------
 
-    char      name[VM_MAX_QPATH]; /** File name of the bytecode */
-    void*     searchPath;      /**< unused */
+    char      name[VM_MAX_QPATH];    /** File name of the bytecode */
+    void*     searchPath;            /**< unused */
     int       currentlyInterpreting; /**< Is the vm currently running? */
-    int       compiled; /**< Is a JIT active? Otherwise interpreted */
-    uint8_t*  codeBase; /**< Bytecode code segment */
-    int       entryOfs; /**< unused */
-    int       codeLength;   /**< Number of bytes in code segment */
+    int       compiled;   /**< Is a JIT active? Otherwise interpreted */
+    uint8_t*  codeBase;   /**< Bytecode code segment */
+    int       entryOfs;   /**< unused */
+    int       codeLength; /**< Number of bytes in code segment */
     intptr_t* instructionPointers;
     int       instructionCount; /**< Number of instructions for VM */
-    uint8_t*  dataBase;      /**< Start of .data memory segment */
-    int       dataMask;      /**< VM mask to protect access to dataBase */
-    int       dataAlloc;     /**< Number of bytes allocated for dataBase */
-    int       stackBottom;   /**< If programStack < stackBottom, error */
+    uint8_t*  dataBase;         /**< Start of .data memory segment */
+    int       dataMask;         /**< VM mask to protect access to dataBase */
+    int       dataAlloc;        /**< Number of bytes allocated for dataBase */
+    int       stackBottom;      /**< If programStack < stackBottom, error */
 
     //------------------------------------
 
     /* DEBUG_VM */
-    int       numSymbols;    /**< Number of symbols from VM_LoadSymbols */
-    vmSymbol_t* symbols;     /**< By VM_LoadSymbols: names for debugging */
-    int       callLevel;     /**< Counts recursive VM_Call */
-    int       breakFunction; /**< For debugging: break at this function */
-    int       breakCount;    /**< Used for breakpoints, triggered by OP_BREAK */
+    int         numSymbols;    /**< Number of symbols from VM_LoadSymbols */
+    vmSymbol_t* symbols;       /**< By VM_LoadSymbols: names for debugging */
+    int         callLevel;     /**< Counts recursive VM_Call */
+    int         breakFunction; /**< For debugging: break at this function */
+    int         breakCount;  /**< Used for breakpoints, triggered by OP_BREAK */
     vmErrorCode_t lastError; /**< Last known error */
 } vm_t;
 
@@ -177,8 +179,7 @@ typedef struct vm_s
  *   g_syscalls.asm equals to 0 in the systemCall parms argument, -2 in
  *   g_syscalls.asm is 1 in parms, -3 is 2 and so on.
  * @return 0 if everything is OK. -1 if something went wrong. */
-int VM_Create(vm_t* vm, const char* module,
-              const uint8_t* bytecode, int length,
+int VM_Create(vm_t* vm, const char* module, const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*));
 
 /** Free the memory of the virtual machine.

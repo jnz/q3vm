@@ -247,7 +247,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         if (f != 0.0f)
         {
@@ -306,7 +306,7 @@ int badcall(int i)
 
 float floatff(float f)
 {
-    return 2.0f*f;
+    return 2.0f * f;
 }
 
 int recursive(int i)
