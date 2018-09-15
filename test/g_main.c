@@ -16,6 +16,12 @@ int testCase(const char* f);
 /* this call is supposed to fail */
 int badcall(int i);
 
+/* test float system calls */
+float floatff(float f);
+
+/* test recursive calls */
+int recursive(int i);
+
 volatile int        bssTest;         /* don't initialize, should be zero */
 volatile static int dataTest = -999; /* don't change, should be 999 */
 
@@ -60,9 +66,23 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     printf("arg11: %i\n", arg11);
     */
 
+    if (command == 1)
+    {
+        return arg0; /* just return arg0, used for "recursive()" test */
+    }
+
     printf(str, "World");
     trap_Error("Testing Error Callback\n");
     badcall(9001);
+
+    /* call a native function that will call us back here with command == 1 */
+    printf("Test recursive VM call... ");
+    if (recursive(666) != 666) /* we expect our input back */
+    {
+        printf("failed\n");
+        return -1;
+    }
+    printf("passed\n");
 
     /* float */
     for (i = 0; i < 20000000; i++)
@@ -227,7 +247,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         }
         else
         {
-            f = 2*f;
+            f = 2 * f;
         }
         if (f != 0.0f)
         {
@@ -248,6 +268,14 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     {
         return -1;
     }
+
+    printf("Float system call test: ");
+    if (floatff(3.33f) != 6.66f)
+    {
+        printf("failed\n");
+        return -1;
+    }
+    printf("passed\n");
 
 #ifdef Q3_VM
     printf(str, "Trying to copy outside of vm sandbox:\n");
@@ -274,6 +302,16 @@ int main(int argc, char** argv)
 int badcall(int i)
 {
     return 0;
+}
+
+float floatff(float f)
+{
+    return 2.0f * f;
+}
+
+int recursive(int i)
+{
+    return vmMain(1, i, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 #else
 void printf(const char* fmt, ...)

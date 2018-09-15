@@ -101,6 +101,8 @@ void ExpandWildcards( int *argc, char ***argv )
 #else
 void ExpandWildcards (int *argc, char ***argv)
 {
+    (void)argc;
+    (void)argv;
 }
 #endif
 
@@ -255,7 +257,7 @@ void SetQdirFromPath( const char *path )
       }
 			strncpy (qdir, path, c+len+count-path);
 			qprintf ("qdir: %s\n", qdir);
-			for ( i = 0; i < strlen( qdir ); i++ )
+			for ( i = 0; i < (int)strlen( qdir ); i++ )
 			{
 				if ( qdir[i] == '\\' ) 
 					qdir[i] = '/';
@@ -268,7 +270,7 @@ void SetQdirFromPath( const char *path )
 				{
 					strncpy (gamedir, path, c+1-path);
 
-					for ( i = 0; i < strlen( gamedir ); i++ )
+					for ( i = 0; i < (int)strlen( gamedir ); i++ )
 					{
 						if ( gamedir[i] == '\\' ) 
 							gamedir[i] = '/';
@@ -644,7 +646,7 @@ static FILE* myfopen(const char* filename, const char* mode)
 	char fn[MAX_PATH];
 
 	fn[0] = '\0';
-	strncat(fn, filename, sizeof(fn)-1);
+	strncat(fn, filename, sizeof(fn)-strlen(fn)-1);
 
 	for(p=fn;*p;++p) if(*p == '\\') *p = '/';
 

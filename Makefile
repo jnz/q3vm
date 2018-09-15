@@ -107,10 +107,12 @@ dump: $(TARGET)
 cppcheck:
 	@echo "Running "$@
 	cppcheck --error-exitcode=-1 src/
+	cppcheck --error-exitcode=-1 q3asm/
 
 clangcheck: clean
 	@echo "Running "$@
 	scan-build make q3vm
+	scan-build make q3asm
 
 valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test example/bytecode.qvm
 	@echo "Running "$@
