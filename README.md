@@ -19,7 +19,7 @@ Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
  * http://fabiensanglard.net/quake3/qvm.php
 
-![gif](http://i.imgur.com/7szqQIB.gif)
+![gif](demo_vm.gif?raw=1)
 
 Installation
 ------------
