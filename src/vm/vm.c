@@ -42,7 +42,33 @@
 #define LittleLong(x) LittleEndianToHost((const uint8_t*)&(x))
 
 /* GCC can do "computed gotos" instead of a traditional switch/case
- * interpreter, this speeds up the execution. */
+ * interpreter, this speeds up the execution.
+ *
+ * The following section is from Python's ceval.c file:
+ *
+ *   Computed GOTOs, or
+ *       the-optimization-commonly-but-improperly-known-as-"threaded code"
+ *   using gcc's labels-as-values extension
+ *   (http://gcc.gnu.org/onlinedocs/gcc/Labels-as-Values.html).
+ *
+ *   The traditional bytecode evaluation loop uses a "switch" statement, which
+ *   decent compilers will optimize as a single indirect branch instruction
+ *   combined with a lookup table of jump addresses. However, since the
+ *   indirect jump instruction is shared by all opcodes, the CPU will have a
+ *   hard time making the right prediction for where to jump next (actually, it
+ *   will be always wrong except in the uncommon case of a sequence of several
+ *   identical opcodes).
+ *   "Threaded code" in contrast, uses an explicit jump table and an explicit
+ *   indirect jump instruction at the end of each opcode. Since the jump
+ *   instruction is at a different address for each opcode, the CPU will make a
+ *   separate prediction for each of these instructions, which is equivalent to
+ *   predicting the second opcode of each opcode pair. These predictions have a
+ *   much better chance to turn out valid, especially in small bytecode loops.
+ *   A mispredicted branch on a modern CPU flushes the whole pipeline and can
+ *   cost several CPU cycles (depending on the pipeline depth), and potentially
+ *   many more instructions (depending on the pipeline width).  A correctly
+ *   predicted branch, however, is nearly free.
+ * */
 #ifdef __GNUC__
 #ifndef DEBUG_VM           /* can't use computed gotos in debug mode */
 #define USE_COMPUTED_GOTOS /**< use computed gotos instead of a switch */
@@ -403,7 +429,7 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode, int length,
     vm->programStack = vm->dataMask + 1;
     vm->stackBottom  = vm->programStack - VM_PROGRAM_STACK_SIZE;
 
-#if 1
+#ifdef DEBUG_VM
     Com_Printf("VM:\n");
     Com_Printf(".code length: %6i bytes\n", header->codeLength);
     Com_Printf(".data length: %6i bytes\n", header->dataLength);
