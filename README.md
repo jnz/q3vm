@@ -19,13 +19,17 @@ Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
  * http://fabiensanglard.net/quake3/qvm.php
 
+Example: editing a virtual machine:
+
 ![gif](demo_vm.gif?raw=1)
 
 Installation
 ------------
 
 The [vm.c](src/vm/vm.c?raw=1) and [vm.h](src/vm/vm.h?raw=1) files can be
-dropped into an existing C project and compiled along with it.
+dropped into an existing C project and compiled along with it. Implement
+the 4 callback functions in your project: `Com_malloc`,  `Com_free`, `Com_Error`
+and `systemCalls`.
 
 Features
 --------
@@ -227,7 +231,7 @@ memory allocation:
 The host can simply call `malloc` and `free` or use a custom memory allocation
 function or use static memory (e.g. in an embedded application). Each VM only
 calls `Com_malloc` once per malloc type. This can be used as a help for the static memory
-allocation in an embedded environment without malloc() and free().
+allocation in an embedded environment without `malloc()` and `free()`.
 
 **Error handling**:
 
@@ -249,7 +253,7 @@ How to add a custom native function
 
 Let's say we want to add a native function to convert a string to an integer:
 `stringToInt`.  We want to add the function to our virtual machine (step 1) and
-call it from our example code (step 2).  (Note: there is already the atoi function in
+call it from our example code (step 2).  (Note: there is already the `atoi` function in
 the bytecode, but this is just an example on how to call `atoi` as a native
 function and deal with address translation).
 
@@ -265,7 +269,7 @@ the native call to `atoi`. There is a helper macro that will translate the
 address for use: `VMA`. We need to give `VMA` the pointer argument from the
 bytecode and the virtual machine context (`vm`) to translate it.
 The function `VM_MemoryRangeValid` makes sure that the memory range is valid. This is e.g.
-important for the memcpy call, so that the VM cannot write outside of
+important for the `memcpy` call, so that the VM cannot write outside of
 the sandbox memory.
 It is also possible to call the VM recursively again with `VM_Call`.
 
