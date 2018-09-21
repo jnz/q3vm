@@ -74,6 +74,7 @@ application.  You can easily add the interpreter as a single .c file to your
 project (`vm.c` and the header `vm.h`).  Call `VM_Create` and `VM_Call` to run
 the bytecode in your application:
 
+```c
     #include "vm.h"
 
     vm_t vm;
@@ -82,7 +83,8 @@ the bytecode in your application:
     VM_Create(&vm, "my test", pointerToByteCodeBuffer, sysCall);
     result = VM_Call(&vm, 12345);
     VM_Free(&vm);
-    
+```
+
 The `pointerToByteCodeBuffer` is some memory location where the bytecode is
 located. You can e.g. load it from a file and store it in a byte array. See
 `main.c` for an example implementation.
@@ -200,6 +202,7 @@ Callback functions required in host application
 The following functions are required in the host application for
 memory allocation:
 
+```c
     void* Com_malloc(size_t size, vm_t* vm, vmMallocType_t type);
     {
         (void)vm;
@@ -213,6 +216,7 @@ memory allocation:
         (void)type;
         free(p);
     }
+```
 
 The host can simply call `malloc` and `free` or use a custom memory allocation
 function or use static memory (e.g. in an embedded application). Each VM only
@@ -223,11 +227,13 @@ allocation in an embedded environment without `malloc()` and `free()`.
 
 The following function needs to be implemented in the host application:
 
+```c
     void Com_Error(vmErrorCode_t level, const char* error)
     {
         fprintf(stderr, "Err (%i): %s\n", level, error);
         exit(level);
     }
+```
 
 The error id is given by the `vmErrorCode_t` parameter. The `error` string describes
 what went wrong.  It is up to the host application how to deal with the error.
@@ -259,7 +265,7 @@ important for the `memcpy` call, so that the VM cannot write outside of
 the sandbox memory.
 It is also possible to call the VM recursively again with `VM_Call`.
 
-
+```c
     /* Call native functions from the bytecode: */
     intptr_t systemCalls(vm_t* vm, intptr_t* args)
     {
@@ -296,6 +302,7 @@ It is also possible to call the VM recursively again with `VM_Call`.
         }
         return 0;
     }
+```
 
 **Step 2)** Tell the bytecode about this function
 
@@ -315,12 +322,16 @@ important for the mapping.
 
 Edit `example/main.c` and add the function declaration:
 
+```c
     int stringToInt(const char* a);
+```
 
 And call it somewhere from the `vmMain` function:
 
+```c
     char* myStr = "1234";
     printf("\"%s\" -> %i\n", myStr, stringToInt(myStr));
+```
 
 Compile everything:
 
