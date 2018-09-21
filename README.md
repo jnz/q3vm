@@ -411,8 +411,6 @@ TODO
 Known limitations, bugs, missing features:
 
  * The Quake III Arena JIT compiler (e.g. for x86) is not added.
- * double is not supported.
- * `DEBUG_VM` builds are not thread-safe.
 
 LICENSE
 -------
