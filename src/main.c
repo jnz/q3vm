@@ -46,7 +46,8 @@ int main(int argc, char** argv)
     {
         retVal = VM_Call(&vm, 0);
     }
-    // VM_VmProfile_f(&vm); /* output profile information in DEBUG_VM build */
+    /* output profile information in DEBUG_VM build: */
+    /* VM_VmProfile_f(&vm); */
     VM_Free(&vm);
     free(image); /* we can release the memory now */
 

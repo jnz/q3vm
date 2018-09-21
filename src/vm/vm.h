@@ -24,7 +24,9 @@
  * DEFINES
  ******************************************************************************/
 
-// #define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
+#if 0
+#define DEBUG_VM /**< ifdef: enable debug functions and additional checks */
+#endif
 
 /** File start magic number for .qvm files (4 bytes, little endian) */
 #define VM_MAGIC 0x12721444
@@ -118,8 +120,8 @@ typedef struct vmSymbol_s
  * to cleanup this struct and free the memory. */
 typedef struct vm_s
 {
-    // DO NOT MOVE OR CHANGE THESE WITHOUT CHANGING THE VM_OFFSET_* DEFINES
-    // USED BY THE ASM CODE (IF WE ADD THE Q3 JIT COMPILER IN THE FUTURE)
+    /* DO NOT MOVE OR CHANGE THESE WITHOUT CHANGING THE VM_OFFSET_* DEFINES
+       USED BY THE ASM CODE (IF WE ADD THE Q3 JIT COMPILER IN THE FUTURE) */
 
     int programStack; /**< Stack pointer into .data segment. */
 
@@ -134,7 +136,7 @@ typedef struct vm_s
      * index might help a lookup table. */
     intptr_t (*systemCall)(struct vm_s* vm, intptr_t* parms);
 
-    //------------------------------------
+    /*------------------------------------*/
 
     char      name[VM_MAX_QPATH];    /** File name of the bytecode */
     void*     searchPath;            /**< unused */
@@ -150,7 +152,7 @@ typedef struct vm_s
     int       dataAlloc;        /**< Number of bytes allocated for dataBase */
     int       stackBottom;      /**< If programStack < stackBottom, error */
 
-    //------------------------------------
+    /*------------------------------------*/
 
     /* DEBUG_VM */
     int         numSymbols;    /**< Number of symbols from VM_LoadSymbols */
