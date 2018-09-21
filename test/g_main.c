@@ -130,6 +130,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         xu = xu / xu2;
         xu = xu % xu2;
         xu = xu * xu2;
+        us += 2;
+        us = us << 3;
+        xi = us + 3;
 
         xu = ~xu;
         xi = (short)xi;
