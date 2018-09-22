@@ -79,7 +79,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         printf("Invalid function pointer call...\n");
         (*fun_ptr)(10);
         printf("Invalid function pointer accepted.\n");
-        return 0;
+        return 0x0badf00d;
     }
 
     printf(str, "World");
