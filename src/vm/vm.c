@@ -678,8 +678,8 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
         ((dest + n) & dataMask) != dest + n ||
         ((src + n) & dataMask) != src + n)
     {
-        vm->lastError = VM_BLOCKCOPY_OUT_OF_RANGE;
-        Com_Error(vm->lastError, "OP_BLOCK_COPY out of range");
+        Com_Error(vm->lastError = VM_BLOCKCOPY_OUT_OF_RANGE,
+                  "OP_BLOCK_COPY out of range");
         return;
     }
 
@@ -730,8 +730,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         codeBase[int_pc] = op;
         if (byte_pc > header->codeLength)
         {
-            vm->lastError = VM_PC_OUT_OF_RANGE;
-            Com_Error(vm->lastError,
+            Com_Error(vm->lastError = VM_PC_OUT_OF_RANGE,
                       "VM_PrepareInterpreter: pc > header->codeLength");
             return -1;
         }
@@ -816,8 +815,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_GEF:
             if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
             {
-                vm->lastError = VM_JUMP_TO_INVALID_INSTRUCTION;
-                Com_Error(vm->lastError,
+                Com_Error(vm->lastError = VM_JUMP_TO_INVALID_INSTRUCTION,
                           "VM_PrepareInterpreter: Jump to invalid "
                           "instruction number");
                 return -1;
@@ -1203,8 +1201,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             }
             else if ((unsigned)programCounter >= (unsigned)vm->codeLength)
             {
-                vm->lastError = VM_PC_OUT_OF_RANGE;
-                Com_Error(vm->lastError,
+                Com_Error(vm->lastError = VM_PC_OUT_OF_RANGE,
                           "VM program counter out of range in OP_LEAVE");
                 return -1;
             }
@@ -1219,8 +1216,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         goto_OP_JUMP:
             if ((unsigned)r0 >= (unsigned)vm->instructionCount)
             {
-                vm->lastError = VM_PC_OUT_OF_RANGE;
-                Com_Error(vm->lastError,
+                Com_Error(vm->lastError = VM_PC_OUT_OF_RANGE,
                           "VM program counter out of range in OP_JUMP");
                 return -1;
             }
@@ -1545,8 +1541,8 @@ done:
 
     if (opStackOfs != 1 || *opStack != 0x0000BEEF)
     {
-        vm->lastError = VM_STACK_ERROR;
-        Com_Error(vm->lastError, "Interpreter stack error");
+        Com_Error(vm->lastError = VM_STACK_ERROR,
+                  "Interpreter stack error");
     }
 
     vm->programStack = stackOnEntry;
