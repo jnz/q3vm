@@ -447,6 +447,7 @@ This project is based on the Quake 3 and ioquake3 source:
 
  * https://github.com/id-Software/Quake-III-Arena (id Software)
  * https://github.com/ioquake/ioq3
+ * https://icculus.org/projects/triseism/triseism.html
 
 Computed gotos are used:
 
