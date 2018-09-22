@@ -44,6 +44,11 @@ CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -fmessage-length=n: If n is zero, then no line-wrapping is done; each error message appears on a single line.
 CFLAGS += -fmessage-length=0 -MMD -fno-common -MP -MF"$(@:%.o=%.d)"
 CFLAGS += -Wall -Wextra
+# For optimized gotos this speeds things up:
+# care must be taken that the compiler doesn't try to "optimize" the indirect
+# jumps by sharing them between all opcodes. Such optimizations can be disabled
+# on gcc by using the -fno-gcse flag (or possibly -fno-crossjumping).
+CFLAGS += -fno-gcse -fno-crossjumping
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 CFLAGS += -O2
 
