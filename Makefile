@@ -48,7 +48,7 @@ CFLAGS += -Wall -Wextra
 # care must be taken that the compiler doesn't try to "optimize" the indirect
 # jumps by sharing them between all opcodes. Such optimizations can be disabled
 # on gcc by using the -fno-gcse flag (or possibly -fno-crossjumping).
-CFLAGS += -fno-gcse -fno-crossjumping
+# CFLAGS += -fno-gcse -fno-crossjumping
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 # LTO makes things slower
 # CFLAGS += -flto
