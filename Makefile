@@ -48,7 +48,11 @@ CFLAGS += -Wall -Wextra
 # care must be taken that the compiler doesn't try to "optimize" the indirect
 # jumps by sharing them between all opcodes. Such optimizations can be disabled
 # on gcc by using the -fno-gcse flag (or possibly -fno-crossjumping).
-# CFLAGS += -fno-gcse -fno-crossjumping
+# the DISABLE_GCC_EXTRA_FLAGS stuff is for the clang scan-build
+# scan-build has a problem with these flags
+ifndef DISABLE_GCC_EXTRA_FLAGS
+	CFLAGS += -fno-gcse -fno-crossjumping
+endif
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 # LTO makes things slower
 # CFLAGS += -flto
@@ -121,7 +125,7 @@ cppcheck:
 
 clangcheck: clean
 	@echo "Running "$@
-	scan-build make q3vm
+	scan-build make q3vm DISABLE_GCC_EXTRA_FLAGS=1
 	scan-build make q3asm
 
 valgrind: $(TARGET) test/test.qvm test/q3vm_test/q3vm_test example/bytecode.qvm
