@@ -421,13 +421,13 @@ Smaller numbers are better (multiple runs, smallest number used).
 
 | Interpreter          | Time     |
 |----------------------|----------|
-| Q3VM                 |  2.719 s |
+| Q3VM                 |  1.222 s |
 | Triseism project     | 10.903 s |
 
  * Ubuntu 17.10
  * GCC: 7.2.0-8ubuntu3.2
  * CPU: Intel(R) Core(TM) i5-3320M CPU @ 2.60GHz
- * Version Git hash: 6100a3ebe27afd87066c99a6089c5af29cdd8e57
+ * Version Git hash: bb4848c25b2b95c08b9aa03bb6ac46ef4948d900
 
 Version History
 ---------------

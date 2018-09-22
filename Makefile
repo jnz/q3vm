@@ -50,6 +50,9 @@ CFLAGS += -Wall -Wextra
 # on gcc by using the -fno-gcse flag (or possibly -fno-crossjumping).
 CFLAGS += -fno-gcse -fno-crossjumping
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
+# LTO makes things slower
+# CFLAGS += -flto
+# LINK_FLAGS += -flto
 CFLAGS += -O2
 
 # disable some warnings...
