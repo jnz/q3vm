@@ -387,7 +387,9 @@ Call at the end of a session `VM_VmProfile_f(vm)` to see a VM usage summary.
 Benchmarks
 ----------
 
-Time to run `test/test.qvm`:
+Time to run `test/test.qvm`.
+
+Smaller numbers are better (multiple runs, smallest number used).
 
 
 | Interpreter          | Time     |
@@ -402,7 +404,7 @@ Environment:
  * Ubuntu 17.10
  * GCC: 7.2.0-8ubuntu3.2
  * CPU: Intel(R) Core(TM) i5-3320M CPU @ 2.60GHz
- * Version: 8e46048f475a53f99f9e6656e030835b6011f2ca
+ * Version Git hash: 8e46048f475a53f99f9e6656e030835b6011f2ca
  * Date: 2018.08.31
 
 Command line:
@@ -410,8 +412,11 @@ Command line:
     time ./q3vm test/test.qvm
     time ./test/test_native
 
-Benchmark vs. Triseism Q3 interpreter (seismiq executable):
+Benchmark vs. Triseism Q3 interpreter (seismiq executable).
+
 Testfirmware: `test/example_test.qvm`
+
+Smaller numbers are better (multiple runs, smallest number used).
 
 
 | Interpreter          | Time     |
@@ -422,7 +427,7 @@ Testfirmware: `test/example_test.qvm`
  * Ubuntu 17.10
  * GCC: 7.2.0-8ubuntu3.2
  * CPU: Intel(R) Core(TM) i5-3320M CPU @ 2.60GHz
- * Version: 6100a3ebe27afd87066c99a6089c5af29cdd8e57
+ * Version Git hash: 6100a3ebe27afd87066c99a6089c5af29cdd8e57
 
 Version History
 ---------------
