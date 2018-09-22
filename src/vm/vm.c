@@ -461,8 +461,7 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
     if (LittleLong(header.h->vmMagic) == VM_MAGIC)
     {
         /* byte swap the header */
-        /* sizeof( vmHeader_t ) - sizeof( int ) is the 1.32b vm header size */
-        for (i = 0; i < (int)(sizeof(vmHeader_t) - sizeof(int)) / 4; i++)
+        for (i = 0; i < (int)(sizeof(vmHeader_t)) / 4; i++)
         {
             ((int*)header.h)[i] = LittleLong(((int*)header.h)[i]);
         }
