@@ -68,6 +68,8 @@ int testNominal(const char* filepath)
         retVal += VM_Call(&vm, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
         /* so now retVal should be 333 if everything is as expected */
         printf("Result (should be 333): %i\n", retVal);
+        /* now do an invalid function call within the VM */
+        retVal += (VM_Call(&vm, 2)+1); /* we expect a -1, so we add a +1 to cancel it out */
     }
     VM_VmProfile_f(&vm);
     VM_Free(&vm);

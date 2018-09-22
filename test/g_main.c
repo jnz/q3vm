@@ -37,7 +37,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
            int arg5, int arg6, int arg7, int arg8, int arg9, int arg10,
            int arg11)
 {
-    int                     i;
+    volatile int            i;
+    volatile int            iloop = 20000000;
     char                    str[] = "Hello %s\n";
     volatile float          f     = 0.0f;
     volatile float          df    = 0.0001f;
@@ -49,6 +50,9 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     volatile int            j;
     static unsigned char    mem1[8];
     static unsigned char    mem2[8] = "Hello"; /* don't change this string */
+    int                     doStupidStuff = 0; /* misbehave and see if the interpreter deals correctly with that */
+
+    void (*fun_ptr)(int) = (void*)0xffffff;
 
     /*
     printf("cmd:   %i\n", command);
@@ -70,22 +74,38 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
     {
         return arg0; /* just return arg0, used for "recursive()" test */
     }
+    if (command == 2)
+    {
+        printf("Invalid function pointer call...\n");
+        (*fun_ptr)(10);
+        printf("Invalid function pointer accepted.\n");
+        return 0;
+    }
 
     printf(str, "World");
     trap_Error("Testing Error Callback\n");
-    badcall(9001);
 
-    /* call a native function that will call us back here with command == 1 */
-    printf("Test recursive VM call... ");
-    if (recursive(666) != 666) /* we expect our input back */
+    doStupidStuff = (arg1 == 1);
+    if (doStupidStuff)
     {
-        printf("failed\n");
-        return -1;
+        printf("Misbehave mode is enabled\n");
+        badcall(9001);
     }
-    printf("passed\n");
+
+    if (doStupidStuff)
+    {
+        /* call a native function that will call us back here with command == 1 */
+        printf("Test recursive VM call... ");
+        if (recursive(666) != 666) /* we expect our input back */
+        {
+            printf("failed\n");
+            return -1;
+        }
+        printf("passed\n");
+    }
 
     /* float */
-    for (i = 0; i < 20000000; i++)
+    for (i = 0; i < iloop; i++)
     {
         f += df;
         f = -f;
@@ -93,17 +113,19 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         f /= 2.0f;
         f *= 2.0f;
     }
-
     printf("Result (should be 2048.000000): %f\n", f);
 
     /* memcpy/memset */
-    memset(mem1, 0, sizeof(mem1));
-    memcpy(mem1, mem2, sizeof(mem2));
-    if (mem1[0] != 'H' || mem1[1] != 'e' || mem1[2] != 'l' || mem1[3] != 'l' ||
-        mem1[4] != 'o' || mem1[5] != '\0' || mem1[6] != 0)
+    if (doStupidStuff)
     {
-        printf("memcpy / memset error\n");
-        return -1;
+        memset(mem1, 0, sizeof(mem1));
+        memcpy(mem1, mem2, sizeof(mem2));
+        if (mem1[0] != 'H' || mem1[1] != 'e' || mem1[2] != 'l' || mem1[3] != 'l' ||
+            mem1[4] != 'o' || mem1[5] != '\0' || mem1[6] != 0)
+        {
+            printf("memcpy / memset error\n");
+            return -1;
+        }
     }
 
     /* integer stuff */
@@ -272,17 +294,23 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         return -1;
     }
 
-    printf("Float system call test: ");
-    if (floatff(3.33f) != 6.66f)
+    if (doStupidStuff)
     {
-        printf("failed\n");
-        return -1;
+        printf("Float system call test: ");
+        if (floatff(3.33f) != 6.66f)
+        {
+            printf("failed\n");
+            return -1;
+        }
+        printf("passed\n");
     }
-    printf("passed\n");
 
 #ifdef Q3_VM
-    printf(str, "Trying to copy outside of vm sandbox:\n");
-    memcpy(mem1, mem2, 1000000); /* try to escape the sandbox */
+    if (doStupidStuff)
+    {
+        printf(str, "Trying to copy outside of vm sandbox:\n");
+        memcpy(mem1, mem2, 1000000); /* try to escape the sandbox */
+    }
 #endif
     if (arg0 != 0 || arg1 != 1 || arg2 != 2 || arg3 != 3 || arg4 != 4 ||
         arg5 != 5 || arg6 != 6 || arg7 != 7 || arg8 != 8 || arg9 != 9 ||
