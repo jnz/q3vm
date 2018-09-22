@@ -1011,8 +1011,8 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         default: /* fall through */
 #endif
         goto_OP_UNDEF:
-            vm->lastError = VM_BAD_INSTRUCTION;
-            Com_Error(vm->lastError, "Bad VM instruction");
+            Com_Error(vm->lastError = VM_BAD_INSTRUCTION,
+                      "Bad VM instruction");
             return -1;
         goto_OP_IGNORE:
             DISPATCH2();
