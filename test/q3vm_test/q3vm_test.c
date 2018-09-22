@@ -93,8 +93,8 @@ void testArguments(void)
     vm.codeLength = 0;
     VM_Call(&vm, 0);
 
-    VMA_(0, NULL);
-    VMA_(1, NULL);
+    VM_ArgPtr(0, NULL);
+    VM_ArgPtr(1, NULL);
     VM_MemoryRangeValid(0, 0, NULL);
     loadImage(NULL, &imageSize);
     loadImage("invalidpathfoobar", &imageSize);

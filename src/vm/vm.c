@@ -603,7 +603,7 @@ void VM_Free(vm_t* vm)
     Com_Memset(vm, 0, sizeof(*vm));
 }
 
-void* VMA_(intptr_t vmAddr, vm_t* vm)
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm)
 {
     if (!vmAddr)
     {

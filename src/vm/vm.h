@@ -50,9 +50,9 @@
 #define Com_Memcpy memcpy
 
 /** Translate from virtual machine memory to real machine memory. */
-#define VMA(x, vm) VMA_(args[x], vm)
+#define VMA(x, vm) VM_ArgPtr(args[x], vm)
 
-/** Get float argument in syscall (used in system calls) and don't cast it */
+/** Get argument in syscall and interpret it bit by bit as IEEE 754 float */
 #define VMF(x) VM_IntToFloat(args[x])
 
 /******************************************************************************
@@ -203,11 +203,12 @@ intptr_t VM_Call(vm_t* vm, int command, ...);
  * @param[in] vmAddr Address in virtual machine memory
  * @param[in,out] vm Current VM
  * @return translated address. */
-void* VMA_(intptr_t vmAddr, vm_t* vm);
+void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
 
 /** Helper function for syscalls VMF(x) macro:
- * Get float argument in syscall (used in system calls) and don't cast it.
- * E.g. if the VM calls a native function with a float argument: don't
+ * Get argument in syscall and interpret it bit by bit as IEEE 754 float.
+ * That is: just put the int in a float/int union and return the float.
+ * If the VM calls a native function with a float argument: don't
  * cast the int argument to a float, but rather interpret it directly
  * as a floating point variable.
  * @param[in] x Argument on call stack.
@@ -215,8 +216,7 @@ void* VMA_(intptr_t vmAddr, vm_t* vm);
 float VM_IntToFloat(int32_t x);
 
 /** Helper function for syscalls:
- * Convert a 32-bit floating point variable to an integer variable without
- * converting it.
+ * Just put the float in a float/int union and return the int.
  * @param[in] f Floating point number.
  * @return Floating point number as integer */
 int32_t VM_FloatToInt(float f);
