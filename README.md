@@ -20,7 +20,7 @@ Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
  * http://fabiensanglard.net/quake3/qvm.php
 
-Video: compiling a simple *hello world* example (`main.c`) and run it with the virtual machine interpreter `q3vm`.
+Gif: compiling a simple *hello world* example (`main.c`) and run it with the virtual machine interpreter `q3vm`.
 
 ![gif](demo_vm.gif?raw=1)
 
@@ -44,7 +44,7 @@ Features
  * Static memory allocation in C, no unpredictable garbage collector
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
- * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section)
+ * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section) 
  * Much faster than the Triseism Q3VM interpreter (see benchmark section)
 
 Use Cases
