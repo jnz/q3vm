@@ -148,7 +148,7 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
         return args[1];
 
     default:
-        fprintf(stderr, "Bad system call: %ld\n", (long int)args[0]);
+        fprintf(stderr, "Bad system call: %i\n", id);
     }
     return 0;
 }
