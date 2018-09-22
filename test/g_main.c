@@ -258,6 +258,11 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
             f = 2 * f;
         }
         f = 0.1f;
+        if (f != df)
+        {
+            f = 128 * f;
+        }
+        f *= 0.1f;
         if (f == 0.0f)
         {
             f = -f;
@@ -266,6 +271,11 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         {
             f = 0.0f;
         }
+        if (df == f)
+        {
+            df = 1.2f*df;
+        }
+        df = 0.95f*df;
         if (f == df)
         {
             f = -f;
@@ -273,10 +283,6 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         else
         {
             f = 2 * f;
-        }
-        if (f != 0.0f)
-        {
-            f = 128 * f;
         }
     }
 

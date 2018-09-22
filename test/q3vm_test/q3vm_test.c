@@ -137,33 +137,27 @@ void testArguments(void)
 
 int main(int argc, char** argv)
 {
-    if (argc < 2)
-    {
-        fprintf(
-            stderr,
-            "No virtual machine supplied. Example: q3vm_test bytecode.qvm\n");
-        return -1;
-    }
+    const char* files[] = {"test.qvm", argv[argc > 1]};
+    const char* file = files[argc > 1];
 
     testArguments();
-
     /* <malloc fail tests> */
     for (int i = 0; i < VM_ALLOC_TYPE_MAX - 1; i++)
     {
         g_mallocFail = i;
-        testNominal(argv[1]);
+        testNominal(file);
     }
     g_mallocFail = -1;
     /* </malloc fail tests> */
 
     testInject(NULL, 0, 0);
     testNominal(NULL);
-    testInject(argv[1], 32, 0);
-    testInject(argv[1], 32, 63);
-    testInject(argv[1], 32, 65);
-    testInject(argv[1], 4, -1);
+    testInject(file, 32, 0);
+    testInject(file, 32, 63);
+    testInject(file, 32, 65);
+    testInject(file, 4, -1);
     /* finally: test the normal case */
-    return testNominal(argv[1]);
+    return testNominal(file);
 }
 
 void Com_Error(vmErrorCode_t level, const char* error)
@@ -215,11 +209,13 @@ uint8_t* loadImage(const char* filepath, int* size)
     /* calculate file size */
     fseek(f, 0L, SEEK_END);
     sz = ftell(f);
+    /*
     if (sz < 1)
     {
         fclose(f);
         return NULL;
     }
+    */
     rewind(f);
 
     image = (uint8_t*)malloc(sz);
