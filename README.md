@@ -268,7 +268,7 @@ It is also possible to call the VM recursively again with `VM_Call`.
 
 ```c
     /* Call native functions from the bytecode: */
-    intptr_t systemCalls(vm_t* vm, intptr_t* args)
+    int systemCalls(vm_t* vm, int* args)
     {
         const int id = -1 - args[0];
     
@@ -295,11 +295,11 @@ It is also possible to call the VM recursively again with `VM_Call`.
             }
             return args[1];
     
-        case -5: /* stringToInt */                             // < NEW
-            return atoi(VMA(1, vm));                           // < NEW
+        case -5: /* stringToInt */                             // < NEW !!!
+            return atoi(VMA(1, vm));                           // < NEW !!!
     
         default:
-            fprintf(stderr, "Bad system call: %ld", (long int)args[0]);
+            fprintf(stderr, "Bad system call: %i\n", id);
         }
         return 0;
     }
@@ -313,11 +313,11 @@ important for the mapping.
 
     code
     
-    equ	trap_Printf				-1
-    equ	trap_Error				-2
-    equ	memset					-3
-    equ	memcpy					-4
-    equ	stringToInt				-5
+    equ trap_Printf             -1
+    equ trap_Error              -2
+    equ memset                  -3
+    equ memcpy                  -4
+    equ stringToInt             -5
 
 **Step 3)** Perform an example call to `strintToInt`
 
