@@ -45,6 +45,7 @@ Features
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
  * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section)
+ * Much faster than the Triseism Q3VM interpreter (see benchmark section)
 
 Use Cases
 ---------
@@ -408,6 +409,20 @@ Command line:
 
     time ./q3vm test/test.qvm
     time ./test/test_native
+
+Benchmark vs. Triseism Q3 interpreter (seismiq executable):
+Testfirmware: `test/example_test.qvm`
+
+
+| Interpreter          | Time     |
+|----------------------|----------|
+| Q3VM                 |  2.719 s |
+| Triseism project     | 10.903 s |
+
+ * Ubuntu 17.10
+ * GCC: 7.2.0-8ubuntu3.2
+ * CPU: Intel(R) Core(TM) i5-3320M CPU @ 2.60GHz
+ * Version: 6100a3ebe27afd87066c99a6089c5af29cdd8e57
 
 Version History
 ---------------
