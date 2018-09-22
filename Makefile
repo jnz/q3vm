@@ -51,7 +51,8 @@ CFLAGS += -Wall -Wextra
 # the DISABLE_GCC_EXTRA_FLAGS stuff is for the clang scan-build
 # scan-build has a problem with these flags
 ifndef DISABLE_GCC_EXTRA_FLAGS
-	CFLAGS += -fno-gcse -fno-crossjumping
+	# CFLAGS += -fno-gcse -fno-crossjumping
+	CFLAGS += -fno-crossjumping
 endif
 # CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 # LTO makes things slower
