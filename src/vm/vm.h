@@ -138,28 +138,41 @@ typedef struct vm_s
 
     /*------------------------------------*/
 
-    char      name[VM_MAX_QPATH];    /** File name of the bytecode */
-    void*     searchPath;            /**< unused */
-    int       currentlyInterpreting; /**< Is the vm currently running? */
-    int       compiled;   /**< Is a JIT active? Otherwise interpreted */
-    uint8_t*  codeBase;   /**< Bytecode code segment */
-    int       entryOfs;   /**< unused */
-    int       codeLength; /**< Number of bytes in code segment */
+    char  name[VM_MAX_QPATH]; /** File name of the bytecode */
+    void* searchPath;         /**< unused */
+
+    /* for dynamic libs (unused in Q3VM) */
+    void* unused_dllHandle;                          /**< unused */
+    intptr_t (*unused_entryPoint)(int callNum, ...); /**< unused */
+    void (*unused_destroy)(struct vm_s* self);       /**< unused */
+
+    int currentlyInterpreting; /**< Is the vm currently running? */
+
+    int      compiled;   /**< Is a JIT active? Otherwise interpreted */
+    uint8_t* codeBase;   /**< Bytecode code segment */
+    int      entryOfs;   /**< unused */
+    int      codeLength; /**< Number of bytes in code segment */
+
     intptr_t* instructionPointers;
     int       instructionCount; /**< Number of instructions for VM */
-    uint8_t*  dataBase;         /**< Start of .data memory segment */
-    int       dataMask;         /**< VM mask to protect access to dataBase */
-    int       dataAlloc;        /**< Number of bytes allocated for dataBase */
-    int       stackBottom;      /**< If programStack < stackBottom, error */
+
+    uint8_t* dataBase;  /**< Start of .data memory segment */
+    int      dataMask;  /**< VM mask to protect access to dataBase */
+    int      dataAlloc; /**< Number of bytes allocated for dataBase */
+
+    int stackBottom; /**< If programStack < stackBottom, error */
 
     /*------------------------------------*/
 
     /* DEBUG_VM */
-    int         numSymbols;    /**< Number of symbols from VM_LoadSymbols */
-    vmSymbol_t* symbols;       /**< By VM_LoadSymbols: names for debugging */
-    int         callLevel;     /**< Counts recursive VM_Call */
-    int         breakFunction; /**< For debugging: break at this function */
-    int         breakCount;  /**< Used for breakpoints, triggered by OP_BREAK */
+    int         numSymbols; /**< Number of symbols from VM_LoadSymbols */
+    vmSymbol_t* symbols;    /**< By VM_LoadSymbols: names for debugging */
+
+    int callLevel;     /**< Counts recursive VM_Call */
+    int breakFunction; /**< For debugging: break at this function */
+    int breakCount;    /**< Used for breakpoints, triggered by OP_BREAK */
+
+    /* non vanilla q3 area: */
     vmErrorCode_t lastError; /**< Last known error */
 } vm_t;
 
