@@ -25,17 +25,10 @@
  * DEFINES
  ******************************************************************************/
 
-/** Virtual machine op stack size in bytes */
-#define OPSTACK_SIZE 1024
-
 /** Max number of arguments to pass from a vm to engine's syscall handler
  * function for the vm.
  * syscall number + 15 arguments */
 #define MAX_VMSYSCALL_ARGS 16
-
-/** Max number of arguments to pass from engine to vm's vmMain function.
- * command number + 12 arguments */
-#define MAX_VMMAIN_ARGS 13
 
 /** Macro to read 32-bit little endian value (from the .qvm file) and convert it
  * to the host byte order */
@@ -86,96 +79,6 @@
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
-
-/** Enum for the virtual machine op codes */
-typedef enum {
-    OP_UNDEF, /* Error: VM halt */
-
-    OP_IGNORE, /* No operation */
-
-    OP_BREAK, /* vm->breakCount++ */
-
-    OP_ENTER, /* Begin subroutine. */
-    OP_LEAVE, /* End subroutine. */
-    OP_CALL,  /* Call subroutine. */
-    OP_PUSH,  /* Push to stack. */
-    OP_POP,   /* Discard top-of-stack. */
-
-    OP_CONST, /* Load constant to stack. */
-    OP_LOCAL, /* Get local variable. */
-
-    OP_JUMP, /* Unconditional jump. */
-
-    /*-------------------*/
-
-    OP_EQ, /* Compare integers, jump if equal. */
-    OP_NE, /* Compare integers, jump if not equal. */
-
-    OP_LTI, /* Compare integers, jump if less-than. */
-    OP_LEI, /* Compare integers, jump if less-than-or-equal. */
-    OP_GTI, /* Compare integers, jump if greater-than. */
-    OP_GEI, /* Compare integers, jump if greater-than-or-equal. */
-
-    OP_LTU, /* Compare unsigned integers, jump if less-than */
-    OP_LEU, /* Compare unsigned integers, jump if less-than-or-equal */
-    OP_GTU, /* Compare unsigned integers, jump if greater-than */
-    OP_GEU, /* Compare unsigned integers, jump if greater-than-or-equal */
-
-    OP_EQF, /* Compare floats, jump if equal */
-    OP_NEF, /* Compare floats, jump if not-equal */
-
-    OP_LTF, /* Compare floats, jump if less-than */
-    OP_LEF, /* Compare floats, jump if less-than-or-equal */
-    OP_GTF, /* Compare floats, jump if greater-than */
-    OP_GEF, /* Compare floats, jump if greater-than-or-equal */
-
-    /*-------------------*/
-
-    OP_LOAD1,  /* Load 1-byte from memory */
-    OP_LOAD2,  /* Load 2-bytes from memory */
-    OP_LOAD4,  /* Load 4-bytes from memory */
-    OP_STORE1, /* Store 1-byte to memory */
-    OP_STORE2, /* Store 2-byte to memory */
-    OP_STORE4, /* *(stack[top-1]) = stack[top] */
-    OP_ARG,    /* Marshal argument */
-
-    OP_BLOCK_COPY, /* memcpy */
-
-    /*-------------------*/
-
-    OP_SEX8,  /* Sign-Extend 8-bit */
-    OP_SEX16, /* Sign-Extend 16-bit */
-
-    OP_NEGI, /* Negate integer. */
-    OP_ADD,  /* Add integers (two's complement). */
-    OP_SUB,  /* Subtract integers (two's complement). */
-    OP_DIVI, /* Divide signed integers. */
-    OP_DIVU, /* Divide unsigned integers. */
-    OP_MODI, /* Modulus (signed). */
-    OP_MODU, /* Modulus (unsigned). */
-    OP_MULI, /* Multiply signed integers. */
-    OP_MULU, /* Multiply unsigned integers. */
-
-    OP_BAND, /* Bitwise AND */
-    OP_BOR,  /* Bitwise OR */
-    OP_BXOR, /* Bitwise eXclusive-OR */
-    OP_BCOM, /* Bitwise COMplement */
-
-    OP_LSH,  /* Left-shift */
-    OP_RSHI, /* Right-shift (algebraic; preserve sign) */
-    OP_RSHU, /* Right-shift (bitwise; ignore sign) */
-
-    OP_NEGF, /* Negate float */
-    OP_ADDF, /* Add floats */
-    OP_SUBF, /* Subtract floats */
-    OP_DIVF, /* Divide floats */
-    OP_MULF, /* Multiply floats */
-
-    OP_CVIF, /* Convert to integer from float */
-    OP_CVFI, /* Convert to float from integer */
-
-    OP_MAX /* Make this the last item */
-} opcode_t;
 
 #ifndef USE_COMPUTED_GOTOS
 /* for the the computed gotos we need labels,
@@ -352,9 +255,6 @@ static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
  ******************************************************************************/
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(*(x)))
-#define PAD(base, alignment) (((base) + (alignment)-1) & ~((alignment)-1))
-#define PADLEN(base, alignment) (PAD((base), (alignment)) - (base))
-#define PADP(base, alignment) ((void*)PAD((intptr_t)(base), (alignment)))
 #define Q_ftol(v) ((long)(v))
 
 /******************************************************************************

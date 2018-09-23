@@ -35,7 +35,7 @@ TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)
 # Compiler settings
 CC=$(TOOLCHAIN)gcc
 LINK := $(CC)
-CFLAGS += -std=c89
+CFLAGS += -std=gnu99
 CFLAGS += -fdata-sections -ffunction-sections -fno-strict-aliasing
 # -MMD: to autogenerate dependencies for make
 # -MP: These dummy rules work around errors make gives if you remove header files without updating the Makefile to match.
