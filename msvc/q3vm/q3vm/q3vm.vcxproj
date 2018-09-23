@@ -143,9 +143,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\src\main.c" />
     <ClCompile Include="..\..\..\src\vm\vm.c" />
+    <ClCompile Include="..\..\..\src\vm\vm_x86.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\vm\vm.h" />
+    <ClInclude Include="..\..\..\q3asm\q_platform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

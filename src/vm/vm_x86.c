@@ -409,8 +409,13 @@ ErrJump
 Error handler for jump/call to invalid instruction number
 =================
 */
+#if defined(__GNU__)
+#define ATTRIBUTE_NORETURN  __attribute__((__noreturn__))
+#else
+#define ATTRIBUTE_NORETURN
+#endif
 
-static void __attribute__((__noreturn__)) ErrJump(void)
+static void ATTRIBUTE_NORETURN ErrJump(void)
 {
     Com_Error(VM_JUMP_TO_INVALID_INSTRUCTION,
               "program tried to execute code outside VM");

@@ -54,11 +54,11 @@ ifndef DISABLE_GCC_EXTRA_FLAGS
 	# CFLAGS += -fno-gcse -fno-crossjumping
 	CFLAGS += -fno-crossjumping
 endif
-CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
+# CFLAGS += -O0 -ggdb -fno-omit-frame-pointer
 # LTO makes things slower
 # CFLAGS += -flto
 # LINK_FLAGS += -flto
-# CFLAGS += -O2
+CFLAGS += -O2
 
 # disable some warnings...
 # Header files
