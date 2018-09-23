@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // vm_x86.c -- load time compiler and execution environment for x86
 
 #include "vm.h"
+#include "../../q3asm/q_platform.h"
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -38,9 +39,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define VM_X86_MMAP
 
 // workaround for systems that use the old MAP_ANON macro
-// #ifndef MAP_ANONYMOUS
-// #define MAP_ANONYMOUS MAP_ANON
-// #endif
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
 #endif
 
 static int Q_VMftol(float f)
@@ -64,17 +65,11 @@ x86_64:
 
 */
 
-/* FIXME */
-static void Z_Free(void* p)
-{
-    (void)p;
-}
-
 #define VMFREE_BUFFERS()                                                       \
     do                                                                         \
     {                                                                          \
-        Z_Free(buf);                                                           \
-        Z_Free(jused);                                                         \
+        Com_free(buf, NULL, VM_ALLOC_TYPE_MAX);                                \
+        Com_free(jused, NULL, VM_ALLOC_TYPE_MAX);                              \
     } while (0)
 static uint8_t* buf         = NULL;
 static uint8_t* jused       = NULL;
@@ -396,7 +391,7 @@ void EmitMovEDXStack(vm_t* vm, int andit)
         if (x < 0 || x >= vm->instructionCount)                                \
         {                                                                      \
             VMFREE_BUFFERS();                                                  \
-            Com_Error(VM_JUMP_TO_INVALID_INSTRUCTION,                              \
+            Com_Error(VM_JUMP_TO_INVALID_INSTRUCTION,                          \
                       "VM_CompileX86: jump target out of range");              \
         }                                                                      \
         jused[x] = 1;                                                          \
@@ -428,8 +423,7 @@ static void __attribute__((__noreturn__)) ErrJump(void)
 DoSyscall
 
 Assembler helper routines will write its arguments directly to global variables
-so as to
-work around different calling conventions
+so as to work around different calling conventions
 =================
 */
 
@@ -439,8 +433,7 @@ int*     vm_opStackBase;
 uint8_t  vm_opStackOfs;
 intptr_t vm_arg;
 
-/* FIXME */
-vm_t* currentVM;
+static vm_t* currentVM;
 
 static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
                          vm_t* vm)
@@ -481,7 +474,7 @@ static void DoSyscall(void)
 
 #if idx64
         args[0] = ~vm_syscallNum;
-        for (index      = 1; index < ARRAY_LEN(args); index++)
+        for (index      = 1; index < (int)ARRAY_LEN(args); index++)
             args[index] = data[index];
 
         *ret = savedVM->systemCall(savedVM, args);
@@ -1136,7 +1129,7 @@ int ConstOptimize(vm_t* vm, int callProcOfsSyscall)
 VM_Compile
 =================
 */
-void VM_Compile(vm_t* vm, vmHeader_t* header)
+void VM_Compile(vm_t* vm, const vmHeader_t* header)
 {
     int op;
     int maxLength;
@@ -1835,9 +1828,9 @@ void VM_Compile(vm_t* vm, vmHeader_t* header)
     }
 #endif
 
-    Z_Free(code);
-    Z_Free(buf);
-    Z_Free(jused);
+    Com_free(code, vm, VM_ALLOC_TYPE_MAX);
+    Com_free(buf, vm, VM_ALLOC_TYPE_MAX);
+    Com_free(jused, vm, VM_ALLOC_TYPE_MAX);
     Com_Printf("VM file %s compiled to %i bytes of code\n", vm->name,
                compiledOfs);
 
@@ -1859,6 +1852,7 @@ void VM_Destroy_Compiled(vm_t* self)
 #else
     free(self->codeBase);
 #endif
+    self->codeBase = NULL;
 }
 
 /*
@@ -1950,7 +1944,7 @@ int VM_CallCompiled(vm_t* vm, int* args)
         : "cc", "memory", "%rax", "%rcx", "%rdx", "%r8", "%r9", "%r10", "%r11");
 #else
     __asm__ volatile(
-        "call *%3\n"
+        "calll *%3\n"
         : "+S"(programStack), "+D"(opStack), "+b"(opStackOfs)
         : "g"(entryPoint)
         : "cc", "memory", "%eax", "%ecx", "%edx"

@@ -62,6 +62,12 @@
  * command number + 12 arguments */
 #define MAX_VMMAIN_ARGS 13
 
+/** Max number of arguments to pass from a vm to engine's syscall handler
+ * function for the vm.
+ * syscall number + 15 arguments */
+#define MAX_VMSYSCALL_ARGS 16
+
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(*(x)))
 #define PAD(base, alignment) (((base) + (alignment)-1) & ~((alignment)-1))
 #define PADLEN(base, alignment) (PAD((base), (alignment)) - (base))
 #define PADP(base, alignment) ((void*)PAD((intptr_t)(base), (alignment)))

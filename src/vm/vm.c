@@ -25,11 +25,6 @@
  * DEFINES
  ******************************************************************************/
 
-/** Max number of arguments to pass from a vm to engine's syscall handler
- * function for the vm.
- * syscall number + 15 arguments */
-#define MAX_VMSYSCALL_ARGS 16
-
 /** Macro to read 32-bit little endian value (from the .qvm file) and convert it
  * to the host byte order */
 #define LittleLong(x) LittleEndianToHost((const uint8_t*)&(x))
@@ -220,6 +215,10 @@ extern float _vmf(intptr_t x);
  * @param[in] destsize Number of free bytes in dest. */
 static void Q_strncpyz(char* dest, const char* src, int destsize);
 
+/* FIXME */
+void VM_Compile(vm_t* vm, const vmHeader_t* header);
+int VM_CallCompiled(vm_t* vm, int* args);
+
 /******************************************************************************
  * DEBUG FUNCTIONS (only used if DEBUG_VM is defined)
  ******************************************************************************/
@@ -254,7 +253,6 @@ static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
  * LOCAL INLINE FUNCTIONS AND FUNCTION MACROS
  ******************************************************************************/
 
-#define ARRAY_LEN(x) (sizeof(x) / sizeof(*(x)))
 #define Q_ftol(v) ((long)(v))
 
 /******************************************************************************
@@ -306,8 +304,12 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode, int length,
 
     vm->codeLength = header->codeLength;
 
-    vm->compiled = 0; /* no JIT */
-    if (!vm->compiled)
+    vm->compiled = 1; /* no JIT */
+    if (vm->compiled)
+    {
+        VM_Compile(vm, header);
+    }
+    else
     {
         if (VM_PrepareInterpreter(vm, header) != 0)
         {
@@ -453,7 +455,14 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
     va_end(ap);
 
     ++vm->callLevel;
-    r = VM_CallInterpreted(vm, args);
+    if (vm->compiled)
+    {
+        r = VM_CallCompiled(vm, args);
+    }
+    else
+    {
+        r = VM_CallInterpreted(vm, args);
+    }
     --vm->callLevel;
 
     return r;
@@ -470,6 +479,11 @@ void VM_Free(vm_t* vm)
         vm->lastError = VM_FREE_ON_RUNNING_VM;
         Com_Error(vm->lastError, "VM_Free on running vm");
         return;
+    }
+
+    if (vm->destroy)
+    {
+        vm->destroy(vm);
     }
 
     if (vm->codeBase)
