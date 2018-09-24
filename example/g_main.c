@@ -1,6 +1,7 @@
 #include "bg_lib.h"
 
 void printf(const char* fmt, ...);
+int fib(int n);
 
 /*
 ================
@@ -16,7 +17,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
 {
     if (command == 0)
     {
-        printf("Hello World!\n");
+        printf("Hello World! - fib(5) = %i\n", fib(5));
     }
     else
     {
@@ -37,3 +38,12 @@ void printf(const char* fmt, ...)
 
     trap_Printf(text);
 }
+
+int fib(int n)
+{
+    if (n <= 2)
+        return 1;
+    else
+        return fib(n-1) + fib(n-2);
+}
+

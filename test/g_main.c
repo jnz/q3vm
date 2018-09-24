@@ -22,6 +22,8 @@ float floatff(float f);
 /* test recursive calls */
 int recursive(int i);
 
+int fib(int n);
+
 volatile int        bssTest;         /* don't initialize, should be zero */
 volatile static int dataTest = -999; /* don't change, should be 999 */
 
@@ -323,6 +325,15 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         printf("passed\n");
     }
 
+    printf("fib(17) = ");
+    xi = fib(17);
+    printf("%i (should be 1597)\n", xi);
+    if (xi != 1597)
+    {
+        printf("Failed\n");
+        return -1;
+    }
+
 #ifdef Q3_VM
     if (doStupidStuff)
     {
@@ -341,6 +352,15 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
         return 333; /* test case expects 333 in this case */
     }
 }
+
+int fib(int n)
+{
+    if (n <= 2)
+        return 1;
+    else
+        return fib(n-1) + fib(n-2);
+}
+
 
 #ifndef Q3_VM
 int main(int argc, char** argv)
