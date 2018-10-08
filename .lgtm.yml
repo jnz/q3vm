@@ -1,0 +1,20 @@
+path_classifiers:
+  test:
+    - test
+  docs:
+    - README.md
+    - COPYING.txt
+    - CONTRIBUTING.md
+    - CODE_OF_CONDUCT.md
+queries:
+  - exclude: lcc
+  - exclude: q3asm
+extraction:
+  cpp:
+    prepare:    # Customizable step used by all languages.
+      packages:
+        - g++-6
+    before_index:    # Customizable step used by all languages.
+    index:    # Customizable step used by all languages.
+      build_command:
+        - $GNU_MAKE -j2
