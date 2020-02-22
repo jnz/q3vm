@@ -2,7 +2,7 @@
 # 
 # Run 'make'
 #
-# Jan Zwiener 2018
+# Jan Zwiener 2018-2020
 
 # Custom config (optional)
 -include config.mk
