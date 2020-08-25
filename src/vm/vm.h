@@ -79,7 +79,9 @@ typedef enum {
     VM_NOT_LOADED                  = -15, /**< VM not loaded */
 } vmErrorCode_t;
 
-/** VM alloc type */
+/** VM alloc type. This is just an information passed to the host malloc
+ * callback function (via Com_malloc). You can safely ignore this if you see no
+ * use for this information. */
 typedef enum {
     VM_ALLOC_CODE_SEC             = 0, /**< Bytecode code section */
     VM_ALLOC_DATA_SEC             = 1, /**< Bytecode data section */
