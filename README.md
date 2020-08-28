@@ -12,7 +12,8 @@ A lightweight (single file: `vm.c`) embeddable interpreter/Virtual Machine (VM) 
     | | | |  |_ \ \ \ / /| |\/| |
     | |_| |____) | \ V / | |  | |
      \__\_______/   \_/  |_|  |_|
-
+     
+     vm.c / vm.h
 
 Jan Zwiener, 2018-2020. Mail: jan@zwiener.org
 
