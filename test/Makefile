@@ -4,7 +4,7 @@
 # 
 # Run 'make'
 #
-# Jan Zwiener 2018-2020
+# Jan Zwiener 2018-2022
 
 #We try to detect the OS we are running on, and adjust commands as needed
 ifeq ($(OS),Windows_NT)

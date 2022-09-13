@@ -2,7 +2,7 @@
 # 
 # Run 'make'
 #
-# Jan Zwiener 2018-2020
+# Jan Zwiener 2018-2022
 
 # Custom config (optional)
 -include config.mk
@@ -24,6 +24,7 @@ else
 	# special case for macOS
 	ifeq ($(shell uname -s),Darwin)
 		export LINKFLAGS += -Wl,-dead_strip
+		DISABLE_GCC_EXTRA_FLAGS=1
 	else
 		export LINKFLAGS += -Wl,--gc-sections
 	endif
