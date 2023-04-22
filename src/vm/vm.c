@@ -1346,6 +1346,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_EQF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)(opStackOfs + 1)] ==
@@ -1360,6 +1361,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_NEF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)(opStackOfs + 1)] !=
@@ -1374,6 +1376,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_LTF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)(opStackOfs + 1)] <
@@ -1388,6 +1391,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_LEF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)((uint8_t)(opStackOfs + 1))] <=
@@ -1402,6 +1406,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_GTF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)(opStackOfs + 1)] >
@@ -1416,6 +1421,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
                 DISPATCH();
             }
         goto_OP_GEF:
+            vm->flopCounter++;
             opStackOfs -= 2;
 
             if (((float*)opStack)[(uint8_t)(opStackOfs + 1)] >=
@@ -1495,36 +1501,43 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             opStack[opStackOfs] = ((unsigned)r1) >> r0;
             DISPATCH();
         goto_OP_NEGF:
+            vm->flopCounter++;
             ((float*)opStack)[opStackOfs] = -((float*)opStack)[opStackOfs];
             DISPATCH();
         goto_OP_ADDF:
+            vm->flopCounter++;
             opStackOfs--;
             ((float*)opStack)[opStackOfs] =
                 ((float*)opStack)[opStackOfs] +
                 ((float*)opStack)[(uint8_t)(opStackOfs + 1)];
             DISPATCH();
         goto_OP_SUBF:
+            vm->flopCounter++;
             opStackOfs--;
             ((float*)opStack)[opStackOfs] =
                 ((float*)opStack)[opStackOfs] -
                 ((float*)opStack)[(uint8_t)(opStackOfs + 1)];
             DISPATCH();
         goto_OP_DIVF:
+            vm->flopCounter++;
             opStackOfs--;
             ((float*)opStack)[opStackOfs] =
                 ((float*)opStack)[opStackOfs] /
                 ((float*)opStack)[(uint8_t)(opStackOfs + 1)];
             DISPATCH();
         goto_OP_MULF:
+            vm->flopCounter++;
             opStackOfs--;
             ((float*)opStack)[opStackOfs] =
                 ((float*)opStack)[opStackOfs] *
                 ((float*)opStack)[(uint8_t)(opStackOfs + 1)];
             DISPATCH();
         goto_OP_CVIF:
+            vm->flopCounter++;
             ((float*)opStack)[opStackOfs] = (float)opStack[opStackOfs];
             DISPATCH();
         goto_OP_CVFI:
+            vm->flopCounter++;
             opStack[opStackOfs] = Q_ftol(((float*)opStack)[opStackOfs]);
             DISPATCH();
         goto_OP_SEX8:

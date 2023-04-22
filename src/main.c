@@ -60,6 +60,8 @@ int main(int argc, char** argv)
     }
     /* output profile information in DEBUG_VM build: */
     /* VM_VmProfile_f(&vm); */
+    printf("FLOPs: %u\n", vm.flopCounter);
+
     VM_Free(&vm);
     free(image); /* we can release the memory now */
 

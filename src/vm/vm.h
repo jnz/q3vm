@@ -176,6 +176,7 @@ typedef struct vm_s
 
     /* non vanilla q3 area: */
     vmErrorCode_t lastError; /**< Last known error */
+    unsigned flopCounter; /**< count floating point operations */
 } vm_t;
 
 /******************************************************************************
