@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
 
+#include <inttypes.h>
 #include "q_platform.h"
 #include "cmdlib.h"
 #include "../src/vm/vm.h"
@@ -297,7 +298,7 @@ static void hashtable_stats(hashtable_t* H)
     float        meanlen;
     hashchain_t* hc;
 
-    report("Stats for hashtable %08X", H);
+    report("Stats for hashtable %08" PRIXPTR, (uintptr_t)H);
     empties = 0;
     longest = 0;
     nodes   = 0;
