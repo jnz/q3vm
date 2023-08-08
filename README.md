@@ -15,7 +15,7 @@ A lightweight (single file: `vm.c`) embeddable interpreter/Virtual Machine (VM) 
      
      vm.c / vm.h
 
-Jan Zwiener, 2018-2022. Mail: jan@zwiener.org
+Jan Zwiener, 2018-2023. Mail: jan@zwiener.org
 
 Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
@@ -151,7 +151,7 @@ Use the **Visual Studio 2015** project `q3vm.sln` in the `msvc` subfolder.
 Or install MinGW64 and add the MinGW64 bin\ directory to your path.
 So that you have gcc.exe and mingw32-make.exe available at the command prompt.
 
- * http://mingw-w64.org/doku.php/download/mingw-builds
+ * [https://www.mingw-w64.org/downloads/](https://www.mingw-w64.org/downloads/)
 
 Compile with:
 
