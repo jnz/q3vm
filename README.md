@@ -15,7 +15,7 @@ A lightweight (single file: `vm.c`) embeddable interpreter/Virtual Machine (VM) 
      
      vm.c / vm.h
 
-Jan Zwiener, 2018-2023. Mail: jan@zwiener.org
+Jan Zwiener, 2018-2024. Mail: jan@zwiener.org
 
 Read the excellent introduction to the Q3VM by Fabien Sanglard:
 
