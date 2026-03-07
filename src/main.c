@@ -169,6 +169,9 @@ intptr_t systemCalls(vm_t* vm, intptr_t* args)
 
     default:
         fprintf(stderr, "Bad system call: %i\n", id);
+        vm->lastError = VM_PC_OUT_OF_RANGE;
+        Com_Error(vm->lastError, "VM pc out of range");
+        return -1;
     }
     return 0;
 }
