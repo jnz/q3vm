@@ -1,0 +1,8 @@
+# Run these commands in this directory: 
+#   wget https://cosmo.zip/pub/cosmocc/cosmocc.zip
+#   unzip cosmocc.zip
+
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore

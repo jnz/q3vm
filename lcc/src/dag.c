@@ -25,7 +25,7 @@ static Symbol equated(Symbol);
 static void fixup(Node);
 static void labelnode(int);
 static void list(Node);
-static void kill(Symbol);
+static void kkill(Symbol);
 static Node node(int, Node, Node, Symbol);
 static void printdag1(Node, int, int);
 static void printnode(Node, int, int);
@@ -79,7 +79,7 @@ static struct dag *dagnode(int op, Node l, Node r, Symbol sym) {
 Node newnode(int op, Node l, Node r, Symbol sym) {
 	return &dagnode(op, l, r, sym)->node;
 }
-static void kill(Symbol p) {
+static void kkill(Symbol p) {
 	int i;
 	struct dag **q;
 
@@ -306,7 +306,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		      forest->syms[1] = intconst(tp->kids[1]->type->align);
 		      if (isaddrop(tp->kids[0]->op)
 		      && !tp->kids[0]->u.sym->computed)
-		      	kill(tp->kids[0]->u.sym);
+		      	kkill(tp->kids[0]->u.sym);
 		      else
 		      	reset();
 		      p = listnodes(tp->kids[1], 0, 0); } break;

@@ -6,6 +6,9 @@
 #ifdef _WIN32
 #define BINEXT ".exe"
 #define PATH_SEP '\\'
+#elif defined(COSMOPOLITAN)
+#define BINEXT ".com"
+#define PATH_SEP '/'
 #else
 #define BINEXT ""
 #define PATH_SEP '/'
