@@ -186,9 +186,10 @@ typedef enum {
 
 typedef struct
 {
-    byte image[VM_MAX_IMAGE_SIZE];
-    int  imageUsed;
-    int  segmentBase; // only valid on second pass
+    byte* image; // grows on demand, see SegmentReserve
+    int   imageCapacity;
+    int   imageUsed;
+    int   segmentBase; // only valid on second pass
 } segment_t;
 
 typedef struct symbol_s
@@ -568,6 +569,46 @@ static void CodeError(char* fmt, ...)
 
 /*
 ============
+SegmentReserve
+
+Makes room for size bytes of the segment. The new bytes are zero, as the bytes of
+a segment were before the image grew on demand. The bss segment has no bytes.
+============
+*/
+static void SegmentReserve(segment_t* seg, int size)
+{
+    int   capacity;
+    byte* image;
+
+    if (seg == &segment[BSSSEG] || size <= seg->imageCapacity)
+    {
+        return;
+    }
+    if (size > VM_MAX_IMAGE_SIZE)
+    {
+        Error("VM_MAX_IMAGE_SIZE");
+    }
+    capacity = seg->imageCapacity ? seg->imageCapacity : 4096;
+    while (capacity < size)
+    {
+        capacity *= 2;
+    }
+    if (capacity > VM_MAX_IMAGE_SIZE)
+    {
+        capacity = VM_MAX_IMAGE_SIZE;
+    }
+    image = realloc(seg->image, capacity);
+    if (!image)
+    {
+        Error("out of memory for a segment");
+    }
+    memset(image + seg->imageCapacity, 0, capacity - seg->imageCapacity);
+    seg->image         = image;
+    seg->imageCapacity = capacity;
+}
+
+/*
+============
 EmitByte
 ============
 */
@@ -577,6 +618,7 @@ static void EmitByte(segment_t* seg, int v)
     {
         Error("VM_MAX_IMAGE_SIZE");
     }
+    SegmentReserve(seg, seg->imageUsed + 1);
     seg->image[seg->imageUsed] = v;
     seg->imageUsed++;
 }
@@ -592,6 +634,7 @@ static void EmitInt(segment_t* seg, int v)
     {
         Error("VM_MAX_IMAGE_SIZE");
     }
+    SegmentReserve(seg, seg->imageUsed + 4);
     seg->image[seg->imageUsed]     = v & 255;
     seg->image[seg->imageUsed + 1] = (v >> 8) & 255;
     seg->image[seg->imageUsed + 2] = (v >> 16) & 255;
@@ -1239,6 +1282,7 @@ ASM(ALIGN)
         v = ParseValue();
         currentSegment->imageUsed =
             (currentSegment->imageUsed + v - 1) & ~(v - 1);
+        SegmentReserve(currentSegment, currentSegment->imageUsed);
         return 1;
     }
     return 0;
@@ -1252,6 +1296,7 @@ ASM(SKIP)
         STAT("SKIP");
         v = ParseValue();
         currentSegment->imageUsed += v;
+        SegmentReserve(currentSegment, currentSegment->imageUsed);
         return 1;
     }
     return 0;
@@ -1734,13 +1779,13 @@ static void WriteVmFile(void)
     CreatePath(imageName);
     f = SafeOpenWrite(imageName);
     SafeWrite(f, &header, headerSize);
-    SafeWrite(f, &segment[CODESEG].image, segment[CODESEG].imageUsed);
-    SafeWrite(f, &segment[DATASEG].image, segment[DATASEG].imageUsed);
-    SafeWrite(f, &segment[LITSEG].image, segment[LITSEG].imageUsed);
+    SafeWrite(f, segment[CODESEG].image, segment[CODESEG].imageUsed);
+    SafeWrite(f, segment[DATASEG].image, segment[DATASEG].imageUsed);
+    SafeWrite(f, segment[LITSEG].image, segment[LITSEG].imageUsed);
 
     if (!options.vanillaQ3Compatibility)
     {
-        SafeWrite(f, &segment[JTRGSEG].image, segment[JTRGSEG].imageUsed);
+        SafeWrite(f, segment[JTRGSEG].image, segment[JTRGSEG].imageUsed);
     }
 
     fclose(f);
@@ -1780,6 +1825,7 @@ static void Assemble(void)
         }
         segment[DATASEG].imageUsed =
             4; // skip the 0 byte, so NULL pointers are fixed up properly
+        SegmentReserve(&segment[DATASEG], 4);
         instructionCount = 0;
 
         for (i = 0; i < numAsmFiles; i++)
@@ -1801,6 +1847,7 @@ static void Assemble(void)
         for (i = 0; i < NUM_SEGMENTS; i++)
         {
             segment[i].imageUsed = (segment[i].imageUsed + 3) & ~3;
+            SegmentReserve(&segment[i], segment[i].imageUsed);
         }
         if (passNumber == 0)
         {
