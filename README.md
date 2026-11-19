@@ -45,6 +45,8 @@ Features
  * Static memory allocation in C, no unpredictable garbage collector
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
+ * Self-hosted: the C compiler runs in the VM, and `lcc-run` compiles and runs a C file in one executable (see below)
+ * WebAssembly build and a mini IDE in the browser (see below)
  * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section) 
  * Much faster than the Triseism Q3VM interpreter (see benchmark section)
 
@@ -119,11 +121,13 @@ Folder structure
     ├─ doxygen/         Doxygen config and API documentation output
     ├─ example/         Example "hello world" firmware project (bytecode.qvm)
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
+    │  └─ vm/           The compiler, linker and lcc-run in the VM (self-hosted toolchain)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
     ├─ q3asm/           Linker: link the LCC .asm files to a .qvm bytecode file
     ├─ src/             q3vm standalone console application source code
     │  └─ vm/           The core VM source, copy that folder into your project
-    └─ test/            Test environment
+    ├─ test/            Test environment
+    └─ wasm/            WebAssembly build of the VM, and the browser mini IDE
 
 API Documentation
 -----------------
@@ -251,6 +255,62 @@ Build q3asm
 Build the example bytecode:
 
     > make example/bytecode.qvm
+
+Self-hosted C toolchain: lcc-run
+--------------------------------
+
+The C compiler (`lcc`), the preprocessor, the assembler and the driver that ties
+them together also run in the VM. `lcc-run` is one executable that compiles a C
+program and runs it, with nothing else installed: it holds the VM images of the
+toolchain and the runtime library, and it does all the steps in q3vm.
+
+    > cd lcc/vm
+    > make lcc-run
+    > ./lcc-run examples/hello.c alpha beta
+
+`-S` stops after the compiler and writes the `.asm` file. `-o out.qvm` compiles
+and links the program, saves it as a `.qvm` image, and does not run it. The
+image needs the host runner `lcc/vm/vmrun64` (built by `make vmrun64` in
+`lcc/vm`), not the standalone `q3vm`:
+
+    > ./lcc-run -o hello.qvm examples/hello.c
+    > ./vmrun64 hello.qvm alpha beta
+
+`lcc-run` also runs a `.qvm` image directly, with the arguments after it, and
+does not need the compiler for that:
+
+    > ./lcc-run hello.qvm alpha beta
+
+`-I dir` adds the headers of `dir`, and the arguments after the C file are passed
+to `main`.
+The steps are:
+
+ * `q3cpp.qvm`, the preprocessor
+ * `rcc.qvm`, the compiler (`lcc/src`, built with the native `lcc`)
+ * `q3asm.qvm`, the assembler and linker
+ * `driver.qvm`, which runs the three above and then the program, in the VM
+
+The files of the program live in an in-memory file system (`lcc/vm/vfs.c`), and
+the system calls of the VM are in `lcc/vm/vmhost.c`. The VM-hosted compiler can
+compile itself: `make -C lcc/vm selftest` checks that. Build the toolchain for
+the 64-bit target with `make WIDTH=64` in `lcc/vm`.
+
+WebAssembly build and mini IDE
+------------------------------
+
+The VM also builds for the web with Emscripten (`emcc`), and the same toolchain
+runs in a browser page, a small IDE to write, compile and run C programs. The
+files stay in the browser; the page can keep them in local storage.
+
+    > cd lcc/vm && make        # the toolchain, see above
+    > cd ../../wasm
+    > make ide                 # web/vm.js, web/vm.wasm and web/tools/
+    > python3 -m http.server -d web 8000
+
+Then open `http://localhost:8000` in a browser. Browsers do not load WebAssembly
+from `file://`, so a web server is needed. `make` in `wasm/` builds only the
+module, `make node` builds the module for Node.js, and `node test_ide.js` checks
+the IDE core in Node.
 
 Callback functions required in host application
 -----------------------------------------------

@@ -7,7 +7,9 @@
  *   3. q3asm.qvm links the bytecode with the runtime library
  *   4. the program runs, with the arguments
  *
- * Usage: driver file.c [arguments...]
+ * Usage: driver [-S | -c] file.c [arguments...]
+ * -S stops after the compiler, -c after the linker: the linked image is prog.qvm in
+ * the file system, and the program is not run.
  *
  * Each tool is run with vm_run, a system call that runs an image of the file system.
  * LCC_RUN_WIDTH (32 or 64) is set by the Makefile and must match rcc.qvm.
@@ -52,16 +54,28 @@ int main(int argc, char** argv)
     int   status;
     int   first = 1; /* argv[first] is the source file */
     int   compileOnly = 0;
+    int   linkOnly = 0;
 
-    /* -S stops after the compiler, the program is not linked or run */
-    if (argc > 2 && strcmp(argv[1], "-S") == 0)
+    /* -S stops after the compiler, -c after the linker: the program is not run */
+    while (argc > first + 1 && argv[first][0] == '-')
     {
-        compileOnly = 1;
-        first = 2;
+        if (strcmp(argv[first], "-S") == 0)
+        {
+            compileOnly = 1;
+        }
+        else if (strcmp(argv[first], "-c") == 0)
+        {
+            linkOnly = 1;
+        }
+        else
+        {
+            break;
+        }
+        first++;
     }
     if (argc <= first || argc - first > 64)
     {
-        fprintf(stderr, "usage: driver [-S] file.c [arguments...]\n");
+        fprintf(stderr, "usage: driver [-S | -c] file.c [arguments...]\n");
         return 2;
     }
     name = strrchr(argv[first], '/');
@@ -124,6 +138,10 @@ int main(int argc, char** argv)
     {
         fprintf(stderr, "lcc-run: linking failed\n");
         return 1;
+    }
+    if (linkOnly)
+    {
+        return 0;
     }
 
     /* 4. run the program, with the source name as its argv[0] */
