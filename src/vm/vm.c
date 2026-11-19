@@ -239,6 +239,10 @@ typedef enum {
     OP_MAX /* Make this the last item */
 } opcode_t;
 
+/* internal, never in an image: OP_LOCAL followed by OP_LOAD4 made into one instruction
+ * by VM_PrepareInterpreter. The image check rejects it, as it rejects OP_MAX. */
+#define OP_LOCAL_LOAD4 OP_MAX
+
 #ifndef USE_COMPUTED_GOTOS
 /* for the the computed gotos we need labels,
  * but for the normal switch case we need the cases */
@@ -252,6 +256,7 @@ typedef enum {
 #define goto_OP_POP case OP_POP
 #define goto_OP_CONST case OP_CONST
 #define goto_OP_LOCAL case OP_LOCAL
+#define goto_OP_LOCAL_LOAD4 case OP_LOCAL_LOAD4
 #define goto_OP_JUMP case OP_JUMP
 #define goto_OP_EQ case OP_EQ
 #define goto_OP_NE case OP_NE
@@ -1180,11 +1185,20 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         /* These opcodes have an operand that isn't an instruction index */
         case OP_ENTER:
         case OP_CONST:
-        case OP_LOCAL:
         case OP_LEAVE:
         case OP_BLOCK_COPY:
         case OP_ARG:
         case OP_ARG8:
+            int_pc++;
+            break;
+        case OP_LOCAL:
+            /* the operand is at int_pc, the next opcode after it at int_pc + 1. A
+             * LOCAL followed by a LOAD4 is one instruction now. The LOAD4 stays where
+             * it is, so that jumps to it still work. */
+            if (int_pc + 1 < vm->codeLength && codeBase[int_pc + 1] == OP_LOAD4)
+            {
+                codeBase[int_pc - 1] = OP_LOCAL_LOAD4;
+            }
             int_pc++;
             break;
         case OP_CONST8:
@@ -1421,8 +1435,8 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_ZEXT32, &&goto_OP_TRUNC64,    &&goto_OP_I64TOD,
         &&goto_OP_DTOI64, &&goto_OP_I64TOF,     &&goto_OP_FTOD,
         &&goto_OP_DTOF,   &&goto_OP_ZEX8,       &&goto_OP_ZEX16,
-        /* Invalid OP CODE for opcode_table_mask */
-        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        /* OP_LOCAL_LOAD4 (= OP_MAX), then invalid OP CODEs for opcode_table_mask */
+        &&goto_OP_LOCAL_LOAD4, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
@@ -1507,6 +1521,16 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
             r0 = opStack[opStackOfs] = r2 + programStack;
 
             programCounter += 1;
+            DISPATCH2();
+        goto_OP_LOCAL_LOAD4:
+            /* OP_LOCAL then OP_LOAD4 in one dispatch: the address is never stored */
+            opStackOfs++;
+            r1 = r0;
+            r0 = r2 + programStack;
+            CHECK_ACCESS(r0, 4, 0);
+            r0 = opStack[opStackOfs] = *(int*)&image[r0 & dataMask];
+
+            programCounter += 2;
             DISPATCH2();
         goto_OP_LOAD4:
 #ifdef DEBUG_VM
