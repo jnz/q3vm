@@ -33,7 +33,7 @@ endif
 $(shell mkdir -p build; [ "$$(cat build/.width 2>/dev/null)" = "$(WIDTH)" ] || (rm -rf build/rcc_* build/vm*.asm build/bg_lib.asm rcc.qvm driver.qvm vmrcc vmrcc_checked; echo $(WIDTH) > build/.width))
 
 HOST_CC     = gcc
-HOST_CFLAGS = -std=gnu99 -O2 -ffp-contract=off -Wall -Wextra -I../../src/vm $(VM_DEF) -DVM_LOG_STDERR
+HOST_CFLAGS = -std=gnu99 -O3 -ffp-contract=off -Wall -Wextra -I../../src/vm $(VM_DEF) -DVM_LOG_STDERR
 
 # -N: only the headers in include/ are used, never the host system headers.
 # A -I directory is relative to the directory of the source file, not to the
