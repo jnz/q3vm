@@ -15,7 +15,7 @@ static void I(segment)(int n) {
 		}
 }
 
-static void I(address)(Symbol q, Symbol p, long long n) {
+static void I(address)(Symbol q, Symbol p, Wide n) {
 	q->x.name = stringf("%s%s%D", p->x.name, n > 0 ? "+" : "", n);
 }
 
@@ -24,7 +24,7 @@ static void I(defaddress)(Symbol p) {
 }
 
 /* 64-bit value as two little endian 32-bit words (low word first) */
-static void defword64(unsigned long long bits) {
+static void defword64(UWide bits) {
 	print("byte 4 %u\n", (unsigned)(bits & 0xFFFFFFFFu));
 	print("byte 4 %u\n", (unsigned)((bits >> 16) >> 16));
 }
@@ -33,7 +33,7 @@ static void I(defconst)(int suffix, int size, Value v) {
 	switch (suffix) {
 	case I:
 		if (size > sizeof (int))
-			defword64((unsigned long long)v.i);
+			defword64((UWide)v.i);
 		else
 			print("byte %d %d\n", size, v.i);
 		return;
@@ -43,7 +43,7 @@ static void I(defconst)(int suffix, int size, Value v) {
 		else
 			print("byte %d %u\n", size, v.u);
 		return;
-	case P: print("byte %d %U\n", size, (unsigned long long)v.p); return;
+	case P: print("byte %d %U\n", size, (UWide)v.p); return;
 	case F:
 		if (size == 4) {
 			floatint_t fi;
@@ -86,10 +86,10 @@ static void I(defsymbol)(Symbol p) {
 		switch (optype(ttob(p->type))) {
 		case I: p->x.name = stringf("%D", p->u.c.v.i); break;
 		case U: p->x.name = stringf("%U", p->u.c.v.u); break;
-		case P: p->x.name = stringf("%U", (unsigned long long)p->u.c.v.p); break;
+		case P: p->x.name = stringf("%U", (UWide)p->u.c.v.p); break;
 		case F:
 			if (p->type->size == 8) {	// double: full 64-bit pattern
-				unsigned long long bits;
+				UWide bits;
 
 				memcpy(&bits, &p->u.c.v.d, sizeof bits);
 				p->x.name = stringf("%U", bits);
@@ -97,7 +97,7 @@ static void I(defsymbol)(Symbol p) {
 				floatint_t temp;
 
 				temp.f = p->u.c.v.d;
-				p->x.name = stringf("%U", (unsigned long long)temp.ui);
+				p->x.name = stringf("%U", (UWide)temp.ui);
 			}
 			break;// JDC: added this
 		default: assert(0);
@@ -354,11 +354,59 @@ static void I(stabline)(Coordinate *cp) {
 #define b_blockbeg blockbeg
 #define b_blockend blockend
 
+/* Targets. The default, bytecode, is 32-bit: int, long and pointers are 4
+ * bytes, and long long is not supported. bytecode64 is 64-bit: long long is
+ * 8 bytes and the VM must be built with Q3VM_INT64. */
 Interface bytecodeIR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
-	{4, 4, 0},	/* long long */
+	{4, 4, 0},	/* long */
+	{0, 4, 0},	/* long long: not supported by this target */
+	{4, 4, 0},	/* float */				// JDC: use inline floats
+	{4, 4, 0},	/* double, a float */
+	{4, 4, 0},	/* long double, a float */
+	{4, 4, 0},	/* T* */
+	{0, 4, 0},	/* struct */
+	1,		/* little_endian: QVM memory is little endian */
+	0,		/* mulops_calls */
+	0,		/* wants_callb */
+	0,		/* wants_argb */
+	1,		/* left_to_right */
+	0,		/* wants_dag */
+	0,		/* unsigned_char */
+	I(address),
+	I(blockbeg),
+	I(blockend),
+	I(defaddress),
+	I(defconst),
+	I(defstring),
+	I(defsymbol),
+	I(emit),
+	I(export),
+	I(function),
+	I(gen),
+	I(global),
+	I(import),
+	I(local),
+	I(progbeg),
+	I(progend),
+	I(segment),
+	I(space),
+	0,		/* I(stabblock) */
+	0,		/* I(stabend) */
+	0,		/* I(stabfend) */
+	0,		/* I(stabinit) */
+	I(stabline),
+	0,		/* I(stabsym) */
+	0,		/* I(stabtype) */
+};
+
+Interface bytecode64IR = {
+	{1, 1, 0},	/* char */
+	{2, 2, 0},	/* short */
+	{4, 4, 0},	/* int */
+	{4, 4, 0},	/* long */
 	{8, 8, 0},	/* long long */			// 64-bit integers are native (2 VM stack cells)
 	{4, 4, 0},	/* float */				// JDC: use inline floats
 	{8, 8, 0},	/* double */			// 64-bit floats are native (2 VM stack cells)

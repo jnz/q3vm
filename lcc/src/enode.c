@@ -157,7 +157,7 @@ static Tree addtree(int op, Tree l, Tree r) {
 	else if (  isptr(r->type) && isint(l->type)
 	&& !isfunc(r->type->type))
 		{
-			long long n;
+			Wide n;
 			ty = unqual(r->type);
 			n = unqual(ty->type)->size;
 			if (n == 0)
@@ -184,8 +184,8 @@ Tree cnsttree(Type ty, ...) {
 
 	va_start(ap, ty);
 	switch (ty->op) {
-	case INT:     p->u.v.i = va_arg(ap, long long); break;
-	case UNSIGNED:p->u.v.u = va_arg(ap, unsigned long long)&ones(8*ty->size); break;
+	case INT:     p->u.v.i = va_arg(ap, Wide); break;
+	case UNSIGNED:p->u.v.u = va_arg(ap, UWide)&ones(8*ty->size); break;
 	case FLOAT:   p->u.v.d = va_arg(ap, double); break;
 	case POINTER: p->u.v.p = va_arg(ap, void *); break;
 	default: assert(0);
@@ -198,7 +198,7 @@ Tree consttree(unsigned n, Type ty) {
 	if (isarray(ty))
 		ty = atop(ty);
 	else assert(isint(ty));
-	return cnsttree(ty, (unsigned long long)n);
+	return cnsttree(ty, (UWide)n);
 }
 static Tree cmptree(int op, Tree l, Tree r) {
 	Type ty;
@@ -314,15 +314,15 @@ Tree asgntree(int op, Tree l, Tree r) {
 			error("assignment to const location\n");
 	}
 	if (l->op == FIELD) {
-		long long n = 8*l->u.field->type->size - fieldsize(l->u.field);
+		Wide n = 8*l->u.field->type->size - fieldsize(l->u.field);
 		if (n > 0 && isunsigned(l->u.field->type))
 			r = bittree(BAND, r,
-				cnsttree(r->type, (unsigned long long)fieldmask(l->u.field)));
+				cnsttree(r->type, (UWide)fieldmask(l->u.field)));
 		else if (n > 0) {
 			if (r->op == CNST+I) {
 				n = r->u.v.i;
 				if (n&(1<<(fieldsize(l->u.field)-1)))
-					n |= ~0ULL<<fieldsize(l->u.field);
+					n |= ~((UWide)0)<<fieldsize(l->u.field);
 				r = cnsttree(r->type, n);
 			} else
 				r = shtree(RSH,
@@ -484,7 +484,7 @@ Tree shtree(int op, Tree l, Tree r) {
 
 /* subtree - construct tree for l - r */
 static Tree subtree(int op, Tree l, Tree r) {
-	long long n;
+	Wide n;
 	Type ty = inttype;
 
 	if (isarith(l->type) && isarith(r->type)) {

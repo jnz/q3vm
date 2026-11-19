@@ -2,7 +2,7 @@
 #define I(f) null_##f
 
 static Node I(gen)(Node p) { return p; }
-static void I(address)(Symbol q, Symbol p, long long n) {}
+static void I(address)(Symbol q, Symbol p, Wide n) {}
 static void I(blockbeg)(Env *e) {}
 static void I(blockend)(Env *e) {}
 static void I(defaddress)(Symbol p) {}
@@ -32,8 +32,8 @@ Interface nullIR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
-	{8, 8, 1},	/* long long */
-	{8 ,8, 1},	/* long long */
+	{8, 8, 1},	/* Wide */
+	{8 ,8, 1},	/* Wide */
 	{4, 4, 1},	/* float */
 	{8, 8, 1},	/* double */
 	{16,16,1},	/* long double */

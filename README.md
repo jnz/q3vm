@@ -137,15 +137,31 @@ Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
 But you can also read `vm.h` directly for the API documentation.
 
 
+32-bit and 64-bit builds
+------------------------
+
+One codebase builds for both widths.
+
+ * The default is 32-bit: the `bytecode` target has `int`, `long` and pointers
+   of 4 bytes, `double` is a 4-byte float, and `long long` is an error. The VM
+   runs it without any setting.
+ * The 64-bit target is `bytecode64` (`lcc -Wf-target=bytecode64`): `long long`
+   and `unsigned long long` are 64-bit integers, and `double` is a 64-bit IEEE
+   754 float. Both are native VM operations, not emulated. `int` and `float`
+   stay 32-bit. The VM must be built with `-DQ3VM_INT64`; a VM built without it
+   rejects 64-bit instructions.
+ * The compiler computes with 64-bit values on the native host, so its output
+   does not depend on the width of `long` on the host. The VM-hosted compiler in
+   `lcc/vm` is built for the 32-bit target by default, or with `make WIDTH=64`.
+
+Compile for a target and run the result on a VM of the same width. The 32-bit
+VM does not run 64-bit bytecode.
+
 64-bit integers and doubles
 ---------------------------
 
-`long long` and `unsigned long long` are 64-bit integers and `double` is a
-64-bit IEEE 754 float. They are native VM operations, not emulated. `int` and
-`float` stay 32-bit.
-
-This breaks compatibility with older `.qvm` files: rebuild them with the `lcc`
-and `q3asm` from this repository.
+These apply to the 64-bit build. Older `.qvm` files need rebuilding with the
+`lcc` and `q3asm` from this repository.
 
 Layout, for bytecode and for the host:
 

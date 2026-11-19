@@ -17,6 +17,10 @@ export PATH="$HERE/../../bin/linux:$PATH"
 QVM="$HERE/rcc.qvm"
 VMRCC="${VMRCC:-$HERE/vmrcc}" # VMRCC=$HERE/vmrcc_checked for the checked VM
 DEFINES="-D__STDC__=1 -D__STRICT_ANSI__ -D__signed__=signed -DQ3_VM -D__LCC__"
+# the compiler's own sources use the 32-bit Wide type for a 32-bit target
+if [ "${TARGET:-bytecode}" = "bytecode" ]; then
+    DEFINES="$DEFINES -DLCC_WIDE32"
+fi
 
 INCLUDE=""
 if [ "${1:-}" = "-I" ]; then
@@ -39,12 +43,15 @@ for file in "$@"; do
         continue
     fi
 
-    q3rcc -target=bytecode "$TMP/$name.i" "$TMP/$name.native.asm" 2> "$TMP/$name.native.err"
+    q3rcc -target=${TARGET:-bytecode} "$TMP/$name.i" "$TMP/$name.native.asm" 2> "$TMP/$name.native.err"
     native_status=$?
-    "$VMRCC" "$QVM" -target=bytecode "$TMP/$name.i" "$TMP/$name.vm.asm" 2> "$TMP/$name.vm.err"
+    "$VMRCC" "$QVM" -target=${TARGET:-bytecode} "$TMP/$name.i" "$TMP/$name.vm.asm" 2> "$TMP/$name.vm.err"
     vm_status=$?
 
-    if [ "$native_status" -ne "$vm_status" ]; then
+    if [ "$native_status" -ne 0 ] || [ "$vm_status" -ne 0 ]; then
+        echo "FAIL $file: compile errors, native $native_status, vm $vm_status"
+        fail=$((fail + 1))
+    elif [ "$native_status" -ne "$vm_status" ]; then
         echo "FAIL $file: exit status native $native_status, vm $vm_status"
         fail=$((fail + 1))
     elif ! cmp -s "$TMP/$name.native.asm" "$TMP/$name.vm.asm"; then

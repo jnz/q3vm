@@ -149,7 +149,7 @@ static void *wcput(int c, void *cl);
 static void *scon(int q, void *put(int c, void *cl), void *cl);
 static int backslash(int q);
 static Symbol fcon(void);
-static Symbol icon(unsigned long long, int, int);
+static Symbol icon(UWide, int, int);
 static void ppnumber(char *);
 
 int gettok(void) {
@@ -254,7 +254,7 @@ int gettok(void) {
 			return ID;
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9': {
-			unsigned long long n = 0;
+			UWide n = 0;
 			if (limit - rcp < MAXLINE) {
 				cp = rcp - 1;
 				fillbuf();
@@ -273,7 +273,7 @@ int gettok(void) {
 						d = *rcp - 'A' + 10;
 					else
 						break;
-					if (n&~(~0ULL >> 4))
+					if (n&~(~((UWide)0) >> 4))
 						overflow = 1;
 					else
 						n = (n<<4) + d;
@@ -287,7 +287,7 @@ int gettok(void) {
 				for ( ; map[*rcp]&DIGIT; rcp++) {
 					if (*rcp == '8' || *rcp == '9')
 						err = 1;
-					if (n&~(~0ULL >> 3))
+					if (n&~(~((UWide)0) >> 3))
 						overflow = 1;
 					else
 						n = (n<<3) + (*rcp - '0');
@@ -305,7 +305,7 @@ int gettok(void) {
 				int overflow = 0;
 				for (n = *token - '0'; map[*rcp]&DIGIT; ) {
 					int d = *rcp++ - '0';
-					if (n > (ULLONG_MAX - d)/10)
+					if (n > (UWIDE_MAX - d)/10)
 						overflow = 1;
 					else
 						n = 10*n + d;
@@ -695,13 +695,13 @@ int gettok(void) {
 	}
 }
 /* does n fit in the integer type t? */
-static int fits(Type t, unsigned long long n) {
+static int fits(Type t, UWide n) {
 	if (t->op == INT)
-		return n <= (unsigned long long)t->u.sym->u.limits.max.i;
+		return n <= (UWide)t->u.sym->u.limits.max.i;
 	return n <= t->u.sym->u.limits.max.u;
 }
 /* C rules: the first type in the candidate list that can hold the value */
-static Type intconstant(unsigned long long n, int overflow, int base, int u, int l) {
+static Type intconstant(UWide n, int overflow, int base, int u, int l) {
 	Type cand[6];
 	int k = 0, i;
 
@@ -712,30 +712,34 @@ static Type intconstant(unsigned long long n, int overflow, int base, int u, int
 		cand[k++] = longtype;
 		if (base != 10)
 			cand[k++] = unsignedlong;
-		cand[k++] = longlong;
+		if (longlong->size) cand[k++] = longlong;
 		if (base != 10)
-			cand[k++] = unsignedlonglong;
+			if (unsignedlonglong->size) cand[k++] = unsignedlonglong;
 	} else if (u == 0 && l == 1) {
 		cand[k++] = longtype;
-		cand[k++] = longlong;
+		if (longlong->size) cand[k++] = longlong;
 	} else if (u == 0) {
-		cand[k++] = longlong;
+		if (longlong->size) cand[k++] = longlong;
 	} else if (l == 0) {
 		cand[k++] = unsignedtype;
 		cand[k++] = unsignedlong;
-		cand[k++] = unsignedlonglong;
+		if (unsignedlonglong->size) cand[k++] = unsignedlonglong;
 	} else if (l == 1) {
 		cand[k++] = unsignedlong;
-		cand[k++] = unsignedlonglong;
+		if (unsignedlonglong->size) cand[k++] = unsignedlonglong;
 	} else {
-		cand[k++] = unsignedlonglong;
+		if (unsignedlonglong->size) cand[k++] = unsignedlonglong;
+	}
+	if (k == 0) {
+		error("`long long' constant is not supported by this target\n");
+		return inttype;
 	}
 	for (i = 0; i < k; i++)
 		if (!overflow && fits(cand[i], n))
 			return cand[i];
 	return cand[k - 1];
 }
-static Symbol icon(unsigned long long n, int overflow, int base) {
+static Symbol icon(UWide n, int overflow, int base) {
 	int u = 0, l = 0;
 
 	/* integer suffixes: any order of u, l, ll */
@@ -879,7 +883,7 @@ static void *scon(int q, void *put(int c, void *cl), void *cl) {
 	} while (q == '"' && getchr() == '"');
 	cl = put(0, cl);
 	if (n >= BUFSIZE)
-		error("%s literal too long long\n", q == '"' ? "string" : "character");
+		error("%s literal too Wide\n", q == '"' ? "string" : "character");
 	if (Aflag >= 2 && q == '"' && n > 509)
 		warning("more than 509 characters in a string literal\n");
 	if (Aflag >= 2 && nbad > 0)

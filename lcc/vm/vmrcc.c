@@ -211,12 +211,20 @@ static intptr_t systemCalls(vm_t* vm, intptr_t* args)
     case -14: /* vm_poison(p, n): memory that is not written yet, see VM_CHECKED */
         VM_Poison(vm, args[1], (int)args[2], 0);
         return 0;
-    case -15: /* vm_strtod(s, out): the C library conversion, so the result is exact */
+    case -15: /* vm_strtod(s, out): the C library conversion, so the result is exact.
+                 The VM's double is 8 bytes with Q3VM_INT64, else a 4 byte float. */
     {
+#ifdef Q3VM_INT64
         double* out = vmPtr(vm, args[2], sizeof(double));
 
         *out = strtod(vmPtr(vm, args[1], 1), NULL);
         VM_Poison(vm, args[2], sizeof(double), 1);
+#else
+        float* out = vmPtr(vm, args[2], sizeof(float));
+
+        *out = (float)strtod(vmPtr(vm, args[1], 1), NULL);
+        VM_Poison(vm, args[2], sizeof(float), 1);
+#endif
         return 0;
     }
     default:

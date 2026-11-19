@@ -5,7 +5,7 @@ struct block {
 	char *avail;
 };
 union align {
-	long long l;
+	Wide l;
 	char *p;
 	double d;
 	int (*f)(void);
@@ -17,7 +17,7 @@ union header {
 #ifdef PURIFY
 union header *arena[3];
 
-void *allocate(unsigned long long n, unsigned a) {
+void *allocate(UWide n, unsigned a) {
 	union header *new = malloc(sizeof *new + n);
 
 	assert(a < NELEMS(arena));
@@ -41,7 +41,7 @@ void deallocate(unsigned a) {
 	arena[a] = NULL;
 }
 
-void *newarray(unsigned long long m, unsigned long long n, unsigned a) {
+void *newarray(UWide m, UWide n, unsigned a) {
 	return allocate(m*n, a);
 }
 #else
@@ -50,7 +50,7 @@ static struct block
 	*arena[] = { &first[0], &first[1], &first[2] };
 static struct block *freeblocks;
 
-void *allocate(unsigned long long n, unsigned a) {
+void *allocate(UWide n, unsigned a) {
 	struct block *ap;
 
 	assert(a < NELEMS(arena));
@@ -81,7 +81,7 @@ void *allocate(unsigned long long n, unsigned a) {
 	return ap->avail - n;
 }
 
-void *newarray(unsigned long long m, unsigned long long n, unsigned a) {
+void *newarray(UWide m, UWide n, unsigned a) {
 	return allocate(m*n, a);
 }
 void deallocate(unsigned a) {

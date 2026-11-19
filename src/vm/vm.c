@@ -952,6 +952,16 @@ static int LittleEndianToHost(const uint8_t b[4])
     return (b[0] << 0) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 }
 
+/* The 64-bit instructions: long long and double arithmetic, and the conversions
+ * to and from 64-bit values. A VM built without Q3VM_INT64 rejects them, so that
+ * a 32-bit VM does not run code from a 64-bit compiler. ZEX8, ZEX16, SEX8 and
+ * SEX16 are 32-bit instructions. */
+static int VM_IsWideOp(int op)
+{
+    return (op >= OP_CONST8 && op <= OP_GED) ||
+           (op >= OP_SEXT32 && op <= OP_DTOF);
+}
+
 static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
 {
     int      op;
@@ -995,6 +1005,15 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
                       "VM_PrepareInterpreter: pc > header->codeLength");
             return -1;
         }
+#ifndef Q3VM_INT64
+        if (VM_IsWideOp(op))
+        {
+            vm->lastError = VM_BAD_INSTRUCTION;
+            Com_Error(vm->lastError,
+                      "64-bit instruction in a VM built without Q3VM_INT64");
+            return -1;
+        }
+#endif
 
         byte_pc++;
         int_pc++;

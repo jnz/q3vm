@@ -67,12 +67,12 @@ char *string(const char *str) {
 		;
 	return stringn(str, s - str);
 }
-char *stringd(long long n) {
+char *stringd(Wide n) {
 	char str[25], *s = str + sizeof (str);
-	unsigned long long m;
+	UWide m;
 
 	if (n == LONG_MIN)
-		m = (unsigned long long)LLONG_MAX + 1;
+		m = (UWide)WIDE_MAX + 1;
 	else if (n < 0)
 		m = -n;
 	else
