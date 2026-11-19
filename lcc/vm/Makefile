@@ -47,7 +47,7 @@ RCC_OBJS = $(patsubst build/%.asm,build/%,$(RCC_ASMS))
 # vmmain must be first, the VM starts at the first function of the image
 LIB_OBJS = build/vmmain build/vmlib build/bg_lib
 
-all: rcc.qvm vmrcc
+all: rcc.qvm vmrcc driver.qvm q3asm.qvm q3cpp.qvm
 
 build/rcc_%.asm: ../src/%.c $(wildcard ../src/*.h) $(wildcard include/*.h)
 	@mkdir -p build

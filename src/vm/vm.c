@@ -688,7 +688,10 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
     } header;
 
     header.v = bytecode;
-    Com_Printf("Loading vm file %s...\n", vm->name);
+    if (vm_debugLevel)
+    {
+        Com_Printf("Loading vm file %s...\n", vm->name);
+    }
 
     if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t) ||
         length > VM_MAX_IMAGE_SIZE)

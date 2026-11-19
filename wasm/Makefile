@@ -31,7 +31,17 @@ node/vm.js: $(SOURCES)
 	emcc $(EMFLAGS) -sENVIRONMENT=node wasm_host.c ../lcc/vm/vmhost.c ../lcc/vm/vfs.c \
 		../src/vm/vm.c -o $@
 
-clean:
-	rm -rf web node
+# the mini IDE: web/index.html, with the module and the toolchain (see make_tools.py).
+# Build lcc/vm first (make there), then open web/ through a web server.
+ide: web/vm.js web/tools/manifest.json
 
-.PHONY: all node clean
+web/tools/manifest.json: ../lcc/vm/driver.qvm ../lcc/vm/rcc.qvm ../lcc/vm/q3asm.qvm \
+	../lcc/vm/q3cpp.qvm ../lcc/vm/build/vmmain.asm ../lcc/vm/build/vmlib.asm \
+	../lcc/vm/build/bg_lib.asm ../lcc/vm/vm_syscalls.asm ../lcc/vm/examples/hello.c ../lcc/vm/examples/mandelbrot.c \
+	$(wildcard ../lcc/vm/include/*.h) make_tools.py
+	python3 -I make_tools.py ../lcc/vm web/tools
+
+clean:
+	rm -rf web/vm.js web/vm.wasm web/tools node
+
+.PHONY: all node ide clean
