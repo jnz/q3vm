@@ -113,6 +113,20 @@ static void I(defsymbol)(Symbol p) {
 }
 
 static void dumptree(Node p) {
+	/* a 4 byte load from a local and a 4 byte store into one: one instruction each,
+	 * see INDIRL4 and ASGNL4 in the VM. The value of the store is evaluated first,
+	 * the address of a local has no side effects. */
+	if (generic(p->op) == INDIR && generic(p->kids[0]->op) == ADDRL && opsize(p->op) == 4 && optype(p->op) != B) {
+		assert(p->kids[0]->syms[0] && p->kids[0]->syms[0]->x.name);
+		print("INDIRL4 %s\n", p->kids[0]->syms[0]->x.name);
+		return;
+	}
+	if (generic(p->op) == ASGN && generic(p->kids[0]->op) == ADDRL && opsize(p->op) == 4 && optype(p->op) != B) {
+		assert(p->kids[0]->syms[0] && p->kids[0]->syms[0]->x.name);
+		dumptree(p->kids[1]);
+		print("ASGNL4 %s\n", p->kids[0]->syms[0]->x.name);
+		return;
+	}
 	switch (specific(p->op)) {
 	case ASGN+B:
 		assert(p->kids[0]);
@@ -240,7 +254,7 @@ static Node I(gen)(Node p) {
 }
 
 static void I(global)(Symbol p) {
-	print("align %d\n", p->type->align > 4 ? 4 : p->type->align);
+	print("align %d\n", p->type->align);	/* 8 for the 64-bit doubles and long longs */
 	print("LABELV %s\n", p->x.name);
 }
 

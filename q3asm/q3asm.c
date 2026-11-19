@@ -172,7 +172,10 @@ typedef enum {
     OP_DTOF,
 
     OP_ZEX8,
-    OP_ZEX16
+    OP_ZEX16,
+
+    OP_INDIRL4,
+    OP_ASGNL4
 } opcode_t;
 
 typedef enum {
@@ -1102,6 +1105,42 @@ ASM(ADDRL)
     return 0;
 }
 
+// a 4 byte load from a local, see lcc's INDIRL4: the offset is that of ADDRL
+ASM(INDIRL4)
+{
+    int v;
+    if (!strcmp(token, "INDIRL4"))
+    {
+        STAT("INDIRL4");
+        instructionCount++;
+        Parse();
+        v = ParseExpression();
+        v = 8 + currentArgs + v;
+        EmitByte(&segment[CODESEG], OP_INDIRL4);
+        EmitInt(&segment[CODESEG], v);
+        return 1;
+    }
+    return 0;
+}
+
+// a 4 byte store into a local, see lcc's ASGNL4: the offset is that of ADDRL
+ASM(ASGNL4)
+{
+    int v;
+    if (!strcmp(token, "ASGNL4"))
+    {
+        STAT("ASGNL4");
+        instructionCount++;
+        Parse();
+        v = ParseExpression();
+        v = 8 + currentArgs + v;
+        EmitByte(&segment[CODESEG], OP_ASGNL4);
+        EmitInt(&segment[CODESEG], v);
+        return 1;
+    }
+    return 0;
+}
+
 ASM(PROC)
 {
     char name[1024];
@@ -1633,6 +1672,8 @@ Empirical frequency statistics from FI 2001.01.23:
         return;
 
     ASM(ADDRL)
+    ASM(INDIRL4)
+    ASM(ASGNL4)
     ASM(BYTE)
     ASM(LINE)
     ASM(ARG)
@@ -1823,9 +1864,11 @@ static void Assemble(void)
         {
             segment[i].imageUsed = 0;
         }
-        segment[DATASEG].imageUsed =
-            4; // skip the 0 byte, so NULL pointers are fixed up properly
-        SegmentReserve(&segment[DATASEG], 4);
+        // skip the first 8 bytes, so NULL pointers are fixed up properly. The data is
+        // 8 aligned, like every segment below: the VM has 8 byte values (double, long
+        // long), and an address of a segment is the offset of the segment in the VM data.
+        segment[DATASEG].imageUsed = 8;
+        SegmentReserve(&segment[DATASEG], 8);
         instructionCount = 0;
 
         for (i = 0; i < numAsmFiles; i++)
@@ -1846,7 +1889,7 @@ static void Assemble(void)
         // align all segment
         for (i = 0; i < NUM_SEGMENTS; i++)
         {
-            segment[i].imageUsed = (segment[i].imageUsed + 3) & ~3;
+            segment[i].imageUsed = (segment[i].imageUsed + 7) & ~7;
             SegmentReserve(&segment[i], segment[i].imageUsed);
         }
         if (passNumber == 0)

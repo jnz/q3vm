@@ -236,6 +236,9 @@ typedef enum {
     OP_ZEX8,  /* Zero-extend 8-bit: keep the low byte of the top cell */
     OP_ZEX16, /* Zero-extend 16-bit: keep the low 16 bits of the top cell */
 
+    OP_INDIRL4, /* Load 4 bytes from local n: the address of a local, then OP_INDIRI4 */
+    OP_ASGNL4,  /* Store 4 bytes into local n: the value is on the stack */
+
     OP_MAX /* Make this the last item */
 } opcode_t;
 
@@ -259,6 +262,8 @@ typedef enum {
 #define goto_OP_POP case OP_POP
 #define goto_OP_CONST case OP_CONST
 #define goto_OP_LOCAL case OP_LOCAL
+#define goto_OP_INDIRL4 case OP_INDIRL4
+#define goto_OP_ASGNL4 case OP_ASGNL4
 #define goto_OP_LOCAL_LOAD4 case OP_LOCAL_LOAD4
 #define goto_OP_LOCAL_COPY4 case OP_LOCAL_COPY4
 #define goto_OP_JUMP case OP_JUMP
@@ -1062,6 +1067,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_ENTER:
         case OP_CONST:
         case OP_LOCAL:
+        case OP_INDIRL4:
+        case OP_ASGNL4:
         case OP_LEAVE:
         case OP_EQ:
         case OP_NE:
@@ -1187,6 +1194,8 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
             break;
 
         /* These opcodes have an operand that isn't an instruction index */
+        case OP_INDIRL4:
+        case OP_ASGNL4:
         case OP_ENTER:
         case OP_CONST:
         case OP_LEAVE:
@@ -1447,6 +1456,7 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_ZEXT32, &&goto_OP_TRUNC64,    &&goto_OP_I64TOD,
         &&goto_OP_DTOI64, &&goto_OP_I64TOF,     &&goto_OP_FTOD,
         &&goto_OP_DTOF,   &&goto_OP_ZEX8,       &&goto_OP_ZEX16,
+        &&goto_OP_INDIRL4, &&goto_OP_ASGNL4,
         /* OP_LOCAL_LOAD4 (= OP_MAX), then invalid OP CODEs for opcode_table_mask */
         &&goto_OP_LOCAL_LOAD4, &&goto_OP_LOCAL_COPY4, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
@@ -1534,6 +1544,23 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
 
             programCounter += 1;
             DISPATCH2();
+        goto_OP_INDIRL4:
+            /* the value of local n, as OP_LOCAL then OP_INDIRI4 */
+            opStackOfs++;
+            r1 = r0;
+            r0 = r2 + programStack;
+            CHECK_ACCESS(r0, 4, 0);
+            r0 = opStack[opStackOfs] = *(int*)&image[r0 & dataMask];
+
+            programCounter += 1;
+            DISPATCH2();
+        goto_OP_ASGNL4:
+            /* the value on the stack goes into local n, as OP_LOCAL then OP_ASGNI4 */
+            CHECK_ACCESS(r2 + programStack, 4, 1);
+            *(int*)&image[(r2 + programStack) & dataMask] = r0;
+            opStackOfs--;
+            programCounter += 1;
+            DISPATCH();
         goto_OP_LOCAL_LOAD4:
             /* OP_LOCAL then OP_LOAD4 in one dispatch: the address is never stored */
             opStackOfs++;
