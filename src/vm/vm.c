@@ -242,6 +242,9 @@ typedef enum {
 /* internal, never in an image: OP_LOCAL followed by OP_LOAD4 made into one instruction
  * by VM_PrepareInterpreter. The image check rejects it, as it rejects OP_MAX. */
 #define OP_LOCAL_LOAD4 OP_MAX
+/* internal: OP_LOCAL, OP_LOCAL, OP_LOAD4, OP_STORE4 in one instruction, a 4 byte copy
+ * between two locals. VM_PrepareInterpreter makes it, see there. */
+#define OP_LOCAL_COPY4 (OP_MAX + 1)
 
 #ifndef USE_COMPUTED_GOTOS
 /* for the the computed gotos we need labels,
@@ -257,6 +260,7 @@ typedef enum {
 #define goto_OP_CONST case OP_CONST
 #define goto_OP_LOCAL case OP_LOCAL
 #define goto_OP_LOCAL_LOAD4 case OP_LOCAL_LOAD4
+#define goto_OP_LOCAL_COPY4 case OP_LOCAL_COPY4
 #define goto_OP_JUMP case OP_JUMP
 #define goto_OP_EQ case OP_EQ
 #define goto_OP_NE case OP_NE
@@ -1192,10 +1196,18 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
             int_pc++;
             break;
         case OP_LOCAL:
-            /* the operand is at int_pc, the next opcode after it at int_pc + 1. A
-             * LOCAL followed by a LOAD4 is one instruction now. The LOAD4 stays where
-             * it is, so that jumps to it still work. */
-            if (int_pc + 1 < vm->codeLength && codeBase[int_pc + 1] == OP_LOAD4)
+            /* the operand is at int_pc, the next opcode after it at int_pc + 1. Two
+             * fusions are made here, the instructions they replace stay where they are,
+             * so that jumps to them still work:
+             *   LOCAL a, LOCAL b, LOAD4, STORE4 is OP_LOCAL_COPY4 (the two locals are
+             *   checked by the handler, the second LOCAL is fused on its own below);
+             *   LOCAL followed by LOAD4 is OP_LOCAL_LOAD4. */
+            if (int_pc + 4 < vm->codeLength && codeBase[int_pc + 1] == OP_LOCAL &&
+                codeBase[int_pc + 3] == OP_LOAD4 && codeBase[int_pc + 4] == OP_STORE4)
+            {
+                codeBase[int_pc - 1] = OP_LOCAL_COPY4;
+            }
+            else if (int_pc + 1 < vm->codeLength && codeBase[int_pc + 1] == OP_LOAD4)
             {
                 codeBase[int_pc - 1] = OP_LOCAL_LOAD4;
             }
@@ -1436,7 +1448,7 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_DTOI64, &&goto_OP_I64TOF,     &&goto_OP_FTOD,
         &&goto_OP_DTOF,   &&goto_OP_ZEX8,       &&goto_OP_ZEX16,
         /* OP_LOCAL_LOAD4 (= OP_MAX), then invalid OP CODEs for opcode_table_mask */
-        &&goto_OP_LOCAL_LOAD4, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        &&goto_OP_LOCAL_LOAD4, &&goto_OP_LOCAL_COPY4, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
@@ -1532,6 +1544,20 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
 
             programCounter += 2;
             DISPATCH2();
+        goto_OP_LOCAL_COPY4:
+            /* the operands are the two locals, at programCounter and programCounter + 2.
+             * The same checks, in the same order, as the four instructions it replaces. */
+        {
+            int src = codeImage[programCounter + 2] + programStack;
+            int dst = codeImage[programCounter] + programStack;
+
+            CHECK_ACCESS(src, 4, 0);
+            r0 = *(int*)&image[src & dataMask];
+            CHECK_ACCESS(dst, 4, 1);
+            *(int*)&image[dst & dataMask] = r0;
+        }
+            programCounter += 5;
+            DISPATCH();
         goto_OP_LOAD4:
 #ifdef DEBUG_VM
             if (opStack[opStackOfs] & 3)
