@@ -5,7 +5,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
+#include "vfs.h"
 #include "vmhost.h"
 
 static uint8_t* readFile(const char* path, int* size)
@@ -35,12 +37,20 @@ int main(int argc, char** argv)
     uint8_t* image;
     int      size = 0;
     int      status;
+    char     cwd[4096];
 
     if (argc < 2)
     {
         fprintf(stderr, "usage: %s image.qvm [arguments]\n", argv[0]);
         return 2;
     }
+    /* the VM's files are the host's files in the current directory */
+    if (!getcwd(cwd, sizeof cwd))
+    {
+        fprintf(stderr, "cannot find the current directory\n");
+        return 2;
+    }
+    vfs_init(cwd, 1);
     image = readFile(argv[1], &size);
     if (!image)
     {

@@ -1,9 +1,8 @@
-/* vmrcc.c -- host runner for rcc.qvm: runs the compiler in q3vm.
+/* vmhost.c -- the host side of the VM: its system calls, files and the runner.
  *
- * Usage: vmrcc rcc.qvm [rcc arguments...]
- *
- * The VM has no files of its own. Its file, environment and time calls are
- * served here, and the arguments after rcc.qvm are passed to rcc's main().
+ * The VM has no files of its own. Its file calls go to the VFS (vfs.c), its
+ * environment and time calls are served here, and the arguments of a run are
+ * passed to the image's main(). The same code runs natively and in WebAssembly.
  */
 
 #include <setjmp.h>
@@ -12,14 +11,16 @@
 #include <string.h>
 #include <time.h>
 
+#include "vfs.h"
 #include "vm.h"
 #include "vmhost.h"
 
 #define VM_MAX_FILES 64
 
-static FILE*  host_files[VM_MAX_FILES];
-static int    host_argc;
-static char** host_argv;
+/* handles 0 to 2 are the host's standard streams, the others are files of the VFS */
+static vfs_file_t* host_files[VM_MAX_FILES];
+static int         host_argc;
+static char**      host_argv;
 /* exit() in the VM returns here, with its status, see vmhost_run */
 static jmp_buf host_exit;
 static int     host_exit_status;
@@ -59,13 +60,42 @@ static int freeHostFile(void)
     return -1;
 }
 
-static FILE* hostFile(int handle)
+static FILE* stdStream(int handle)
 {
-    if (handle < 0 || handle >= VM_MAX_FILES)
+    switch (handle)
     {
+    case 0:
+        return stdin;
+    case 1:
+        return stdout;
+    case 2:
+        return stderr;
+    default:
         return NULL;
     }
-    return host_files[handle];
+}
+
+static int isFile(int handle)
+{
+    return handle >= 3 && handle < VM_MAX_FILES && host_files[handle];
+}
+
+static size_t hostRead(int handle, void* buf, size_t n)
+{
+    if (isFile(handle))
+    {
+        return vfs_read(host_files[handle], buf, n);
+    }
+    return fread(buf, 1, n, stdStream(handle));
+}
+
+static size_t hostWrite(int handle, const void* buf, size_t n)
+{
+    if (isFile(handle))
+    {
+        return vfs_write(host_files[handle], buf, n);
+    }
+    return fwrite(buf, 1, n, stdStream(handle));
 }
 
 /* a bad VM pointer is an error, not a silent wrong result. VM_MemoryRangeValid
@@ -86,16 +116,16 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
     {
     case -1: /* vm_open(path, mode) */
     {
-        const char* path = vmPtr(vm, args[1], 1);
-        const char* mode = vmPtr(vm, args[2], 1);
-        int         slot = freeHostFile();
-        FILE*       f;
+        const char*  path = vmPtr(vm, args[1], 1);
+        const char*  mode = vmPtr(vm, args[2], 1);
+        int          slot = freeHostFile();
+        vfs_file_t*  f;
 
         if (slot < 0)
         {
             return -1;
         }
-        f = fopen(path, mode);
+        f = vfs_open(path, mode);
         if (!f)
         {
             return -1;
@@ -107,59 +137,63 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
     {
         int handle = (int)args[1];
 
-        if (handle >= 3 && hostFile(handle))
+        if (isFile(handle))
         {
-            fclose(host_files[handle]);
+            vfs_close(host_files[handle]);
             host_files[handle] = NULL;
         }
         return 0;
     }
     case -3: /* vm_read(handle, buf, n) */
     {
-        FILE* f = hostFile((int)args[1]);
-        int   n = (int)args[3];
+        int    n = (int)args[3];
+        size_t got;
 
-        if (!f)
+        if (!isFile((int)args[1]) && !stdStream((int)args[1]))
         {
             return -1;
         }
-        {
-            size_t got = fread(vmPtr(vm, args[2], n), 1, n, f);
-
-            VM_Poison(vm, args[2], (int)got, 1);
-            return (intptr_t)got;
-        }
+        got = hostRead((int)args[1], vmPtr(vm, args[2], n), n);
+        VM_Poison(vm, args[2], (int)got, 1);
+        return (intptr_t)got;
     }
     case -4: /* vm_write(handle, buf, n) */
     {
-        FILE* f = hostFile((int)args[1]);
-        int   n = (int)args[3];
+        int n = (int)args[3];
 
-        if (!f)
+        if (!isFile((int)args[1]) && !stdStream((int)args[1]))
         {
             return -1;
         }
-        return (intptr_t)fwrite(vmPtr(vm, args[2], n), 1, n, f);
+        return (intptr_t)hostWrite((int)args[1], vmPtr(vm, args[2], n), n);
     }
     case -5: /* vm_seek(handle, off, whence) */
     {
-        FILE* f = hostFile((int)args[1]);
+        int handle = (int)args[1];
 
-        if (!f)
+        if (isFile(handle))
+        {
+            return vfs_seek(host_files[handle], (long)args[2], (int)args[3]) == 0 ? 0 : -1;
+        }
+        if (!stdStream(handle))
         {
             return -1;
         }
-        return fseek(f, (long)args[2], (int)args[3]) == 0 ? 0 : -1;
+        return fseek(stdStream(handle), (long)args[2], (int)args[3]) == 0 ? 0 : -1;
     }
     case -6: /* vm_tell(handle) */
     {
-        FILE* f = hostFile((int)args[1]);
+        int handle = (int)args[1];
 
-        if (!f)
+        if (isFile(handle))
+        {
+            return (intptr_t)vfs_tell(host_files[handle]);
+        }
+        if (!stdStream(handle))
         {
             return -1;
         }
-        return (intptr_t)ftell(f);
+        return (intptr_t)ftell(stdStream(handle));
     }
     case -7: /* vm_exit(status) */
         host_exit_status = (int)args[1];
@@ -211,7 +245,7 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
         return (intptr_t)strlen(host_argv[i]);
     }
     case -13: /* vm_remove(path) */
-        return remove(vmPtr(vm, args[1], 1)) == 0 ? 0 : -1;
+        return vfs_remove(vmPtr(vm, args[1], 1)) == 0 ? 0 : -1;
     case -14: /* vm_poison(p, n): memory that is not written yet, see VM_CHECKED */
         VM_Poison(vm, args[1], (int)args[2], 0);
         return 0;
@@ -242,9 +276,6 @@ void vmhost_init(int argc, char** argv)
 {
     host_argc = argc;
     host_argv = argv;
-    host_files[0] = stdin;
-    host_files[1] = stdout;
-    host_files[2] = stderr;
 }
 
 /* runs a VM image: main(argc, argv) of the image, with the given arguments.
@@ -272,6 +303,7 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
         status = VM_Call(&vm, 0);
     }
     /* files the image wrote and did not close must reach the disk now */
+    vfs_flush();
     fflush(NULL);
     VM_Free(&vm);
     return (int)status;

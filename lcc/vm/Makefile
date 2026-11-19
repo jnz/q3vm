@@ -68,12 +68,12 @@ build/bg_lib.asm: ../../test/bg_lib.c ../../test/bg_lib.h
 rcc.qvm: $(addsuffix .asm,$(LIB_OBJS)) $(RCC_ASMS) vm_syscalls.asm
 	q3asm -o rcc $(LIB_OBJS) $(RCC_OBJS) vm_syscalls
 
-vmrcc: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
+vmrcc: vmrcc.c vmhost.c vmhost.h vfs.c vfs.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -o $@ vmrcc.c vmhost.c vfs.c ../../src/vm/vm.c -lm
 
 # checked runner: a valgrind-like VM, see VM_CHECKED in src/vm/vm.c
-vmrcc_checked: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DVM_CHECKED -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
+vmrcc_checked: vmrcc.c vmhost.c vmhost.h vfs.c vfs.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DVM_CHECKED -o $@ vmrcc.c vmhost.c vfs.c ../../src/vm/vm.c -lm
 
 # every source of the compiler, compiled by the VM and by the native compiler,
 # the output must be the same. The checked VM also reports memory and stack errors.
@@ -83,8 +83,8 @@ test: all vmrcc_checked runexamples cppcheck
 
 # vmrun64: the host runner with 64-bit integers, for the VM images of the
 # preprocessor and the assembler. cppcheck.sh compares q3cpp.qvm with the native q3cpp.
-vmrun64: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
+vmrun64: vmrcc.c vmhost.c vmhost.h vfs.c vfs.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -o $@ vmrcc.c vmhost.c vfs.c ../../src/vm/vm.c -lm
 
 cppcheck: q3cpp.qvm vmrun64
 	./cppcheck.sh $(abspath ../src)/*.c $(abspath examples)/*.c
@@ -101,8 +101,8 @@ payload.c: rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm vm_syscalls
 	$(LCC_RUN_HEADERS) q3cpp.qvm q3asm.qvm payload.py
 	python3 -I payload.py payload.c $(LCC_RUN_PAYLOAD)
 
-lcc-run: lcc-run.c vmhost.c vmhost.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c payload.c ../../src/vm/vm.c -lm
+lcc-run: lcc-run.c vmhost.c vmhost.h vfs.c vfs.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c vfs.c payload.c ../../src/vm/vm.c -lm
 
 clean:
 	rm -rf build64 q3asm.qvm q3cpp.qvm

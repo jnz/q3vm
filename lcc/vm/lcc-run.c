@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "payload.h"
+#include "vfs.h"
 #include "vmhost.h"
 
 #ifndef LCC_RUN_WIDTH
@@ -228,6 +229,7 @@ int main(int argc, char** argv)
     char           tmpl[PATH_MAX];
     char           dir[PATH_MAX];
     char           saved[PATH_MAX];
+    char           here[PATH_MAX];
     char           base_c[PATH_MAX];
     char           iname[PATH_MAX];
     char           aname[PATH_MAX];
@@ -292,6 +294,13 @@ int main(int argc, char** argv)
         remove_dir(dir);
         return 1;
     }
+    /* the VM's relative names are relative to the temporary directory */
+    if (!getcwd(here, sizeof here))
+    {
+        remove_dir(dir);
+        return 1;
+    }
+    vfs_init(here, 1);
 
     /* 2. preprocess in the VM, the output file is the second file argument */
     snprintf(base_c, sizeof base_c, "%s.c", base);

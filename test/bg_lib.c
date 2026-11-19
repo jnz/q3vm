@@ -849,6 +849,15 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
             flags |= LADJUST;
             goto rflag;
         case '.':
+            if (*fmt == '*')
+            {
+                // the precision is the next argument
+                prec = *arg;
+                arg++;
+                fmt++;
+                ch = *fmt++;
+                goto reswitch;
+            }
             n = 0;
             while (is_digit((ch = *fmt++)))
             {
@@ -875,6 +884,17 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
                 ch = *fmt++;
             } while (is_digit(ch));
             width = n;
+            goto reswitch;
+        case '*':
+            // the width is the next argument, a negative width left-justifies
+            width = *arg;
+            arg++;
+            if (width < 0)
+            {
+                flags |= LADJUST;
+                width = -width;
+            }
+            ch = *fmt++;
             goto reswitch;
         case 'c':
             *buf_p++ = (char)*arg;
