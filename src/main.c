@@ -34,9 +34,11 @@ uint8_t* loadImage(const char* filepath, int* size);
 
 int main(int argc, char** argv)
 {
-    vm_t vm;
-    int  retVal = -1;
-    int  imageSize;
+    vm_t     vm;
+    int      retVal = -1;
+    int      imageSize;
+    char*    filepath;
+    uint8_t* image;
 
     if (argc < 2)
     {
@@ -45,8 +47,8 @@ int main(int argc, char** argv)
     }
 
     /* load virtual machine image from file */
-    char*    filepath = argv[1];
-    uint8_t* image    = loadImage(filepath, &imageSize);
+    filepath = argv[1];
+    image    = loadImage(filepath, &imageSize);
     if (!image)
     {
         return -1;

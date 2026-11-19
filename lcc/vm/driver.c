@@ -50,14 +50,22 @@ int main(int argc, char** argv)
     int   n;
     int   i;
     int   status;
+    int   first = 1; /* argv[first] is the source file */
+    int   compileOnly = 0;
 
-    if (argc < 2 || argc > 64 + 1)
+    /* -S stops after the compiler, the program is not linked or run */
+    if (argc > 2 && strcmp(argv[1], "-S") == 0)
     {
-        fprintf(stderr, "usage: driver file.c [arguments...]\n");
+        compileOnly = 1;
+        first = 2;
+    }
+    if (argc <= first || argc - first > 64)
+    {
+        fprintf(stderr, "usage: driver [-S] file.c [arguments...]\n");
         return 2;
     }
-    name = strrchr(argv[1], '/');
-    name = name ? name + 1 : argv[1];
+    name = strrchr(argv[first], '/');
+    name = name ? name + 1 : argv[first];
     dot = strrchr(name, '.');
     n = dot ? (int)(dot - name) : (int)strlen(name);
     if (n >= (int)sizeof base)
@@ -98,6 +106,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    if (compileOnly)
+    {
+        return 0;
+    }
+
     /* 3. link with the runtime library, its argv[0] is the name of the source */
     qargv[0] = "q3asm";
     qargv[1] = "-o";
@@ -115,10 +128,10 @@ int main(int argc, char** argv)
 
     /* 4. run the program, with the source name as its argv[0] */
     pargv[0] = base;
-    for (i = 2; i < argc; i++)
+    for (i = first + 1; i < argc; i++)
     {
-        pargv[i - 1] = argv[i];
+        pargv[i - first] = argv[i];
     }
-    status = vm_run("prog.qvm", argc - 1, pargv);
+    status = vm_run("prog.qvm", argc - first, pargv);
     return status < 0 ? 2 : status;
 }

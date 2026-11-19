@@ -1,7 +1,9 @@
 /* lcc-run.c -- one executable that compiles a C program with the compiler running
  * in q3vm, links it with the VM runtime and runs it in q3vm.
  *
- * Usage: lcc-run file.c [arguments...]
+ * Usage: lcc-run [-S] [-I dir]... file.c [arguments...]
+ *
+ * -S compiles only: the program is not linked or run. -I dir adds the headers of dir.
  *
  * The executable holds everything it needs (payload.c, made by payload.py): the
  * driver driver.qvm, the compiler rcc.qvm, the assembler q3asm.qvm, the preprocessor
@@ -88,10 +90,10 @@ static void put_payload(void)
     }
 }
 
-/* the headers next to the source file, so that quoted includes work */
-static void put_headers(const char* srcdir)
+/* the headers of a directory, so that quoted includes work */
+static void put_headers(const char* dir)
 {
-    DIR*           d = opendir(srcdir);
+    DIR*           d = opendir(dir);
     struct dirent* e;
 
     if (!d)
@@ -107,7 +109,7 @@ static void put_headers(const char* srcdir)
         {
             continue;
         }
-        snprintf(path, sizeof path, "%s/%s", srcdir, e->d_name);
+        snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
         put_host_file(path);
     }
     closedir(d);
@@ -115,15 +117,18 @@ static void put_headers(const char* srcdir)
 
 static void usage(const char* name)
 {
-    fprintf(stderr, "usage: %s file.c [arguments...]\n", name);
+    fprintf(stderr, "usage: %s [-S] [-I dir]... file.c [arguments...]\n", name);
     exit(2);
 }
 
 int main(int argc, char** argv)
 {
     const struct payload_file* driver;
+    char*                      dargv[256];
     char                       srcdir[4096];
+    const char*                src = NULL;
     const char*                slash;
+    int                        dargc = 0;
     int                        i;
     int                        status;
 
@@ -137,33 +142,50 @@ int main(int argc, char** argv)
         fprintf(stderr, "lcc-run: the driver is missing from the executable\n");
         return 1;
     }
-    slash = strrchr(argv[1], '/');
-    if (slash)
-    {
-        size_t len = slash - argv[1];
-
-        snprintf(srcdir, sizeof srcdir, "%.*s", (int)(len ? len : 1), argv[1]);
-    }
-    else
-    {
-        snprintf(srcdir, sizeof srcdir, ".");
-    }
 
     /* the files of the VM are in the virtual file system, relative names start from "/" */
     vfs_init("/", 0);
     put_payload();
-    if (!put_host_file(argv[1]))
+
+    /* the arguments for the driver: -I is done here, the rest goes on. The first
+     * argument that is not an option is the source file. */
+    dargv[dargc++] = argv[0];
+    for (i = 1; i < argc && dargc < 256; i++)
     {
-        fprintf(stderr, "lcc-run: cannot read %s\n", argv[1]);
-        return 1;
+        if (strcmp(argv[i], "-I") == 0 && i + 1 < argc)
+        {
+            put_headers(argv[++i]);
+            continue;
+        }
+        dargv[dargc++] = argv[i];
+        if (argv[i][0] == '-')
+        {
+            continue;
+        }
+        if (!src)
+        {
+            src = argv[i];
+            if (!put_host_file(src))
+            {
+                fprintf(stderr, "lcc-run: cannot read %s\n", src);
+                return 1;
+            }
+            slash = strrchr(src, '/');
+            snprintf(srcdir, sizeof srcdir, "%.*s", slash ? (int)(slash - src) : 1,
+                     slash ? src : ".");
+            put_headers(srcdir);
+        }
+        else
+        {
+            put_host_file(argv[i]);
+        }
     }
-    put_headers(srcdir);
-    for (i = 2; i < argc; i++)
+    if (!src)
     {
-        put_host_file(argv[i]);
+        usage(argv[0]);
     }
 
     fflush(stdout);
-    status = vmhost_run(driver->data, (int)driver->size, argc, argv);
+    status = vmhost_run(driver->data, (int)driver->size, dargc, dargv);
     return status < 0 ? 2 : status;
 }

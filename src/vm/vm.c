@@ -595,6 +595,8 @@ static void VM_StackTrace(vm_t* vm, int programCounter, int programStack);
 int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode, int length,
               intptr_t (*systemCalls)(vm_t*, intptr_t*))
 {
+    const vmHeader_t* header;
+
     if (vm == NULL)
     {
         Com_Error(VM_INVALID_POINTER, "Invalid vm pointer");
@@ -609,7 +611,7 @@ int VM_Create(vm_t* vm, const char* name, const uint8_t* bytecode, int length,
 
     Com_Memset(vm, 0, sizeof(vm_t));
     Q_strncpyz(vm->name, name, sizeof(vm->name));
-    const vmHeader_t* header = VM_LoadQVM(vm, bytecode, length);
+    header = VM_LoadQVM(vm, bytecode, length);
     if (!header)
     {
         vm->lastError = VM_FAILED_TO_LOAD_BYTECODE;
@@ -675,11 +677,12 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
 {
     int dataLength;
     int i;
-    const union {
+    union {
         const vmHeader_t* h;
         const uint8_t*    v;
-    } header = {.v = bytecode };
+    } header;
 
+    header.v = bytecode;
     Com_Printf("Loading vm file %s...\n", vm->name);
 
     if (!header.h || !bytecode || length <= (int)sizeof(vmHeader_t) ||
@@ -921,12 +924,15 @@ int32_t VM_FloatToInt(float f)
 
 int VM_MemoryRangeValid(intptr_t vmAddr, size_t len, const vm_t* vm)
 {
+    unsigned dest;
+    unsigned dataMask;
+
     if (!vmAddr || !vm)
     {
         return -1;
     }
-    const unsigned dest     = vmAddr;
-    const unsigned dataMask = vm->dataMask;
+    dest     = vmAddr;
+    dataMask = vm->dataMask;
     if ((dest & dataMask) != dest || ((dest + len) & dataMask) != dest + len)
     {
         Com_Error(VM_DATA_OUT_OF_RANGE, "Memory access out of range");
@@ -1329,6 +1335,7 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
     int      wideReturn; /* syscall result is 64-bit (OP_CALL8) */
     int64_t  a64;
     double   d1;
+    int      opcode, r0, r1;
 #ifdef DEBUG_VM
     vmSymbol_t* profileSymbol;
 #endif
@@ -1373,7 +1380,6 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
     /* main interpreter loop, will exit when a LEAVE instruction
        grabs the -1 program counter */
 
-    int opcode, r0, r1;
 #define r2 codeImage[programCounter]
 
 #ifdef USE_COMPUTED_GOTOS

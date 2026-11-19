@@ -12,6 +12,8 @@ typedef unsigned int       uint32_t;
 #ifndef LCC_WIDE32
 typedef long long          int64_t;
 typedef unsigned long long uint64_t;
+#define INT64_MAX 0x7fffffffffffffffLL
+#define INT64_MIN (-INT64_MAX - 1)
 #endif
 typedef int                intptr_t;
 typedef unsigned int       uintptr_t;
