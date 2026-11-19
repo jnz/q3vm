@@ -15,3 +15,4 @@ equ	vm_argv		-12
 equ	vm_remove	-13
 equ	vm_poison	-14
 equ	vm_strtod	-15
+equ	vm_run		-16

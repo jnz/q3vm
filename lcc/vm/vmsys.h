@@ -18,5 +18,6 @@ int vm_argv(int i, char* buf, int n);
 int vm_remove(const char* path);
 void vm_poison(void* p, int n);
 int vm_strtod(const char* s, double* out);
+int vm_run(const char* path, int argc, char** argv);
 
 #endif

@@ -30,7 +30,7 @@ endif
 
 # the objects depend on WIDTH, which make does not see: a change of width
 # removes them first
-$(shell mkdir -p build; [ "$$(cat build/.width 2>/dev/null)" = "$(WIDTH)" ] || (rm -rf build/rcc_* build/vm*.asm build/bg_lib.asm rcc.qvm vmrcc vmrcc_checked; echo $(WIDTH) > build/.width))
+$(shell mkdir -p build; [ "$$(cat build/.width 2>/dev/null)" = "$(WIDTH)" ] || (rm -rf build/rcc_* build/vm*.asm build/bg_lib.asm rcc.qvm driver.qvm vmrcc vmrcc_checked; echo $(WIDTH) > build/.width))
 
 HOST_CC     = gcc
 HOST_CFLAGS = -std=gnu99 -O2 -ffp-contract=off -Wall -Wextra -I../../src/vm $(VM_DEF) -DVM_LOG_STDERR
@@ -77,7 +77,7 @@ vmrcc_checked: vmrcc.c vmhost.c vmhost.h vfs.c vfs.h ../../src/vm/vm.c ../../src
 
 # every source of the compiler, compiled by the VM and by the native compiler,
 # the output must be the same. The checked VM also reports memory and stack errors.
-test: all vmrcc_checked runexamples cppcheck
+test: all vmrcc_checked runexamples cppcheck selftest
 	TARGET=$(TARGET) ./check.sh -I ../vm/include ../src/*.c
 	TARGET=$(TARGET) VMRCC=$(abspath vmrcc_checked) ./check.sh -I ../vm/include ../src/*.c
 
@@ -89,27 +89,48 @@ vmrun64: vmrcc.c vmhost.c vmhost.h vfs.c vfs.h ../../src/vm/vm.c ../../src/vm/vm
 cppcheck: q3cpp.qvm vmrun64
 	./cppcheck.sh $(abspath ../src)/*.c $(abspath examples)/*.c
 
-# lcc-run: one executable with the compiler, the runtime, the preprocessor, the
-# assembler and the include files inside it (see lcc-run.c and payload.py)
+# driver.qvm: the steps of lcc-run, as a VM image (driver.c). The VM tools build it:
+# the preprocessor, the compiler and the assembler run in vmrun64, with the files of
+# the directory. DRIVER_CPP_DEFINES is what lcc-run passes to the preprocessor.
+DRIVER_CPP_DEFINES = -D__STDC__=1 -D__STRICT_ANSI__ -D__signed__=signed -DQ3_VM -D__LCC__ \
+	-DLCC_RUN_WIDTH=$(WIDTH)
+ifeq ($(WIDTH),32)
+DRIVER_CPP_DEFINES += -DLCC_WIDE32
+endif
+
+driver.qvm: driver.c vmsys.h rcc.qvm q3cpp.qvm q3asm.qvm vmrun64 build/vmmain.asm \
+	build/vmlib.asm build/bg_lib.asm vm_syscalls.asm
+	./vmrun64 q3cpp.qvm $(DRIVER_CPP_DEFINES) -Iinclude driver.c driver.i
+	./vmrun64 rcc.qvm -target=$(TARGET) driver.i driver.asm
+	./vmrun64 q3asm.qvm -o driver build/vmmain build/vmlib build/bg_lib driver vm_syscalls
+
+# selftest: lcc-run compiles driver.c with the VM tools, and the driver it makes
+# compiles and runs examples/hello.c. The output must be that of hello.c.
+selftest: all lcc-run
+	./lcc-run driver.c examples/hello.c alpha beta > selftest.out 2>/dev/null
+	diff selftest.out examples/hello.expected > /dev/null && echo "ok   selftest: driver.c compiled and run by lcc-run" || { echo "FAIL selftest"; exit 1; }
+
+# lcc-run: one executable with the driver, the compiler, the runtime, the preprocessor,
+# the assembler and the include files inside it (see lcc-run.c and payload.py)
 LCC_RUN_HEADERS = $(wildcard include/*.h)
-LCC_RUN_PAYLOAD = q3cpp.qvm=q3cpp.qvm q3asm.qvm=q3asm.qvm \
+LCC_RUN_PAYLOAD = driver.qvm=driver.qvm q3cpp.qvm=q3cpp.qvm q3asm.qvm=q3asm.qvm \
 	rcc.qvm=rcc.qvm lib/vmmain.asm=build/vmmain.asm lib/vmlib.asm=build/vmlib.asm \
 	lib/bg_lib.asm=build/bg_lib.asm lib/vm_syscalls.asm=vm_syscalls.asm \
 	$(foreach h,$(LCC_RUN_HEADERS),$(h)=$(h))
 
-payload.c: rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm vm_syscalls.asm \
-	$(LCC_RUN_HEADERS) q3cpp.qvm q3asm.qvm payload.py
+payload.c: driver.qvm rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm \
+	vm_syscalls.asm $(LCC_RUN_HEADERS) q3cpp.qvm q3asm.qvm payload.py
 	python3 -I payload.py payload.c $(LCC_RUN_PAYLOAD)
 
 lcc-run: lcc-run.c vmhost.c vmhost.h vfs.c vfs.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c vfs.c payload.c ../../src/vm/vm.c -lm
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -o $@ lcc-run.c vmhost.c vfs.c payload.c ../../src/vm/vm.c -lm
 
 clean:
 	rm -rf build64 q3asm.qvm q3cpp.qvm
-	rm -f payload.c lcc-run
-	rm -rf build rcc.qvm vmrcc vmrcc_checked
+	rm -f payload.c lcc-run selftest.out driver.i driver.asm driver.qvm driver
+	rm -rf build rcc.qvm vmrcc vmrcc_checked vmrun64
 
-.PHONY: all clean test
+.PHONY: all clean test selftest
 
 runexamples: all lcc-run
 	@for f in examples/*.c; do \

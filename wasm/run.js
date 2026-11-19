@@ -1,20 +1,15 @@
 // run.js -- compiles and runs a C file with the toolchain in q3vm, in WebAssembly.
-// The steps are those of lcc/vm/lcc-run.c, and the files are in memory.
+// It does what lcc-run does: the files go in the file system of the VM, then the
+// driver (driver.qvm, from lcc/vm) compiles and runs the source. Files are in memory.
 //
 // Usage: node run.js <lcc/vm directory> file.c [arguments...]
-// Build first: make node (here), and make WIDTH=64 in lcc/vm.
+// Build first: make node (here), and make driver.qvm in lcc/vm.
 const fs = require("fs");
 const path = require("path");
 const createQ3vm = require("./node/vm.js");
 
 const toolDir = path.resolve(process.argv[2]);
-const source = process.argv[3];
-const programArgs = process.argv.slice(4);
-const base = path.basename(source, ".c");
-
-const defines = [
-  "-D__STDC__=1", "-D__STRICT_ANSI__", "-D__signed__=signed", "-DQ3_VM", "-D__LCC__",
-];
+const programArgs = process.argv.slice(3);
 
 createQ3vm().then((M) => {
   M._vm_init();
@@ -36,28 +31,8 @@ createQ3vm().then((M) => {
     free(d);
   };
 
-  const getFile = (name) => {
-    const n = alloc(Buffer.from(name));
-    const size = M._file_size(n);
-    if (size < 0) {
-      free(n);
-      return null;
-    }
-    const buf = M._alloc_bytes(size + 1);
-    M._get_file(n, buf, size);
-    const out = Buffer.from(M.HEAPU8.slice(buf, buf + size));
-    free(buf);
-    free(n);
-    return out;
-  };
-
-  // runs main of the image file with argv, returns its result
-  const runImage = (name, argv) => {
-    const image = getFile(name);
-    if (!image) {
-      console.log("no file " + name);
-      process.exit(1);
-    }
+  // runs main of an image with argv, returns its result
+  const runImage = (image, argv) => {
     const img = alloc(image);
     const args = alloc(Buffer.concat(argv.map((a) => Buffer.from(a + "\0"))));
     const status = M._run(img, image.length, argv.length, args);
@@ -66,9 +41,9 @@ createQ3vm().then((M) => {
     return status;
   };
 
-  // the files of the toolchain, as lcc-run's payload has them
+  // the files of the toolchain, as the payload of lcc-run has them, in the root
   const tool = (name) => fs.readFileSync(path.join(toolDir, name));
-  for (const name of ["q3cpp.qvm", "q3asm.qvm", "rcc.qvm"]) {
+  for (const name of ["driver.qvm", "q3cpp.qvm", "q3asm.qvm", "rcc.qvm"]) {
     putFile(name, tool(name));
   }
   const libs = {
@@ -86,32 +61,13 @@ createQ3vm().then((M) => {
       putFile("include/" + h, fs.readFileSync(path.join(includeDir, h)));
     }
   }
-  putFile(base + ".c", fs.readFileSync(source));
+  // the source file and the arguments that are files, by their base names
+  for (const arg of programArgs) {
+    if (fs.existsSync(arg) && fs.statSync(arg).isFile()) {
+      putFile(path.basename(arg), fs.readFileSync(arg));
+    }
+  }
 
-  const fail = (step, status) => {
-    console.log(step + " failed with " + status);
-    process.exit(1);
-  };
-
-  // 1. preprocess
-  let status = runImage("q3cpp.qvm", [
-    "q3cpp", ...defines, "-Iinclude", base + ".c", base + ".i",
-  ]);
-  if (status !== 0) fail("preprocessing", status);
-
-  // 2. compile
-  status = runImage("rcc.qvm", [
-    "rcc", "-target=bytecode64", base + ".i", base + ".asm",
-  ]);
-  if (status !== 0) fail("compilation", status);
-
-  // 3. link with the runtime library
-  status = runImage("q3asm.qvm", [
-    "q3asm", "-o", "prog", "lib/vmmain", "lib/vmlib", "lib/bg_lib", base, "lib/vm_syscalls",
-  ]);
-  if (status !== 0) fail("linking", status);
-
-  // 4. run the program, its argv[0] is the name of the source
-  status = runImage("prog.qvm", [base, ...programArgs]);
+  const status = runImage(tool("driver.qvm"), ["driver", ...programArgs]);
   console.log("exit " + status);
 });

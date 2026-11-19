@@ -6,6 +6,7 @@
  */
 
 #include <setjmp.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,9 +22,9 @@
 static vfs_file_t* host_files[VM_MAX_FILES];
 static int         host_argc;
 static char**      host_argv;
-/* exit() in the VM returns here, with its status, see vmhost_run */
-static jmp_buf host_exit;
-static int     host_exit_status;
+/* exit() in the VM returns to the innermost vmhost_run, see there */
+static jmp_buf* host_exit;
+static int      host_exit_status;
 
 /* host callbacks required by the VM, see README.md */
 void Com_Error(vmErrorCode_t level, const char* error)
@@ -197,7 +198,7 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
     }
     case -7: /* vm_exit(status) */
         host_exit_status = (int)args[1];
-        longjmp(host_exit, 1);
+        longjmp(*host_exit, 1);
     case -8: /* vm_getenv(name, buf, n) */
     {
         const char* value = getenv(vmPtr(vm, args[1], 1));
@@ -265,6 +266,43 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
 #endif
         return 0;
     }
+    case -16: /* vm_run(path, argc, argv): runs an image of the VFS as a program, with
+                 argv an array of argc strings of the VM. Returns its result. */
+    {
+        const char* path = vmPtr(vm, args[1], 1);
+        int         argc = (int)args[2];
+        intptr_t    argvAddr = args[3];
+        long        size = vfs_size(path);
+        uint8_t*    image;
+        char**      argv;
+        int         i;
+        int         status;
+
+        if (size < 0 || argc < 1)
+        {
+            return -1;
+        }
+        image = malloc(size ? size : 1);
+        argv = malloc(sizeof(char*) * argc);
+        if (!image || !argv)
+        {
+            free(image);
+            free(argv);
+            return -1;
+        }
+        vfs_get(path, image, size);
+        for (i = 0; i < argc; i++)
+        {
+            int32_t addr;
+
+            memcpy(&addr, vmPtr(vm, argvAddr + 4 * i, 4), 4);
+            argv[i] = vmPtr(vm, addr, 1);
+        }
+        status = vmhost_run(image, (int)size, argc, argv);
+        free(image);
+        free(argv);
+        return status;
+    }
     default:
         fprintf(stderr, "unexpected system call %d\n", -1 - (int)args[0]);
         exit(1);
@@ -284,14 +322,20 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
 {
     vm_t      vm;
     intptr_t  status;
+    jmp_buf   exit_here;
+    jmp_buf*  outer_exit = host_exit;
+    int       outer_argc = host_argc;
+    char**    outer_argv = host_argv;
 
-    vmhost_init(argc, argv);
     if (VM_Create(&vm, "vm", image, size, vmhost_syscalls) != 0)
     {
         return -1;
     }
+    /* a run can start another run (vm_run), so the state of the outer one is kept */
+    vmhost_init(argc, argv);
+    host_exit = &exit_here;
     /* the image's exit() jumps back here, so that the host finishes its own work */
-    if (setjmp(host_exit))
+    if (setjmp(exit_here))
     {
         /* the jump skipped the end of VM_Call, so the VM still counts it as running */
         vm.callLevel = 0;
@@ -302,6 +346,9 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
     {
         status = VM_Call(&vm, 0);
     }
+    host_exit = outer_exit;
+    host_argc = outer_argc;
+    host_argv = outer_argv;
     /* files the image wrote and did not close must reach the disk now */
     vfs_flush();
     fflush(NULL);

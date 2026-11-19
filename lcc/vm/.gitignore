@@ -11,3 +11,8 @@ lcc-run
 build64/
 q3asm.qvm
 vmrun64
+driver.qvm
+driver.i
+driver.asm
+selftest.out
+vmrun64
