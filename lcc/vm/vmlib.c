@@ -23,7 +23,9 @@ FILE vm_files[3] = { { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 } };
 /* ---------- memory ---------- */
 
 /* The heap is a bump allocator in bss. Each block starts with its size. */
+#ifndef VM_HEAP_SIZE
 #define VM_HEAP_SIZE (6 * 1024 * 1024)
+#endif
 #define VM_ALIGN 8
 
 static char vm_heap[VM_HEAP_SIZE];

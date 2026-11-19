@@ -61,6 +61,12 @@ build/vmlib.asm: vmlib.c vmsys.h
 	@mkdir -p build
 	lcc $(VM_CFLAGS) $(VMLIB_DEF) -Iinclude -o $@ $<
 
+# the driver needs almost no heap, and each VM has its heap in its data, so its
+# runtime library has a small one (the tools keep the 6 MB heap of build/vmlib)
+build/vmlib_small.asm: vmlib.c vmsys.h
+	@mkdir -p build
+	lcc $(VM_CFLAGS) $(VMLIB_DEF) -DVM_HEAP_SIZE=262144 -Iinclude -o $@ $<
+
 build/bg_lib.asm: ../../test/bg_lib.c ../../test/bg_lib.h
 	@mkdir -p build
 	lcc $(VM_CFLAGS) -o $@ $<
@@ -99,10 +105,10 @@ DRIVER_CPP_DEFINES += -DLCC_WIDE32
 endif
 
 driver.qvm: driver.c vmsys.h rcc.qvm q3cpp.qvm q3asm.qvm vmrun64 build/vmmain.asm \
-	build/vmlib.asm build/bg_lib.asm vm_syscalls.asm
+	build/vmlib_small.asm build/bg_lib.asm vm_syscalls.asm
 	./vmrun64 q3cpp.qvm $(DRIVER_CPP_DEFINES) -Iinclude driver.c driver.i
 	./vmrun64 rcc.qvm -target=$(TARGET) driver.i driver.asm
-	./vmrun64 q3asm.qvm -o driver build/vmmain build/vmlib build/bg_lib driver vm_syscalls
+	./vmrun64 q3asm.qvm -o driver build/vmmain build/vmlib_small build/bg_lib driver vm_syscalls
 
 # selftest: lcc-run compiles driver.c with the VM tools, and the driver it makes
 # compiles and runs examples/hello.c. The output must be that of hello.c.
