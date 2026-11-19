@@ -6,6 +6,7 @@
  * served here, and the arguments after rcc.qvm are passed to rcc's main().
  */
 
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +20,9 @@
 static FILE*  host_files[VM_MAX_FILES];
 static int    host_argc;
 static char** host_argv;
+/* exit() in the VM returns here, with its status, see vmhost_run */
+static jmp_buf host_exit;
+static int     host_exit_status;
 
 /* host callbacks required by the VM, see README.md */
 void Com_Error(vmErrorCode_t level, const char* error)
@@ -158,9 +162,8 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
         return (intptr_t)ftell(f);
     }
     case -7: /* vm_exit(status) */
-        fflush(stdout);
-        fflush(stderr);
-        exit((int)args[1]);
+        host_exit_status = (int)args[1];
+        longjmp(host_exit, 1);
     case -8: /* vm_getenv(name, buf, n) */
     {
         const char* value = getenv(vmPtr(vm, args[1], 1));
@@ -256,7 +259,18 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
     {
         return -1;
     }
-    status = VM_Call(&vm, 0);
+    /* the image's exit() jumps back here, so that the host finishes its own work */
+    if (setjmp(host_exit))
+    {
+        /* the jump skipped the end of VM_Call, so the VM still counts it as running */
+        vm.callLevel = 0;
+        vm.currentlyInterpreting = 0;
+        status = host_exit_status;
+    }
+    else
+    {
+        status = VM_Call(&vm, 0);
+    }
     /* files the image wrote and did not close must reach the disk now */
     fflush(NULL);
     VM_Free(&vm);

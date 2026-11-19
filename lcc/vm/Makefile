@@ -77,27 +77,35 @@ vmrcc_checked: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
 
 # every source of the compiler, compiled by the VM and by the native compiler,
 # the output must be the same. The checked VM also reports memory and stack errors.
-test: all vmrcc_checked runexamples
+test: all vmrcc_checked runexamples cppcheck
 	TARGET=$(TARGET) ./check.sh -I ../vm/include ../src/*.c
 	TARGET=$(TARGET) VMRCC=$(abspath vmrcc_checked) ./check.sh -I ../vm/include ../src/*.c
+
+# vmrun64: the host runner with 64-bit integers, for the VM images of the
+# preprocessor and the assembler. cppcheck.sh compares q3cpp.qvm with the native q3cpp.
+vmrun64: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
+
+cppcheck: q3cpp.qvm vmrun64
+	./cppcheck.sh $(abspath ../src)/*.c $(abspath examples)/*.c
 
 # lcc-run: one executable with the compiler, the runtime, the preprocessor, the
 # assembler and the include files inside it (see lcc-run.c and payload.py)
 LCC_RUN_HEADERS = $(wildcard include/*.h)
-LCC_RUN_PAYLOAD = bin/q3cpp=../../bin/linux/q3cpp q3asm.qvm=q3asm.qvm \
+LCC_RUN_PAYLOAD = q3cpp.qvm=q3cpp.qvm q3asm.qvm=q3asm.qvm \
 	rcc.qvm=rcc.qvm lib/vmmain.asm=build/vmmain.asm lib/vmlib.asm=build/vmlib.asm \
 	lib/bg_lib.asm=build/bg_lib.asm lib/vm_syscalls.asm=vm_syscalls.asm \
 	$(foreach h,$(LCC_RUN_HEADERS),$(h)=$(h))
 
 payload.c: rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm vm_syscalls.asm \
-	$(LCC_RUN_HEADERS) ../../bin/linux/q3cpp q3asm.qvm payload.py
+	$(LCC_RUN_HEADERS) q3cpp.qvm q3asm.qvm payload.py
 	python3 -I payload.py payload.c $(LCC_RUN_PAYLOAD)
 
 lcc-run: lcc-run.c vmhost.c vmhost.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
 	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c payload.c ../../src/vm/vm.c -lm
 
 clean:
-	rm -rf build64 q3asm.qvm
+	rm -rf build64 q3asm.qvm q3cpp.qvm
 	rm -f payload.c lcc-run
 	rm -rf build rcc.qvm vmrcc vmrcc_checked
 
@@ -139,4 +147,24 @@ q3asm.qvm: build64/vmmain.asm build64/vmlib.asm build64/bg_lib.asm build64/q3asm
 	build64/cmdlib.asm vm_syscalls.asm
 	../../bin/linux/q3asm -o q3asm build64/vmmain build64/vmlib build64/bg_lib \
 		build64/q3asm build64/cmdlib vm_syscalls
+
+# q3cpp.qvm: the preprocessor as a VM image, from the sources in ../cpp. vmfd.c
+# gives it the file descriptor calls on the host's files.
+CPP_SRCS = $(notdir $(wildcard ../cpp/*.c))
+
+build64/vmfd.asm: vmfd.c vmsys.h $(wildcard include/*.h)
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -Iinclude -o $@ $<
+
+build64/cpp_%.asm: ../cpp/%.c $(wildcard ../cpp/*.h) $(wildcard include/*.h)
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -DQ3_VM -I../vm/include -o $@ $<
+
+CPP_ASMS = $(patsubst %.c,build64/cpp_%.asm,$(CPP_SRCS))
+CPP_OBJS = $(patsubst build64/%.asm,build64/%,$(CPP_ASMS))
+
+q3cpp.qvm: build64/vmmain.asm build64/vmlib.asm build64/bg_lib.asm build64/vmfd.asm \
+	$(CPP_ASMS) vm_syscalls.asm
+	../../bin/linux/q3asm -o q3cpp build64/vmmain build64/vmlib build64/bg_lib \
+		build64/vmfd $(CPP_OBJS) vm_syscalls
 

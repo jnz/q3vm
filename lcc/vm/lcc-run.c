@@ -5,12 +5,12 @@
  *
  * The executable holds everything it needs (payload.c, made by payload.py):
  * the compiler rcc.qvm, the assembler q3asm.qvm, the runtime library and the include
- * files of q3vm, and the preprocessor q3cpp. The steps are:
+ * files of q3vm, and the preprocessor q3cpp. All of them are VM images. The steps are:
  *
  *   1. unpack the payload into a temporary directory, with the source file
- *   2. q3cpp preprocesses the source (a native program, from the payload)
+ *   2. q3cpp.qvm, the preprocessor in the VM, preprocesses the source
  *   3. rcc.qvm, the compiler in the VM, writes LCC bytecode
- *   4. q3asm links the bytecode with the runtime library (native, from the payload)
+ *   4. q3asm.qvm, the assembler in the VM, links the bytecode with the runtime library
  *   5. the program runs in the VM, with the arguments
  *
  * LCC_RUN_WIDTH (32 or 64) is set by the Makefile and must match rcc.qvm.
@@ -37,13 +37,16 @@
 #define TARGET_OPTION "-target=bytecode"
 #endif
 
-#define CPP_DEFINES_COMMON "-D__STDC__=1 -D__STRICT_ANSI__ -D__signed__=signed -DQ3_VM -D__LCC__"
 /* the headers of q3vm leave out the 64-bit functions for a 32-bit target */
 #if LCC_RUN_WIDTH == 64
-#define CPP_DEFINES CPP_DEFINES_COMMON
+#define CPP_DEFINES_WIDTH
 #else
-#define CPP_DEFINES CPP_DEFINES_COMMON " -DLCC_WIDE32"
+#define CPP_DEFINES_WIDTH "-DLCC_WIDE32",
 #endif
+
+static const char* cpp_defines[] = {
+    "-D__STDC__=1", "-D__STRICT_ANSI__", "-D__signed__=signed", "-DQ3_VM", "-D__LCC__",
+    CPP_DEFINES_WIDTH NULL};
 
 static const struct payload_file* find_payload(const char* name)
 {
@@ -225,21 +228,24 @@ int main(int argc, char** argv)
     char           tmpl[PATH_MAX];
     char           dir[PATH_MAX];
     char           saved[PATH_MAX];
-    char           cmd[2 * PATH_MAX + 256];
+    char           base_c[PATH_MAX];
     char           iname[PATH_MAX];
     char           aname[PATH_MAX];
     const char*    name;
     const char*    tmproot;
     const char*    slash;
     const char*    dot;
+    const struct payload_file* cpp;
     const struct payload_file* rcc;
     const struct payload_file* qasm;
+    char*                      cppargv[16];
     char*                      qargv[8];
     uint8_t*       image;
     int            size = 0;
     int            status;
     char*          rargv[4];
     char**         pargv;
+    int            n;
     int            i;
 
     if (argc < 2)
@@ -287,9 +293,27 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    /* 2. preprocess */
-    snprintf(cmd, sizeof cmd, "./bin/q3cpp %s -Iinclude '%s.c' > '%s.i'", CPP_DEFINES, base, base);
-    if (system(cmd) != 0)
+    /* 2. preprocess in the VM, the output file is the second file argument */
+    snprintf(base_c, sizeof base_c, "%s.c", base);
+    snprintf(iname, sizeof iname, "%s.i", base);
+    snprintf(aname, sizeof aname, "%s.asm", base);
+    cpp = find_payload("q3cpp.qvm");
+    if (!cpp)
+    {
+        fprintf(stderr, "lcc-run: the preprocessor is missing from the executable\n");
+        status = 1;
+        goto done;
+    }
+    n = 0;
+    cppargv[n++] = "q3cpp";
+    for (i = 0; cpp_defines[i]; i++)
+    {
+        cppargv[n++] = (char*)cpp_defines[i];
+    }
+    cppargv[n++] = "-Iinclude";
+    cppargv[n++] = base_c;
+    cppargv[n++] = iname;
+    if (vmhost_run(cpp->data, (int)cpp->size, n, cppargv) != 0)
     {
         fprintf(stderr, "lcc-run: preprocessing failed\n");
         status = 1;
@@ -304,8 +328,6 @@ int main(int argc, char** argv)
         status = 1;
         goto done;
     }
-    snprintf(iname, sizeof iname, "%s.i", base);
-    snprintf(aname, sizeof aname, "%s.asm", base);
     rargv[0] = "rcc";
     rargv[1] = TARGET_OPTION;
     rargv[2] = iname;

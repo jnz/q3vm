@@ -10,3 +10,4 @@ payload.c
 lcc-run
 build64/
 q3asm.qvm
+vmrun64
