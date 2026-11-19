@@ -22,14 +22,22 @@ FILE vm_files[3] = { { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 } };
 
 /* ---------- memory ---------- */
 
-/* The heap is a bump allocator in bss. Each block starts with its size. */
+/* The heap is in bss. A block has an 8 byte header, its capacity (a multiple of 8)
+ * and the offset of the next free block in its bin (0 for none). A block of up to
+ * VM_BIN_MAX bytes goes on the bin of its capacity when it is freed, and is reused
+ * for a request of the same capacity. The other blocks come from the top of the
+ * heap. Offsets are used instead of pointers. */
 #ifndef VM_HEAP_SIZE
 #define VM_HEAP_SIZE (6 * 1024 * 1024)
 #endif
 #define VM_ALIGN 8
+#define VM_BIN_MAX 1024
+#define VM_BINS (VM_BIN_MAX / VM_ALIGN + 1)
 
-static char vm_heap[VM_HEAP_SIZE];
-static size_t vm_heap_top;
+static char   vm_heap[VM_HEAP_SIZE];
+static size_t vm_heap_top; /* offset of the next block, set by the first malloc */
+static int    vm_heap_ready;
+static size_t vm_bin[VM_BINS];
 
 void* memcpy(void* dest, const void* src, size_t n)
 {
@@ -76,19 +84,40 @@ void bzero(void* dest, size_t n)
 
 void* malloc(size_t n)
 {
-    size_t  size = (n + VM_ALIGN - 1) & ~(VM_ALIGN - 1);
+    size_t  cap = (n + VM_ALIGN - 1) & ~(VM_ALIGN - 1);
     size_t* block;
 
-    if (vm_heap_top + VM_ALIGN + size > VM_HEAP_SIZE)
+    if (!vm_heap_ready)
     {
-        fprintf(stderr, "vm heap exhausted: %u bytes requested, %u used\n", (unsigned)size, (unsigned)vm_heap_top);
-        vm_exit(EXIT_FAILURE);
+        /* the data of a block must be 8 aligned, and the bss may not be: the first
+         * block starts after the padding that aligns it. The offset 0 is never a
+         * block, so that 0 can mean no block in a bin. */
+        vm_heap_top   = VM_ALIGN + ((VM_ALIGN - ((size_t)vm_heap & (VM_ALIGN - 1))) & (VM_ALIGN - 1));
+        vm_heap_ready = 1;
     }
-    block = (size_t*)(vm_heap + vm_heap_top);
-    block[0] = size;
-    vm_heap_top += VM_ALIGN + size;
+    if (cap == 0)
+    {
+        cap = VM_ALIGN;
+    }
+    if (cap <= VM_BIN_MAX && vm_bin[cap / VM_ALIGN])
+    {
+        block = (size_t*)(vm_heap + vm_bin[cap / VM_ALIGN]);
+        vm_bin[cap / VM_ALIGN] = block[1];
+    }
+    else
+    {
+        if (cap > VM_HEAP_SIZE - vm_heap_top - VM_ALIGN)
+        {
+            fprintf(stderr, "vm heap exhausted: %u bytes requested, %u used\n", (unsigned)cap, (unsigned)vm_heap_top);
+            vm_exit(EXIT_FAILURE);
+        }
+        block = (size_t*)(vm_heap + vm_heap_top);
+        vm_heap_top += VM_ALIGN + cap;
+    }
+    block[0] = cap;
+    block[1] = 0;
     /* a checked VM reports reads of the block before it is written */
-    vm_poison(block + 2, size);
+    vm_poison(block + 2, cap);
     return block + 2;
 }
 
@@ -114,13 +143,24 @@ void* realloc(void* p, size_t n)
     }
     q = malloc(n);
     memcpy(q, p, old[0]);
+    free(p);
     return q;
 }
 
-/* memory is never reused, so free does nothing */
 void free(void* p)
 {
-    (void)p;
+    size_t* block;
+
+    if (!p)
+    {
+        return;
+    }
+    block = (size_t*)p - 2;
+    if (block[0] <= VM_BIN_MAX)
+    {
+        block[1] = vm_bin[block[0] / VM_ALIGN];
+        vm_bin[block[0] / VM_ALIGN] = (size_t)((char*)block - vm_heap);
+    }
 }
 
 /* returns the address of the next variable argument of the given size and
