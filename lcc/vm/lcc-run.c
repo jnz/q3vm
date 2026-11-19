@@ -5,9 +5,10 @@
  *
  * The executable holds everything it needs (payload.c, made by payload.py):
  * the compiler rcc.qvm, the assembler q3asm.qvm, the runtime library and the include
- * files of q3vm, and the preprocessor q3cpp. All of them are VM images. The steps are:
+ * files of q3vm, and the preprocessor q3cpp. All of them are VM images. The files
+ * of the steps are in the VM's virtual file system (vfs.c), not on the disk:
  *
- *   1. unpack the payload into a temporary directory, with the source file
+ *   1. the payload, the source file and the headers next to it go into the VFS
  *   2. q3cpp.qvm, the preprocessor in the VM, preprocesses the source
  *   3. rcc.qvm, the compiler in the VM, writes LCC bytecode
  *   4. q3asm.qvm, the assembler in the VM, links the bytecode with the runtime library
@@ -17,12 +18,10 @@
  */
 
 #include <dirent.h>
-#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "payload.h"
 #include "vfs.h"
@@ -63,120 +62,8 @@ static const struct payload_file* find_payload(const char* name)
     return NULL;
 }
 
-static int write_file(const char* path, const unsigned char* data, size_t size,
-                      int executable)
-{
-    FILE* f = fopen(path, "wb");
-
-    if (!f)
-    {
-        return -1;
-    }
-    if (size > 0 && fwrite(data, 1, size, f) != size)
-    {
-        fclose(f);
-        return -1;
-    }
-    fclose(f);
-    if (executable)
-    {
-        chmod(path, 0755);
-    }
-    return 0;
-}
-
-/* unpacks every payload file below dir, creating the directories it needs */
-static int unpack(const char* dir)
-{
-    const struct payload_file* f;
-    char                       path[PATH_MAX];
-
-    for (f = payload_files; f->name; f++)
-    {
-        snprintf(path, sizeof path, "%s/%s", dir, f->name);
-        if (strchr(f->name, '/'))
-        {
-            char sub[PATH_MAX];
-            size_t n = strchr(f->name, '/') - f->name;
-
-            snprintf(sub, sizeof sub, "%s/%.*s", dir, (int)n, f->name);
-            mkdir(sub, 0755);
-        }
-        if (write_file(path, f->data, f->size, strncmp(f->name, "bin/", 4) == 0) != 0)
-        {
-            fprintf(stderr, "lcc-run: cannot write %s\n", path);
-            return -1;
-        }
-    }
-    return 0;
-}
-
-/* copies the source file and the headers next to it, so that quoted includes work */
-static int copy_sources(const char* src, const char* srcdir, const char* base,
-                        const char* dir)
-{
-    char          dst[PATH_MAX];
-    FILE*         in;
-    unsigned char buf[4096];
-    size_t        n;
-    FILE*         out;
-    DIR*          d;
-    struct dirent* e;
-
-    snprintf(dst, sizeof dst, "%s/%s.c", dir, base);
-    in = fopen(src, "rb");
-    out = fopen(dst, "wb");
-    if (!in || !out)
-    {
-        return -1;
-    }
-    while ((n = fread(buf, 1, sizeof buf, in)) > 0)
-    {
-        fwrite(buf, 1, n, out);
-    }
-    fclose(in);
-    fclose(out);
-
-    d = opendir(srcdir);
-    if (!d)
-    {
-        return 0;
-    }
-    while ((e = readdir(d)) != NULL)
-    {
-        size_t len = strlen(e->d_name);
-        char   from[PATH_MAX];
-        char   to[PATH_MAX];
-
-        if (len < 3 || strcmp(e->d_name + len - 2, ".h") != 0)
-        {
-            continue;
-        }
-        snprintf(from, sizeof from, "%s/%s", srcdir, e->d_name);
-        snprintf(to, sizeof to, "%s/%s", dir, e->d_name);
-        in = fopen(from, "rb");
-        out = fopen(to, "wb");
-        if (in && out)
-        {
-            while ((n = fread(buf, 1, sizeof buf, in)) > 0)
-            {
-                fwrite(buf, 1, n, out);
-            }
-        }
-        if (in)
-        {
-            fclose(in);
-        }
-        if (out)
-        {
-            fclose(out);
-        }
-    }
-    closedir(d);
-    return 0;
-}
-
-static uint8_t* read_image(const char* path, int* size)
+/* reads a whole host file, NULL when it cannot be read */
+static uint8_t* read_file(const char* path, long* size)
 {
     FILE*    f = fopen(path, "rb");
     uint8_t* data;
@@ -185,10 +72,12 @@ static uint8_t* read_image(const char* path, int* size)
     {
         return NULL;
     }
-    fseek(f, 0, SEEK_END);
-    *size = (int)ftell(f);
-    fseek(f, 0, SEEK_SET);
-    data = malloc(*size);
+    if (fseek(f, 0, SEEK_END) != 0 || (*size = ftell(f)) < 0 || fseek(f, 0, SEEK_SET) != 0)
+    {
+        fclose(f);
+        return NULL;
+    }
+    data = malloc(*size ? *size : 1);
     if (data && fread(data, 1, *size, f) != (size_t)*size)
     {
         free(data);
@@ -198,21 +87,47 @@ static uint8_t* read_image(const char* path, int* size)
     return data;
 }
 
-static void remove_dir(const char* dir)
+/* puts the payload into the VFS: the images, the runtime library and the headers */
+static void put_payload(void)
 {
-    char cmd[PATH_MAX + 16];
+    const struct payload_file* f;
 
-    /* LCC_RUN_KEEP=1 keeps the temporary files, to look at them */
-    if (getenv("LCC_RUN_KEEP"))
+    for (f = payload_files; f->name; f++)
     {
-        fprintf(stderr, "lcc-run: kept %s\n", dir);
+        vfs_put(f->name, f->data, f->size);
+    }
+}
+
+/* puts the headers next to the source file in the VFS, so that quoted includes work */
+static void put_headers(const char* srcdir)
+{
+    DIR*           d = opendir(srcdir);
+    struct dirent* e;
+
+    if (!d)
+    {
         return;
     }
-    snprintf(cmd, sizeof cmd, "rm -rf '%s'", dir);
-    if (system(cmd) != 0)
+    while ((e = readdir(d)) != NULL)
     {
-        fprintf(stderr, "lcc-run: cannot remove %s\n", dir);
+        size_t  len = strlen(e->d_name);
+        char    path[4096];
+        long    size;
+        uint8_t* data;
+
+        if (len < 3 || strcmp(e->d_name + len - 2, ".h") != 0)
+        {
+            continue;
+        }
+        snprintf(path, sizeof path, "%s/%s", srcdir, e->d_name);
+        data = read_file(path, &size);
+        if (data)
+        {
+            vfs_put(e->d_name, data, size);
+            free(data);
+        }
     }
+    closedir(d);
 }
 
 static void usage(const char* name)
@@ -223,32 +138,28 @@ static void usage(const char* name)
 
 int main(int argc, char** argv)
 {
-    const char*    src;
-    char           srcdir[PATH_MAX];
-    char           base[256];
-    char           tmpl[PATH_MAX];
-    char           dir[PATH_MAX];
-    char           saved[PATH_MAX];
-    char           here[PATH_MAX];
-    char           base_c[PATH_MAX];
-    char           iname[PATH_MAX];
-    char           aname[PATH_MAX];
-    const char*    name;
-    const char*    tmproot;
-    const char*    slash;
-    const char*    dot;
+    const char*                src;
+    char                       srcdir[4096];
+    char                       base[256];
+    char                       base_c[260];
+    char                       iname[260];
+    char                       aname[260];
+    const char*                name;
+    const char*                slash;
+    const char*                dot;
     const struct payload_file* cpp;
     const struct payload_file* rcc;
     const struct payload_file* qasm;
     char*                      cppargv[16];
+    char*                      rargv[4];
     char*                      qargv[8];
-    uint8_t*       image;
-    int            size = 0;
-    int            status;
-    char*          rargv[4];
-    char**         pargv;
-    int            n;
-    int            i;
+    char**                     pargv;
+    uint8_t*                   source;
+    uint8_t*                   image;
+    long                       size = 0;
+    int                        status;
+    int                        n;
+    int                        i;
 
     if (argc < 2)
     {
@@ -258,8 +169,9 @@ int main(int argc, char** argv)
     slash = strrchr(src, '/');
     if (slash)
     {
-        size_t n = slash - src;
-        snprintf(srcdir, sizeof srcdir, "%.*s", (int)(n ? n : 1), src);
+        size_t len = slash - src;
+
+        snprintf(srcdir, sizeof srcdir, "%.*s", (int)(len ? len : 1), src);
     }
     else
     {
@@ -268,50 +180,29 @@ int main(int argc, char** argv)
     name = slash ? slash + 1 : src;
     dot = strrchr(name, '.');
     snprintf(base, sizeof base, "%.*s", dot ? (int)(dot - name) : (int)strlen(name), name);
-
-    tmproot = getenv("TMPDIR");
-    snprintf(tmpl, sizeof tmpl, "%s/lccrun.XXXXXX", tmproot ? tmproot : "/tmp");
-    if (!mkdtemp(tmpl))
-    {
-        fprintf(stderr, "lcc-run: cannot make a temporary directory\n");
-        return 1;
-    }
-    snprintf(dir, sizeof dir, "%s", tmpl);
-    if (!getcwd(saved, sizeof saved))
-    {
-        remove_dir(dir);
-        return 1;
-    }
-
-    if (unpack(dir) != 0 || copy_sources(src, srcdir, base, dir) != 0)
-    {
-        fprintf(stderr, "lcc-run: cannot prepare %s\n", src);
-        remove_dir(dir);
-        return 1;
-    }
-    if (chdir(dir) != 0)
-    {
-        remove_dir(dir);
-        return 1;
-    }
-    /* the VM's relative names are relative to the temporary directory */
-    if (!getcwd(here, sizeof here))
-    {
-        remove_dir(dir);
-        return 1;
-    }
-    vfs_init(here, 1);
-
-    /* 2. preprocess in the VM, the output file is the second file argument */
     snprintf(base_c, sizeof base_c, "%s.c", base);
     snprintf(iname, sizeof iname, "%s.i", base);
     snprintf(aname, sizeof aname, "%s.asm", base);
+
+    /* 1. the files of the steps, in the VFS, relative names start from "/" */
+    vfs_init("/", 0);
+    put_payload();
+    put_headers(srcdir);
+    source = read_file(src, &size);
+    if (!source)
+    {
+        fprintf(stderr, "lcc-run: cannot read %s\n", src);
+        return 1;
+    }
+    vfs_put(base_c, source, size);
+    free(source);
+
+    /* 2. preprocess in the VM, the output file is the second file argument */
     cpp = find_payload("q3cpp.qvm");
     if (!cpp)
     {
         fprintf(stderr, "lcc-run: the preprocessor is missing from the executable\n");
-        status = 1;
-        goto done;
+        return 1;
     }
     n = 0;
     cppargv[n++] = "q3cpp";
@@ -325,8 +216,7 @@ int main(int argc, char** argv)
     if (vmhost_run(cpp->data, (int)cpp->size, n, cppargv) != 0)
     {
         fprintf(stderr, "lcc-run: preprocessing failed\n");
-        status = 1;
-        goto done;
+        return 1;
     }
 
     /* 3. compile in the VM */
@@ -334,8 +224,7 @@ int main(int argc, char** argv)
     if (!rcc)
     {
         fprintf(stderr, "lcc-run: the compiler is missing from the executable\n");
-        status = 1;
-        goto done;
+        return 1;
     }
     rargv[0] = "rcc";
     rargv[1] = TARGET_OPTION;
@@ -344,8 +233,7 @@ int main(int argc, char** argv)
     if (vmhost_run(rcc->data, (int)rcc->size, 4, rargv) != 0)
     {
         fprintf(stderr, "lcc-run: compilation failed\n");
-        status = 1;
-        goto done;
+        return 1;
     }
 
     /* 4. link with the runtime library, the assembler runs in the VM too */
@@ -353,8 +241,7 @@ int main(int argc, char** argv)
     if (!qasm)
     {
         fprintf(stderr, "lcc-run: the assembler is missing from the executable\n");
-        status = 1;
-        goto done;
+        return 1;
     }
     qargv[0] = "q3asm";
     qargv[1] = "-o";
@@ -367,17 +254,21 @@ int main(int argc, char** argv)
     if (vmhost_run(qasm->data, (int)qasm->size, 8, qargv) != 0)
     {
         fprintf(stderr, "lcc-run: linking failed\n");
-        status = 1;
-        goto done;
+        return 1;
     }
 
     /* 5. run the program in the VM, its argv[0] is the source name */
-    image = read_image("prog.qvm", &size);
-    if (!image)
+    size = vfs_size("prog.qvm");
+    if (size < 0)
     {
         fprintf(stderr, "lcc-run: no program image\n");
-        status = 1;
-        goto done;
+        return 1;
+    }
+    image = malloc(size ? size : 1);
+    if (!image || vfs_get("prog.qvm", image, size) != size)
+    {
+        fprintf(stderr, "lcc-run: cannot load the program image\n");
+        return 1;
     }
     pargv = malloc(sizeof(char*) * (argc - 1));
     pargv[0] = (char*)base;
@@ -386,15 +277,8 @@ int main(int argc, char** argv)
         pargv[i - 1] = argv[i];
     }
     fflush(stdout);
-    status = vmhost_run(image, size, argc - 1, pargv);
+    status = vmhost_run(image, (int)size, argc - 1, pargv);
     free(image);
     free(pargv);
-
-done:
-    if (chdir(saved) != 0)
-    {
-        fprintf(stderr, "lcc-run: cannot return to %s\n", saved);
-    }
-    remove_dir(dir);
     return status < 0 ? 2 : status;
 }
