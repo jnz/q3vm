@@ -906,10 +906,14 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
             arg++;
             break;
         case 'f':
-            AddFloat(&buf_p, *(double*)arg, width, prec);
-#ifdef __LCC__
-            arg += 1; // everything is 32 bit in my compiler
+            // a double is 8 bytes, aligned to 8, on the 64-bit target; on the 32-bit
+            // target (LCC_WIDE32) a double is a float, one cell of the arguments
+#ifdef LCC_WIDE32
+            AddFloat(&buf_p, *(float*)arg, width, prec);
+            arg += 1;
 #else
+            arg = (int*)(((size_t)arg + 7) & ~(size_t)7);
+            AddFloat(&buf_p, *(double*)arg, width, prec);
             arg += 2;
 #endif
             break;

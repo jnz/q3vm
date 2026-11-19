@@ -250,20 +250,14 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
     case -14: /* vm_poison(p, n): memory that is not written yet, see VM_CHECKED */
         VM_Poison(vm, args[1], (int)args[2], 0);
         return 0;
-    case -15: /* vm_strtod(s, out): the C library conversion, so the result is exact.
-                 The VM's double is 8 bytes with Q3VM_INT64, else a 4 byte float. */
+    case -15: /* vm_strtod(s, out): the C library conversion, so the result is exact. The
+                 result is always the 8 bytes of a double, whatever the target of the image
+                 (a 32-bit image has floats): the VM builds its value from the bits. */
     {
-#ifdef Q3VM_INT64
         double* out = vmPtr(vm, args[2], sizeof(double));
 
         *out = strtod(vmPtr(vm, args[1], 1), NULL);
         VM_Poison(vm, args[2], sizeof(double), 1);
-#else
-        float* out = vmPtr(vm, args[2], sizeof(float));
-
-        *out = (float)strtod(vmPtr(vm, args[1], 1), NULL);
-        VM_Poison(vm, args[2], sizeof(float), 1);
-#endif
         return 0;
     }
     case -16: /* vm_run(path, argc, argv): runs an image of the VFS as a program, with

@@ -330,17 +330,47 @@ long atol(const char* s)
 
 /* the end pointer is set to the terminator, which is wrong for a partial parse
  * but the compiler only passes NULL or a complete number */
+/* the value of an IEEE double, from its bits: hi and lo are its two words. It is built
+ * with arithmetic, so that it is right for a double of 8 bytes and for a float. */
+static double vm_double_from_bits(unsigned int hi, unsigned int lo)
+{
+    int    sign = (hi >> 31) ? -1 : 1;
+    int    e = (int)((hi >> 20) & 0x7ff);
+    double f;
+    double v;
+
+    if (e == 0)
+    {
+        return 0;
+    }
+    if (e == 0x7ff)
+    {
+        return sign * 1e30;
+    }
+    f = (double)(hi & 0xfffff) / 1048576.0 + (double)lo / 4503599627370496.0;
+    v = 1 + f;
+    for (e -= 1023; e > 0; e--)
+    {
+        v *= 2;
+    }
+    for (; e < 0; e++)
+    {
+        v *= 0.5;
+    }
+    return sign * v;
+}
+
 double strtod(const char* s, char** end)
 {
-    double value;
+    unsigned int raw[2]; /* the 8 bytes of a double, low word first */
 
     /* the host converts, so the result is the same as the native compiler's */
-    vm_strtod(s, &value);
+    vm_strtod(s, (double*)raw);
     if (end)
     {
         *end = (char*)s + strlen(s);
     }
-    return value;
+    return vm_double_from_bits(raw[1], raw[0]);
 }
 
 /* ---------- process and environment ---------- */
@@ -772,4 +802,251 @@ int stat(const char* path, struct stat* buf)
     (void)path;
     (void)buf;
     return -1;
+}
+
+/* ---------- math, see include/math.h ----------
+ * Plain C, with series and Newton steps. The integer part is taken with a long, so
+ * floor, ceil and fmod are exact for |x| < 2^30, and they are not used beyond that.
+ * On the 32-bit target a double is a float, and the results have the precision of a
+ * float. */
+
+#define VM_PI 3.14159265358979323846
+#define VM_LN2 0.69314718055994530942
+
+static double vm_trunc(double x)
+{
+    if (x > -1073741824.0 && x < 1073741824.0)
+    {
+        return (double)(long)x;
+    }
+    return x;
+}
+
+/* fabs is in test/bg_lib.c, with the other shared functions */
+
+double floor(double x)
+{
+    double t = vm_trunc(x);
+
+    return t > x ? t - 1 : t;
+}
+
+double ceil(double x)
+{
+    double t = vm_trunc(x);
+
+    return t < x ? t + 1 : t;
+}
+
+double fmod(double x, double y)
+{
+    if (y == 0)
+    {
+        return 0;
+    }
+    return x - y * vm_trunc(x / y);
+}
+
+double sqrt(double x)
+{
+    double g;
+    int    i;
+
+    if (x <= 0)
+    {
+        return 0;
+    }
+    g = x > 1 ? x : 1;
+    for (i = 0; i < 60; i++)
+    {
+        g = 0.5 * (g + x / g);
+    }
+    return g;
+}
+
+/* the argument is reduced to [-pi, pi] first */
+double sin(double x)
+{
+    double r = x - 2 * VM_PI * floor(x / (2 * VM_PI) + 0.5);
+    double term = r;
+    double sum = r;
+    int    n;
+
+    for (n = 1; n < 12; n++)
+    {
+        term *= -r * r / ((2 * n) * (2 * n + 1));
+        sum += term;
+    }
+    return sum;
+}
+
+double cos(double x)
+{
+    double r = x - 2 * VM_PI * floor(x / (2 * VM_PI) + 0.5);
+    double term = 1;
+    double sum = 1;
+    int    n;
+
+    for (n = 1; n < 12; n++)
+    {
+        term *= -r * r / ((2 * n - 1) * (2 * n));
+        sum += term;
+    }
+    return sum;
+}
+
+double tan(double x)
+{
+    return sin(x) / cos(x);
+}
+
+/* atan for |x| <= 1: atan(x) = 2 atan(x / (1 + sqrt(1 + x*x))), three times, then a
+ * series, and the result is multiplied by 2^3 */
+static double vm_atan_small(double x)
+{
+    double y = x;
+    double y2;
+    double term;
+    double sum;
+    int    k;
+    int    n;
+
+    for (k = 0; k < 3; k++)
+    {
+        y = y / (1 + sqrt(1 + y * y));
+    }
+    y2 = y * y;
+    term = y;
+    sum = y;
+    for (n = 1; n < 12; n++)
+    {
+        term *= -y2;
+        sum += term / (2 * n + 1);
+    }
+    return 8 * sum;
+}
+
+double atan(double x)
+{
+    if (x < 0)
+    {
+        return -atan(-x);
+    }
+    if (x > 1)
+    {
+        return VM_PI / 2 - vm_atan_small(1 / x);
+    }
+    return vm_atan_small(x);
+}
+
+double atan2(double y, double x)
+{
+    if (x > 0)
+    {
+        return atan(y / x);
+    }
+    if (x < 0)
+    {
+        return y >= 0 ? atan(y / x) + VM_PI : atan(y / x) - VM_PI;
+    }
+    if (y > 0)
+    {
+        return VM_PI / 2;
+    }
+    if (y < 0)
+    {
+        return -VM_PI / 2;
+    }
+    return 0;
+}
+
+/* exp(x) = 2^k * exp(r), with x = k ln 2 + r */
+double exp(double x)
+{
+    double k = floor(x / VM_LN2 + 0.5);
+    double r = x - k * VM_LN2;
+    double term = 1;
+    double sum = 1;
+    int    n;
+
+    for (n = 1; n < 20; n++)
+    {
+        term *= r / n;
+        sum += term;
+    }
+    for (; k > 0; k--)
+    {
+        sum *= 2;
+    }
+    for (; k < 0; k++)
+    {
+        sum *= 0.5;
+    }
+    return sum;
+}
+
+/* log(x) = k ln 2 + 2 atanh(y), with x = 2^k m, 1 <= m < 2 and y = (m - 1) / (m + 1).
+ * There is no negative infinity, so log of a number that is not positive is 0. */
+double log(double x)
+{
+    double k = 0;
+    double m;
+    double y;
+    double y2;
+    double term;
+    double sum;
+    int    n;
+
+    if (x <= 0)
+    {
+        return 0;
+    }
+    m = x;
+    while (m >= 2)
+    {
+        m *= 0.5;
+        k++;
+    }
+    while (m < 1)
+    {
+        m *= 2;
+        k--;
+    }
+    y = (m - 1) / (m + 1);
+    y2 = y * y;
+    term = y;
+    sum = y;
+    for (n = 1; n < 30; n++)
+    {
+        term *= y2;
+        sum += term / (2 * n + 1);
+    }
+    return k * VM_LN2 + 2 * sum;
+}
+
+/* x to the power of y, for a negative x only with an integer y */
+double pow(double x, double y)
+{
+    double r;
+    long   n;
+
+    if (y == 0)
+    {
+        return 1;
+    }
+    if (x == 0)
+    {
+        return 0;
+    }
+    if (x < 0)
+    {
+        if (floor(y) != y)
+        {
+            return 0;
+        }
+        r = pow(-x, y);
+        n = (long)vm_trunc(y);
+        return (n % 2) ? -r : r;
+    }
+    return exp(y * log(x));
 }
