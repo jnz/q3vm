@@ -115,8 +115,14 @@ static void put_headers(const char* dir)
     closedir(d);
 }
 
+#ifndef LCC_RUN_WIDTH
+#define LCC_RUN_WIDTH 32
+#endif
+
 static void usage(const char* name)
 {
+    fprintf(stderr, "lcc-run: %d-bit target (the compiler and the programs it builds)\n",
+            LCC_RUN_WIDTH);
     fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... file.c|file.qvm [arguments...]\n", name);
     exit(2);
 }

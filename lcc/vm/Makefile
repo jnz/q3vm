@@ -129,7 +129,7 @@ payload.c: driver.qvm rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm 
 	python3 -I payload.py payload.c $(LCC_RUN_PAYLOAD)
 
 lcc-run: lcc-run.c vmhost.c vmhost.h vfs.c vfs.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -o $@ lcc-run.c vmhost.c vfs.c payload.c ../../src/vm/vm.c -lm
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c vfs.c payload.c ../../src/vm/vm.c -lm
 
 clean:
 	rm -rf build64 q3asm.qvm q3cpp.qvm
