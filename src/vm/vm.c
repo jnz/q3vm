@@ -522,7 +522,7 @@ void VM_Poison(vm_t* vm, intptr_t vmAddr, int len, int init)
 #endif
 }
 
-static intptr_t VM_CallInterpreted(vm_t* vm, int* args);
+static int64_t VM_CallInterpreted(vm_t* vm, int* args);
 
 /** Executes a block copy operation (memcpy) within currentVM data space.
  * @param[out] dest Pointer (in VM space).
@@ -765,12 +765,13 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
     return header.h;
 }
 
-intptr_t VM_Call(vm_t* vm, int command, ...)
+/* VM_Call and VM_Call64 run vmMain. The result is 64 bits when the bytecode
+ * returns one, which intptr_t cannot hold on a 32-bit host such as WebAssembly. */
+static int64_t VM_Run(vm_t* vm, int command, va_list ap)
 {
-    intptr_t r;
-    int      args[MAX_VMMAIN_ARGS];
-    va_list  ap;
-    int      i;
+    int64_t r;
+    int     args[MAX_VMMAIN_ARGS];
+    int     i;
 
     if (vm == NULL)
     {
@@ -786,17 +787,37 @@ intptr_t VM_Call(vm_t* vm, int command, ...)
 
     /* FIXME this is not nice. we should check the actual number of arguments */
     args[0] = command;
-    va_start(ap, command);
     for (i = 1; i < (int)ARRAY_LEN(args); i++)
     {
         args[i] = va_arg(ap, int);
     }
-    va_end(ap);
 
     ++vm->callLevel;
     r = VM_CallInterpreted(vm, args);
     --vm->callLevel;
 
+    return r;
+}
+
+intptr_t VM_Call(vm_t* vm, int command, ...)
+{
+    va_list ap;
+    int64_t r;
+
+    va_start(ap, command);
+    r = VM_Run(vm, command, ap);
+    va_end(ap);
+    return (intptr_t)r;
+}
+
+int64_t VM_Call64(vm_t* vm, int command, ...)
+{
+    va_list ap;
+    int64_t r;
+
+    va_start(ap, command);
+    r = VM_Run(vm, command, ap);
+    va_end(ap);
     return r;
 }
 
@@ -956,11 +977,13 @@ static int LittleEndianToHost(const uint8_t b[4])
  * to and from 64-bit values. A VM built without Q3VM_INT64 rejects them, so that
  * a 32-bit VM does not run code from a 64-bit compiler. ZEX8, ZEX16, SEX8 and
  * SEX16 are 32-bit instructions. */
+#ifndef Q3VM_INT64
 static int VM_IsWideOp(int op)
 {
     return (op >= OP_CONST8 && op <= OP_GED) ||
            (op >= OP_SEXT32 && op <= OP_DTOF);
 }
+#endif
 
 static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
 {
@@ -1287,7 +1310,7 @@ locals from sp
 ==============
 */
 
-static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
+static int64_t VM_CallInterpreted(vm_t* vm, int* args)
 {
 #ifdef VM_CHECKED
     int frameBase = vm->frames;
@@ -2257,7 +2280,7 @@ done:
     /* return the result of the bytecode computations */
     if (opStackOfs == 2)
     {
-        return (intptr_t)StackGet64(opStack, 2);
+        return StackGet64(opStack, 2);
     }
     return opStack[1];
 }

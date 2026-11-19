@@ -230,6 +230,9 @@ void VM_Free(vm_t* vm);
  * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
 
+/** Like VM_Call, but the result is 64 bits. */
+int64_t VM_Call64(vm_t* vm, int command, ...);
+
 /** Marks len bytes at vmAddr as initialized (init != 0) or uninitialized.
  * Only has an effect in a VM_CHECKED build. Used by vm_poison in vmrcc. */
 void VM_Poison(vm_t* vm, intptr_t vmAddr, int len, int init);
