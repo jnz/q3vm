@@ -1440,8 +1440,7 @@ static int64_t VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
         &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
-        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
-        &&goto_OP_UNDEF,
+        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
     };
 #define DISPATCH2()                                                            \
     opcode = codeImage[programCounter++];                                      \
