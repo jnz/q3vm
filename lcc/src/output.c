@@ -10,8 +10,8 @@ static char *outs(const char *str, FILE *f, char *bp) {
 	return bp;
 }
 
-static char *outd(long n, FILE *f, char *bp) {
-	unsigned long m;
+static char *outd(long long n, FILE *f, char *bp) {
+	unsigned long long m;
 	char buf[25], *s = buf + sizeof buf;
 
 	*--s = '\0';
@@ -27,7 +27,7 @@ static char *outd(long n, FILE *f, char *bp) {
 	return outs(s, f, bp);
 }
 
-static char *outu(unsigned long n, int base, FILE *f, char *bp) {
+static char *outu(unsigned long long n, int base, FILE *f, char *bp) {
 	char buf[25], *s = buf + sizeof buf;
 
 	*--s = '\0';
@@ -69,11 +69,11 @@ void vfprint(FILE *f, char *bp, const char *fmt, va_list ap) {
 		if (*fmt == '%')
 			switch (*++fmt) {
 			case 'd': bp = outd(va_arg(ap, int), f, bp); break;
-			case 'D': bp = outd(va_arg(ap, long), f, bp); break;
-			case 'U': bp = outu(va_arg(ap, unsigned long), 10, f, bp); break;
+			case 'D': bp = outd(va_arg(ap, long long), f, bp); break;
+			case 'U': bp = outu(va_arg(ap, unsigned long long), 10, f, bp); break;
 			case 'u': bp = outu(va_arg(ap, unsigned), 10, f, bp); break;
 			case 'o': bp = outu(va_arg(ap, unsigned), 8, f, bp); break;
-			case 'X': bp = outu(va_arg(ap, unsigned long), 16, f, bp); break;
+			case 'X': bp = outu(va_arg(ap, unsigned long long), 16, f, bp); break;
 			case 'x': bp = outu(va_arg(ap, unsigned), 16, f, bp); break;
 			case 'f': case 'e':
 			case 'g': {
@@ -89,7 +89,7 @@ void vfprint(FILE *f, char *bp, const char *fmt, va_list ap) {
 				void *p = va_arg(ap, void *);
 				if (p)
 					bp = outs("0x", f, bp);
-				bp = outu((unsigned long)p, 16, f, bp);
+				bp = outu((unsigned long long)p, 16, f, bp);
 				break;
 				  }
 			case 'c': if (f) fputc(va_arg(ap, int), f); else *bp++ = va_arg(ap, int); break;

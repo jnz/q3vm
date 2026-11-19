@@ -15,7 +15,7 @@ static void I(segment)(int n) {
 		}
 }
 
-static void I(address)(Symbol q, Symbol p, long n) {
+static void I(address)(Symbol q, Symbol p, long long n) {
 	q->x.name = stringf("%s%s%D", p->x.name, n > 0 ? "+" : "", n);
 }
 
@@ -24,7 +24,7 @@ static void I(defaddress)(Symbol p) {
 }
 
 /* 64-bit value as two little endian 32-bit words (low word first) */
-static void defword64(unsigned long bits) {
+static void defword64(unsigned long long bits) {
 	print("byte 4 %u\n", (unsigned)(bits & 0xFFFFFFFFu));
 	print("byte 4 %u\n", (unsigned)((bits >> 16) >> 16));
 }
@@ -33,7 +33,7 @@ static void I(defconst)(int suffix, int size, Value v) {
 	switch (suffix) {
 	case I:
 		if (size > sizeof (int))
-			defword64((unsigned long)v.i);
+			defword64((unsigned long long)v.i);
 		else
 			print("byte %d %d\n", size, v.i);
 		return;
@@ -43,7 +43,7 @@ static void I(defconst)(int suffix, int size, Value v) {
 		else
 			print("byte %d %u\n", size, v.u);
 		return;
-	case P: print("byte %d %U\n", size, (unsigned long)v.p); return;
+	case P: print("byte %d %U\n", size, (unsigned long long)v.p); return;
 	case F:
 		if (size == 4) {
 			floatint_t fi;
@@ -66,15 +66,30 @@ static void I(defstring)(int len, char *str) {
 		print("byte 1 %d\n", (*s)&0377);
 }
 
+/* the file name without its directory, with every other character than a
+ * letter or digit replaced by '_', so it can be part of a label */
+static char *moduleName(void) {
+	char *file = src.file ? src.file : "";
+	char *base = strrchr(file, '/');
+	char *name = stringf("%s", base ? base + 1 : file);
+	char *s;
+
+	for (s = name; *s; s++)
+		if (!(*s >= 'a' && *s <= 'z') && !(*s >= 'A' && *s <= 'Z')
+		&& !(*s >= '0' && *s <= '9'))
+			*s = '_';
+	return name;
+}
+
 static void I(defsymbol)(Symbol p) {
 	if (p->scope == CONSTANTS)
 		switch (optype(ttob(p->type))) {
 		case I: p->x.name = stringf("%D", p->u.c.v.i); break;
 		case U: p->x.name = stringf("%U", p->u.c.v.u); break;
-		case P: p->x.name = stringf("%U", p->u.c.v.p); break;
+		case P: p->x.name = stringf("%U", (unsigned long long)p->u.c.v.p); break;
 		case F:
 			if (p->type->size == 8) {	// double: full 64-bit pattern
-				unsigned long bits;
+				unsigned long long bits;
 
 				memcpy(&bits, &p->u.c.v.d, sizeof bits);
 				p->x.name = stringf("%U", bits);
@@ -82,13 +97,15 @@ static void I(defsymbol)(Symbol p) {
 				floatint_t temp;
 
 				temp.f = p->u.c.v.d;
-				p->x.name = stringf("%U", temp.ui );
+				p->x.name = stringf("%U", (unsigned long long)temp.ui);
 			}
 			break;// JDC: added this
 		default: assert(0);
 		}
 	else if (p->scope >= LOCAL && p->sclass == STATIC)
 		p->x.name = stringf("$%d", genlabel(1));
+	else if (p->scope == GLOBAL && p->sclass == STATIC && !p->generated)
+		p->x.name = stringf("%s_%s", p->name, moduleName());
 	else if (p->scope == LABELS || p->generated)
 		p->x.name = stringf("$%s", p->name);
 	else
@@ -341,14 +358,14 @@ Interface bytecodeIR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
-	{4, 4, 0},	/* long */
+	{4, 4, 0},	/* long long */
 	{8, 8, 0},	/* long long */			// 64-bit integers are native (2 VM stack cells)
 	{4, 4, 0},	/* float */				// JDC: use inline floats
 	{8, 8, 0},	/* double */			// 64-bit floats are native (2 VM stack cells)
 	{8, 8, 0},	/* long double */		// same as double
 	{4, 4, 0},	/* T* */
 	{0, 4, 0},	/* struct */
-	0,		/* little_endian */
+	1,		/* little_endian: QVM memory is little endian */
 	0,		/* mulops_calls */
 	0,		/* wants_callb */
 	0,		/* wants_argb */

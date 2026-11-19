@@ -32,8 +32,8 @@
 #define roundup(x,n) (((x)+((n)-1))&(~((n)-1)))
 #define mkop(op,ty) (specific((op) + ttob(ty)))
 
-#define extend(x,ty) ((x)&(1<<(8*(ty)->size-1)) ? (x)|((~0UL)<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
-#define ones(n) ((n)>=8*sizeof (unsigned long) ? ~0UL : ~((~0UL)<<(n)))
+#define extend(x,ty) ((x)&(1<<(8*(ty)->size-1)) ? (x)|((~0ULL)<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
+#define ones(n) ((n)>=8*sizeof (unsigned long long) ? ~0ULL : ~((~0ULL)<<(n)))
 
 #define isqual(t)     ((t)->op >= CONST)
 #define unqual(t)     (isqual(t) ? (t)->type : (t))
@@ -79,8 +79,8 @@ typedef struct coord {
 typedef struct table *Table;
 
 typedef union value {
-	long i;
-	unsigned long u;
+	long long i;
+	unsigned long long u;
 	double d;
 	void *p;
 	void (*g)(void);
@@ -126,7 +126,7 @@ typedef struct interface {
 	unsigned left_to_right:1;
 	unsigned wants_dag:1;
 	unsigned unsigned_char:1;
-void (*address)(Symbol p, Symbol q, long n);
+void (*address)(Symbol p, Symbol q, long long n);
 void (*blockbeg)(Env *);
 void (*blockend)(Env *);
 void (*defaddress)(Symbol);
@@ -355,7 +355,7 @@ struct code {
 		struct {
 			Symbol sym;
 			Symbol base;
-			long offset;
+			long long offset;
 		} addr;
 		struct {
 			Coordinate src;
@@ -367,7 +367,7 @@ struct code {
 			Symbol table;
 			Symbol deflab;
 			int size;
-			long *values;
+			long long *values;
 			Symbol *labels;
 		} swtch;
 
@@ -379,7 +379,7 @@ struct swtch {
 	Symbol deflab;
 	int ncases;
 	int size;
-	long *values;
+	long long *values;
 	Symbol *labels;
 };
 struct symbol {
@@ -551,9 +551,9 @@ extern Type voidtype;
 extern Type unsignedptr;
 extern Type signedptr;
 extern Type widechar;
-extern void  *allocate(unsigned long n, unsigned a);
+extern void  *allocate(unsigned long long n, unsigned a);
 extern void deallocate(unsigned a);
-extern void *newarray(unsigned long m, unsigned long n, unsigned a);
+extern void *newarray(unsigned long long m, unsigned long long n, unsigned a);
 extern void walk(Tree e, int tlab, int flab);
 extern Node listnodes(Tree e, int tlab, int flab);
 extern Node newnode(int op, Node left, Node right, Symbol p);
@@ -648,7 +648,7 @@ extern int findcount(char *, int, int);
 extern Tree constexpression(int);
 extern int intexpr(int, int);
 extern Tree simplify(int, Type, Tree, Tree);
-extern int ispow2(unsigned long u);
+extern int ispow2(unsigned long long u);
 
 extern int reachable(int);
 
@@ -666,7 +666,7 @@ extern void swgen(Swtch);
 
 extern char * string(const char *str);
 extern char *stringn(const char *str, int len);
-extern char *stringd(long n);
+extern char *stringd(long long n);
 extern Symbol relocate(const char *name, Table src, Table dst);
 extern void use(Symbol p, Coordinate src);
 extern void locus(Table tp, Coordinate *cp);

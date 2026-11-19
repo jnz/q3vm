@@ -414,6 +414,114 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header);
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] args Arguments for function call.
  * @return Return value of the function call. */
+#ifdef VM_CHECKED
+/* VM_CHECKED: a valgrind-like mode, enabled by building with -DVM_CHECKED.
+ * Every access is checked against the VM memory and its alignment. A read of
+ * memory that was never written is an error, which catches uninitialized
+ * variables and heap memory. Calls must return with the operand stack depth
+ * they were called with, and division by zero is an error. These checks are
+ * slow, so only use this build for debugging. */
+#define CHECK_ACCESS(addr, n, store) \
+    VM_CheckAccess(vm, programCounter, (intptr_t)(addr), (n), (store))
+#define CHECK_DIVISOR(value) VM_CheckDivisor(vm, programCounter, (int64_t)(value))
+
+static void VM_CheckFail(vm_t* vm, int pc, vmErrorCode_t code,
+                         const char* what, uint32_t addr)
+{
+    Com_Printf("VM check failed: %s, address %u, program counter %d\n", what,
+               addr, pc);
+    vm->lastError = code;
+    Com_Error(code, what);
+}
+
+static void VM_CheckAccess(vm_t* vm, int pc, intptr_t vmAddr, int n, int store)
+{
+    uint32_t addr = (uint32_t)vmAddr;
+    int      i;
+
+    if (addr + n > (uint32_t)vm->dataMask + 1)
+    {
+        VM_CheckFail(vm, pc, VM_CHECK_ADDRESS, "address outside the VM memory",
+                     addr);
+    }
+    if (n > 1 && (addr & (uint32_t)(n - 1)))
+    {
+        VM_CheckFail(vm, pc, VM_CHECK_ALIGNMENT, "misaligned access", addr);
+    }
+    if (store)
+    {
+        memset(vm->shadow + addr, 1, n);
+        return;
+    }
+    for (i = 0; i < n; i++)
+    {
+        if (!vm->shadow[addr + i])
+        {
+            VM_CheckFail(vm, pc, VM_CHECK_UNINITIALIZED,
+                         "read of uninitialized memory", addr + i);
+        }
+    }
+}
+
+static void VM_CheckDivisor(vm_t* vm, int pc, int64_t divisor)
+{
+    if (divisor == 0)
+    {
+        VM_CheckFail(vm, pc, VM_CHECK_DIVZERO, "division by zero", 0);
+    }
+}
+
+static void VM_CheckPush(vm_t* vm, int pc, int depth, int wide)
+{
+    if (vm->frames >= VM_CHECK_FRAMES)
+    {
+        VM_CheckFail(vm, pc, VM_CHECK_STACK_DEPTH, "call nesting too deep", 0);
+    }
+    vm->frameDepth[vm->frames] = depth;
+    vm->frameWide[vm->frames]  = wide;
+    vm->frames++;
+}
+
+/* frameBase is the number of calls open when VM_CallInterpreted started, the
+ * function that VM_Call started is not a call in the frame stack */
+static void VM_CheckPop(vm_t* vm, int pc, int depth, int frameBase)
+{
+    int expected;
+
+    if (vm->frames <= frameBase)
+    {
+        return;
+    }
+    vm->frames--;
+    expected = vm->frameDepth[vm->frames] + (vm->frameWide[vm->frames] ? 2 : 1);
+    if (depth != expected)
+    {
+        Com_Printf("VM check: operand stack depth %d at return, %d expected\n",
+                   depth, expected);
+        VM_CheckFail(vm, pc, VM_CHECK_STACK_DEPTH,
+                     "operand stack depth at return", 0);
+    }
+}
+#else
+#define CHECK_ACCESS(addr, n, store)
+#define CHECK_DIVISOR(value)
+#endif
+
+void VM_Poison(vm_t* vm, intptr_t vmAddr, int len, int init)
+{
+#ifdef VM_CHECKED
+    if (vm && vm->shadow && len > 0)
+    {
+        memset(vm->shadow + (uint32_t)vmAddr, init ? 1 : 0, len);
+    }
+#else
+    (void)vm;
+    (void)vmAddr;
+    (void)len;
+    (void)init;
+#endif
+}
+
 static intptr_t VM_CallInterpreted(vm_t* vm, int* args);
 
 /** Executes a block copy operation (memcpy) within currentVM data space.
@@ -640,6 +748,14 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
     Com_Memcpy(vm->dataBase, header.v + header.h->dataOffset,
                header.h->dataLength + header.h->litLength);
 
+#ifdef VM_CHECKED
+    vm->shadow = (uint8_t*)Com_malloc(vm->dataAlloc, vm, VM_ALLOC_DATA_SEC);
+    Com_Memset(vm->shadow, 0, vm->dataAlloc);
+    Com_Memset(vm->shadow, 1, header.h->dataLength + header.h->litLength +
+                                  header.h->bssLength);
+    vm->frames = 0;
+#endif
+
     /* byte swap the longs */
     for (i = 0; i < header.h->dataLength; i += sizeof(int))
     {
@@ -697,6 +813,13 @@ void VM_Free(vm_t* vm)
         return;
     }
 
+#ifdef VM_CHECKED
+    if (vm->shadow)
+    {
+        Com_free(vm->shadow, vm, VM_ALLOC_DATA_SEC);
+        vm->shadow = NULL;
+    }
+#endif
     if (vm->codeBase)
     {
         Com_free(vm->codeBase, vm, VM_ALLOC_CODE_SEC);
@@ -819,6 +942,9 @@ static void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n,
     }
 
     Com_Memcpy(vm->dataBase + dest, vm->dataBase + src, n);
+#ifdef VM_CHECKED
+    memmove(vm->shadow + dest, vm->shadow + src, n);
+#endif
 }
 
 static int LittleEndianToHost(const uint8_t b[4])
@@ -1144,6 +1270,9 @@ locals from sp
 
 static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
 {
+#ifdef VM_CHECKED
+    int frameBase = vm->frames;
+#endif
     uint8_t  stack[OPSTACK_SIZE + 15];
     int*     opStack;
     uint8_t  opStackOfs;
@@ -1178,7 +1307,8 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
     codeImage      = (int*)vm->codeBase;
     dataMask       = vm->dataMask;
     programCounter = 0;
-    programStack -= (8 + 4 * MAX_VMMAIN_ARGS);
+    /* rounded to 8 so that the stack stays 8 byte aligned, see q3asm PROC */
+    programStack -= (8 + 4 * MAX_VMMAIN_ARGS + 7) & ~7;
 
     for (arg = 0; arg < MAX_VMMAIN_ARGS; arg++)
     {
@@ -1187,6 +1317,9 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
 
     *(int*)&image[programStack + 4] = 0; /* return stack */
     *(int*)&image[programStack] = -1;    /* will terminate the loop on return */
+#ifdef VM_CHECKED
+    VM_Poison(vm, programStack, 8 + 4 * MAX_VMMAIN_ARGS, 1);
+#endif
 
     /* leave a free spot at start of stack so
        that as long as opStack is valid, opStack-1 will
@@ -1336,29 +1469,36 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
                 return -1;
             }
 #endif
+            CHECK_ACCESS(r0, 4, 0);
             r0 = opStack[opStackOfs] = *(int*)&image[r0 & dataMask];
             DISPATCH2();
         goto_OP_LOAD2:
+            CHECK_ACCESS(r0, 2, 0);
             r0 = opStack[opStackOfs] = *(unsigned short*)&image[r0 & dataMask];
             DISPATCH2();
         goto_OP_LOAD1:
+            CHECK_ACCESS(r0, 1, 0);
             r0 = opStack[opStackOfs] = image[r0 & dataMask];
             DISPATCH2();
 
         goto_OP_STORE4:
+            CHECK_ACCESS(r1, 4, 1);
             *(int*)&image[r1 & dataMask] = r0;
             opStackOfs -= 2;
             DISPATCH();
         goto_OP_STORE2:
+            CHECK_ACCESS(r1, 2, 1);
             *(short*)&image[r1 & dataMask] = r0;
             opStackOfs -= 2;
             DISPATCH();
         goto_OP_STORE1:
+            CHECK_ACCESS(r1, 1, 1);
             image[r1 & dataMask] = r0;
             opStackOfs -= 2;
             DISPATCH();
         goto_OP_ARG:
             /* single byte offset from programStack */
+            CHECK_ACCESS(codeImage[programCounter] + programStack, 4, 1);
             *(int*)&image[(codeImage[programCounter] + programStack) &
                           dataMask] = r0;
             opStackOfs--;
@@ -1376,6 +1516,7 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             wideReturn = 0;
         callOp:
             /* save current program counter */
+            CHECK_ACCESS(programStack, 4, 1);
             *(int*)&image[programStack] = programCounter;
 
             /* jump to the location on the stack */
@@ -1396,6 +1537,7 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
 #ifdef DEBUG_VM
                 int stomped = *(int*)&image[programStack + 4];
 #endif
+                CHECK_ACCESS(programStack + 4, 4, 1);
                 *(int*)&image[programStack + 4] = -1 - programCounter;
 
                 /* the vm has ints on the stack, we expect
@@ -1451,6 +1593,9 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             }
             else
             {
+#ifdef VM_CHECKED
+                VM_CheckPush(vm, programCounter, opStackOfs, wideReturn);
+#endif
                 programCounter = vm->instructionPointers[programCounter];
             }
             DISPATCH();
@@ -1468,6 +1613,9 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
 
             programCounter += 1;
             programStack -= v1;
+#ifdef VM_CHECKED
+            VM_Poison(vm, programStack, v1, 0);
+#endif
 #ifdef DEBUG_VM
             profileSymbol = VM_ValueToFunctionSymbol(vm, programCounter);
             /* save old stack frame for debugging traces */
@@ -1491,6 +1639,9 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             /* remove our stack frame */
             v1 = r2;
 
+#ifdef VM_CHECKED
+            VM_CheckPop(vm, programCounter, opStackOfs, frameBase);
+#endif
             programStack += v1;
 
             /* grab the saved program counter */
@@ -1754,18 +1905,22 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             DISPATCH();
         goto_OP_DIVI:
             opStackOfs--;
+            CHECK_DIVISOR(r0);
             opStack[opStackOfs] = r1 / r0;
             DISPATCH();
         goto_OP_DIVU:
             opStackOfs--;
+            CHECK_DIVISOR(r0);
             opStack[opStackOfs] = ((unsigned)r1) / ((unsigned)r0);
             DISPATCH();
         goto_OP_MODI:
             opStackOfs--;
+            CHECK_DIVISOR(r0);
             opStack[opStackOfs] = r1 % r0;
             DISPATCH();
         goto_OP_MODU:
             opStackOfs--;
+            CHECK_DIVISOR(r0);
             opStack[opStackOfs] = ((unsigned)r1) % ((unsigned)r0);
             DISPATCH();
         goto_OP_MULI:
@@ -1853,12 +2008,14 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             programCounter += 2;
             DISPATCH();
         goto_OP_LOAD8:
+            CHECK_ACCESS(r0, 8, 0);
             memcpy(&a64, &image[r0 & dataMask], sizeof(a64));
             opStackOfs++;
             StackSet64(opStack, opStackOfs, a64);
             DISPATCH();
         goto_OP_STORE8:
             a64 = StackGet64(opStack, opStackOfs);
+            CHECK_ACCESS(opStack[(uint8_t)(opStackOfs - 2)], 8, 1);
             memcpy(&image[opStack[(uint8_t)(opStackOfs - 2)] & dataMask], &a64,
                    sizeof(a64));
             opStackOfs -= 3;
@@ -1866,6 +2023,7 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
         goto_OP_ARG8:
             /* single byte offset from programStack */
             a64 = StackGet64(opStack, opStackOfs);
+            CHECK_ACCESS(codeImage[programCounter] + programStack, 8, 1);
             memcpy(&image[(codeImage[programCounter] + programStack) &
                           dataMask],
                    &a64, sizeof(a64));
@@ -1893,20 +2051,24 @@ static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
             DISPATCH();
         goto_OP_DIVI8:
             opStackOfs -= 2;
+            CHECK_DIVISOR(OPERAND64(2));
             StackSet64(opStack, opStackOfs, DivI64(OPERAND64(0), OPERAND64(2)));
             DISPATCH();
         goto_OP_DIVU8:
             opStackOfs -= 2;
+            CHECK_DIVISOR(OPERAND64(2));
             StackSet64(opStack, opStackOfs,
                        (int64_t)((uint64_t)OPERAND64(0) /
                                  (uint64_t)OPERAND64(2)));
             DISPATCH();
         goto_OP_MODI8:
             opStackOfs -= 2;
+            CHECK_DIVISOR(OPERAND64(2));
             StackSet64(opStack, opStackOfs, ModI64(OPERAND64(0), OPERAND64(2)));
             DISPATCH();
         goto_OP_MODU8:
             opStackOfs -= 2;
+            CHECK_DIVISOR(OPERAND64(2));
             StackSet64(opStack, opStackOfs,
                        (int64_t)((uint64_t)OPERAND64(0) %
                                  (uint64_t)OPERAND64(2)));

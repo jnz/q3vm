@@ -1,0 +1,7 @@
+build/
+__pycache__/
+*.qvm
+*.map
+*.asm.tmp
+vmrcc
+vmrcc_checked

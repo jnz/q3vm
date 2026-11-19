@@ -1,0 +1,600 @@
+/* vmlib.c -- the part of the C library that the compiler needs, for code compiled
+ * to the VM. Files, environment and time go to the host through vm_syscalls.asm.
+ * The string functions, qsort and the conversions are in test/bg_lib.c.
+ */
+
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include "vmsys.h"
+
+int vsprintf(char* buffer, const char* fmt, va_list argptr);
+double atof(const char* string);
+
+int errno;
+FILE vm_files[3] = { { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 } };
+
+/* ---------- memory ---------- */
+
+/* The heap is a bump allocator in bss. Each block starts with its size. */
+#define VM_HEAP_SIZE (6 * 1024 * 1024)
+#define VM_ALIGN 8
+
+static char vm_heap[VM_HEAP_SIZE];
+static size_t vm_heap_top;
+
+void* memcpy(void* dest, const void* src, size_t n)
+{
+    char*       d = dest;
+    const char* s = src;
+
+    while (n-- > 0)
+    {
+        *d++ = *s++;
+    }
+    return dest;
+}
+
+void* memset(void* dest, int c, size_t n)
+{
+    char* d = dest;
+
+    while (n-- > 0)
+    {
+        *d++ = (char)c;
+    }
+    return dest;
+}
+
+int memcmp(const void* a, const void* b, size_t n)
+{
+    const unsigned char* p = a;
+    const unsigned char* q = b;
+
+    for (; n > 0; n--, p++, q++)
+    {
+        if (*p != *q)
+        {
+            return *p < *q ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
+void bzero(void* dest, size_t n)
+{
+    memset(dest, 0, n);
+}
+
+void* malloc(size_t n)
+{
+    size_t  size = (n + VM_ALIGN - 1) & ~(VM_ALIGN - 1);
+    size_t* block;
+
+    if (vm_heap_top + VM_ALIGN + size > VM_HEAP_SIZE)
+    {
+        fprintf(stderr, "vm heap exhausted: %u bytes requested, %u used\n", (unsigned)size, (unsigned)vm_heap_top);
+        vm_exit(EXIT_FAILURE);
+    }
+    block = (size_t*)(vm_heap + vm_heap_top);
+    block[0] = size;
+    vm_heap_top += VM_ALIGN + size;
+    /* a checked VM reports reads of the block before it is written */
+    vm_poison(block + 2, size);
+    return block + 2;
+}
+
+void* calloc(size_t n, size_t size)
+{
+    void* p = malloc(n * size);
+
+    return memset(p, 0, n * size);
+}
+
+void* realloc(void* p, size_t n)
+{
+    size_t* old = (size_t*)p - 2;
+    void*   q;
+
+    if (!p)
+    {
+        return malloc(n);
+    }
+    if (n <= old[0])
+    {
+        return p;
+    }
+    q = malloc(n);
+    memcpy(q, p, old[0]);
+    return q;
+}
+
+/* memory is never reused, so free does nothing */
+void free(void* p)
+{
+    (void)p;
+}
+
+/* returns the address of the next variable argument of the given size and
+ * moves ap past it. Arguments of more than 4 bytes are aligned to 8. */
+void* vm_va_next(va_list* ap, int size)
+{
+    unsigned a = (unsigned)*ap;
+
+    if (size > 4)
+    {
+        a = (a + 7) & ~7u;
+    }
+    else
+    {
+        a = (a + 3) & ~3u;
+    }
+    *ap = (va_list)(a + ((size + 3) & ~3));
+    return (void*)a;
+}
+
+/* ---------- strings ---------- */
+
+char* strncpy(char* dest, const char* src, size_t n)
+{
+    size_t i;
+
+    for (i = 0; i < n && src[i]; i++)
+    {
+        dest[i] = src[i];
+    }
+    for (; i < n; i++)
+    {
+        dest[i] = 0;
+    }
+    return dest;
+}
+
+int strncmp(const char* a, const char* b, size_t n)
+{
+    for (; n > 0; n--, a++, b++)
+    {
+        if (*a != *b)
+        {
+            return *a < *b ? -1 : 1;
+        }
+        if (!*a)
+        {
+            return 0;
+        }
+    }
+    return 0;
+}
+
+char* strrchr(const char* s, int c)
+{
+    const char* last = NULL;
+
+    for (; *s; s++)
+    {
+        if (*s == (char)c)
+        {
+            last = s;
+        }
+    }
+    return (char*)(c == 0 ? s : last);
+}
+
+/* ---------- ctype ---------- */
+
+int isdigit(int c)
+{
+    return c >= '0' && c <= '9';
+}
+
+int isupper(int c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+int islower(int c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+int isalpha(int c)
+{
+    return isupper(c) || islower(c);
+}
+
+int isalnum(int c)
+{
+    return isalpha(c) || isdigit(c);
+}
+
+int isspace(int c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+int isprint(int c)
+{
+    return c >= ' ' && c < 127;
+}
+
+/* ---------- conversions ---------- */
+
+long strtol(const char* s, char** end, int base)
+{
+    long value = 0;
+    int  negative = 0;
+
+    while (isspace(*s))
+    {
+        s++;
+    }
+    if (*s == '-' || *s == '+')
+    {
+        negative = *s == '-';
+        s++;
+    }
+    if (base == 0)
+    {
+        base = 10;
+        if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+        {
+            base = 16;
+            s += 2;
+        }
+        else if (s[0] == '0')
+        {
+            base = 8;
+        }
+    }
+    for (;; s++)
+    {
+        int digit;
+
+        if (isdigit(*s))
+        {
+            digit = *s - '0';
+        }
+        else if (isalpha(*s))
+        {
+            digit = tolower(*s) - 'a' + 10;
+        }
+        else
+        {
+            break;
+        }
+        if (digit >= base)
+        {
+            break;
+        }
+        value = value * base + digit;
+    }
+    if (end)
+    {
+        *end = (char*)s;
+    }
+    return negative ? -value : value;
+}
+
+long atol(const char* s)
+{
+    return strtol(s, NULL, 10);
+}
+
+/* the end pointer is set to the terminator, which is wrong for a partial parse
+ * but the compiler only passes NULL or a complete number */
+double strtod(const char* s, char** end)
+{
+    double value;
+
+    /* the host converts, so the result is the same as the native compiler's */
+    vm_strtod(s, &value);
+    if (end)
+    {
+        *end = (char*)s + strlen(s);
+    }
+    return value;
+}
+
+/* ---------- process and environment ---------- */
+
+void exit(int status)
+{
+    vm_exit(status);
+}
+
+void abort(void)
+{
+    vm_exit(EXIT_FAILURE);
+}
+
+void vm_assert_fail(const char* expr, const char* file, int line)
+{
+    fprintf(stderr, "Assertion failed: %s, file %s, line %d\n", expr, file, line);
+    abort();
+}
+
+char* getenv(const char* name)
+{
+    static char value[512];
+
+    if (vm_getenv(name, value, sizeof value) < 0)
+    {
+        return NULL;
+    }
+    return value;
+}
+
+time_t time(time_t* t)
+{
+    time_t now = vm_time();
+
+    if (t)
+    {
+        *t = now;
+    }
+    return now;
+}
+
+char* ctime(const time_t* t)
+{
+    static char text[64];
+
+    vm_ctime(*t, text, sizeof text);
+    return text;
+}
+
+/* ---------- stdio ---------- */
+
+static char vm_print_buffer[4096];
+
+static FILE* vm_new_file(int handle)
+{
+    FILE* f = malloc(sizeof(FILE));
+
+    f->handle = handle;
+    f->eof = 0;
+    f->error = 0;
+    return f;
+}
+
+FILE* fopen(const char* name, const char* mode)
+{
+    int handle = vm_open(name, mode);
+
+    if (handle < 0)
+    {
+        return NULL;
+    }
+    return vm_new_file(handle);
+}
+
+FILE* freopen(const char* name, const char* mode, FILE* f)
+{
+    int handle = vm_open(name, mode);
+
+    if (handle < 0)
+    {
+        return NULL;
+    }
+    /* the standard streams keep their FILE, only the host handle changes */
+    if (f->handle > 2)
+    {
+        vm_close(f->handle);
+    }
+    f->handle = handle;
+    f->eof = 0;
+    f->error = 0;
+    return f;
+}
+
+int fclose(FILE* f)
+{
+    if (f->handle > 2)
+    {
+        vm_close(f->handle);
+    }
+    return 0;
+}
+
+size_t fread(void* ptr, size_t size, size_t n, FILE* f)
+{
+    int    total = size * n;
+    int    got = 0;
+    char*  p = ptr;
+
+    while (got < total)
+    {
+        int r = vm_read(f->handle, p + got, total - got);
+
+        if (r <= 0)
+        {
+            f->eof = 1;
+            break;
+        }
+        got += r;
+    }
+    return size ? got / size : 0;
+}
+
+size_t fwrite(const void* ptr, size_t size, size_t n, FILE* f)
+{
+    int total = size * n;
+    int r = vm_write(f->handle, ptr, total);
+
+    if (r != total)
+    {
+        f->error = 1;
+    }
+    return size ? r / size : 0;
+}
+
+int fgetc(FILE* f)
+{
+    unsigned char c;
+
+    if (fread(&c, 1, 1, f) != 1)
+    {
+        return EOF;
+    }
+    return c;
+}
+
+int getc(FILE* f)
+{
+    return fgetc(f);
+}
+
+int getchar(void)
+{
+    return fgetc(stdin);
+}
+
+char* fgets(char* s, int n, FILE* f)
+{
+    int i = 0;
+
+    while (i < n - 1)
+    {
+        int c = fgetc(f);
+
+        if (c == EOF)
+        {
+            break;
+        }
+        s[i++] = (char)c;
+        if (c == '\n')
+        {
+            break;
+        }
+    }
+    if (i == 0)
+    {
+        return NULL;
+    }
+    s[i] = 0;
+    return s;
+}
+
+int fputc(int c, FILE* f)
+{
+    char ch = (char)c;
+
+    fwrite(&ch, 1, 1, f);
+    return c;
+}
+
+int putc(int c, FILE* f)
+{
+    return fputc(c, f);
+}
+
+int putchar(int c)
+{
+    return fputc(c, stdout);
+}
+
+int fputs(const char* s, FILE* f)
+{
+    fwrite(s, 1, strlen(s), f);
+    return 0;
+}
+
+int puts(const char* s)
+{
+    fputs(s, stdout);
+    return fputc('\n', stdout);
+}
+
+int fflush(FILE* f)
+{
+    (void)f;
+    return 0;
+}
+
+int fseek(FILE* f, long off, int whence)
+{
+    f->eof = 0;
+    return vm_seek(f->handle, off, whence) < 0 ? -1 : 0;
+}
+
+long ftell(FILE* f)
+{
+    return vm_tell(f->handle);
+}
+
+void rewind(FILE* f)
+{
+    fseek(f, 0, SEEK_SET);
+    f->error = 0;
+}
+
+int feof(FILE* f)
+{
+    return f->eof;
+}
+
+int ferror(FILE* f)
+{
+    return f->error;
+}
+
+void setbuf(FILE* f, char* buf)
+{
+    (void)f;
+    (void)buf;
+}
+
+int remove(const char* name)
+{
+    return vm_remove(name);
+}
+
+void perror(const char* s)
+{
+    fprintf(stderr, "%s: error %d\n", s, errno);
+}
+
+static int vprintf_to(FILE* f, const char* fmt, va_list ap)
+{
+    int len = vsprintf(vm_print_buffer, fmt, ap);
+
+    fwrite(vm_print_buffer, 1, len, f);
+    return len;
+}
+
+int printf(const char* fmt, ...)
+{
+    va_list ap;
+    int     len;
+
+    va_start(ap, fmt);
+    len = vprintf_to(stdout, fmt, ap);
+    va_end(ap);
+    return len;
+}
+
+int fprintf(FILE* f, const char* fmt, ...)
+{
+    va_list ap;
+    int     len;
+
+    va_start(ap, fmt);
+    len = vprintf_to(f, fmt, ap);
+    va_end(ap);
+    return len;
+}
+
+int sprintf(char* buf, const char* fmt, ...)
+{
+    va_list ap;
+    int     len;
+
+    va_start(ap, fmt);
+    len = vsprintf(buf, fmt, ap);
+    va_end(ap);
+    return len;
+}

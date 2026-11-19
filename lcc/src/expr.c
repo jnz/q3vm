@@ -166,7 +166,7 @@ static Tree unary(void) {
 						  	p = cast(p, ty);
 						  	if (isunsigned(ty)) {
 						  		warning("unsigned operand of unary -\n");
-						  		p = simplify(ADD, ty, simplify(BCOM, ty, p, NULL), cnsttree(ty, 1UL));
+						  		p = simplify(ADD, ty, simplify(BCOM, ty, p, NULL), cnsttree(ty, 1ULL));
 						  	} else
 						  		p = simplify(NEG, ty, p, NULL);
 						  } else
@@ -203,13 +203,13 @@ static Tree unary(void) {
 				      }
 				      assert(ty);
 				      if (op == TYPECODE)
-				      	p = cnsttree(inttype, (long)ty->op);
+				      	p = cnsttree(inttype, (long long)ty->op);
 				      else {
 				      	if (isfunc(ty) || ty->size == 0)
 				      		error("invalid type argument `%t' to `sizeof'\n", ty);
 				      	else if (p && rightkid(p)->op == FIELD)
 				      		error("`sizeof' applied to a bit field\n");
-				      	p = cnsttree(unsignedlong, (unsigned long)ty->size);
+				      	p = cnsttree(unsignedlong, (unsigned long long)ty->size);
 				      } } break;
 	case '(':
 		t = gettok();
@@ -402,12 +402,12 @@ static Tree primary(void) {
 			p = idtree(cfunc->u.f.callee[0]);
 		else {
 			error("illegal use of `%k'\n", FIRSTARG);
-			p = cnsttree(inttype, 0L);
+			p = cnsttree(inttype, 0LL);
 		}
 		break;
 	default:
 		error("illegal expression\n");
-			p = cnsttree(inttype, 0L);
+			p = cnsttree(inttype, 0LL);
 	}
 	t = gettok();
 	return p;
@@ -592,7 +592,7 @@ Tree cast(Tree p, Type type) {
 							simplify(GE, src, p, c),
 							(*optree['+'])(ADD,
 								cast(cast(simplify(SUB, src, p, c), sdst), dst),
-								cnsttree(dst, (unsigned long)sdst->u.sym->u.limits.max.i + 1)),
+								cnsttree(dst, (unsigned long long)sdst->u.sym->u.limits.max.i + 1)),
 							simplify(CVF, sdst, p, NULL));
 					} else
 						p = simplify(CVF, dst, p, NULL);
@@ -687,12 +687,12 @@ static Tree nullcheck(Tree p) {
 			p = tree(RIGHT, p->type,
 				tree(OR, voidtype,
 					cond(asgn(t1, cast(p, voidptype))),
-					vcall(YYnull, voidtype,	(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long)lineno)		, NULL)),
+					vcall(YYnull, voidtype,	(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long long)lineno)		, NULL)),
 				idtree(t1));
 		}
 
 		else
-			p = nullcall(p->type, YYnull, p, cnsttree(inttype, 0L));
+			p = nullcall(p->type, YYnull, p, cnsttree(inttype, 0LL));
 
 	}
 	return p;
@@ -705,7 +705,7 @@ Tree nullcall(Type pty, Symbol f, Tree p, Tree e) {
 	ty = unqual(unqual(p->type)->type);
 	return vcall(f, pty,
 		p, e,
-		cnsttree(inttype, (long)ty->size),
-		cnsttree(inttype, (long)ty->align),
-		(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long)lineno)		, NULL);
+		cnsttree(inttype, (long long)ty->size),
+		cnsttree(inttype, (long long)ty->align),
+		(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long long)lineno)		, NULL);
 }

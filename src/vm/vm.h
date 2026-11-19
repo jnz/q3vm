@@ -82,6 +82,11 @@ typedef enum {
     VM_MALLOC_FAILED               = -13, /**< Not enough memory */
     VM_BAD_INSTRUCTION             = -14, /**< Unknown OP code in bytecode */
     VM_NOT_LOADED                  = -15, /**< VM not loaded */
+    VM_CHECK_UNINITIALIZED         = -16, /**< VM_CHECKED: read of never written memory */
+    VM_CHECK_ADDRESS               = -17, /**< VM_CHECKED: access outside the VM memory */
+    VM_CHECK_ALIGNMENT             = -18, /**< VM_CHECKED: misaligned access */
+    VM_CHECK_STACK_DEPTH           = -19, /**< VM_CHECKED: operand stack depth at return */
+    VM_CHECK_DIVZERO               = -20, /**< VM_CHECKED: division by zero */
 } vmErrorCode_t;
 
 /** VM alloc type. This is just an information passed to the host malloc
@@ -125,6 +130,9 @@ typedef struct vmSymbol_s
  * the virtual machine together. Has pointer to the bytecode, the stack and
  * everything. Call VM_Create(...) to initialize this struct. Call VM_Free(...)
  * to cleanup this struct and free the memory. */
+/** VM_CHECKED: depth of nested calls that can be checked */
+#define VM_CHECK_FRAMES 1024
+
 typedef struct vm_s
 {
     /* DO NOT MOVE OR CHANGE THESE WITHOUT CHANGING THE VM_OFFSET_* DEFINES
@@ -176,6 +184,12 @@ typedef struct vm_s
     vmSymbol_t* symbols;    /**< By VM_LoadSymbols: names for debugging */
 
     int callLevel;     /**< Counts recursive VM_Call */
+#ifdef VM_CHECKED
+    uint8_t* shadow;                       /**< 1 for each initialized data byte */
+    int      frameDepth[VM_CHECK_FRAMES];  /**< operand stack depth at each call */
+    int      frameWide[VM_CHECK_FRAMES];   /**< 1 when the call returns 64 bits */
+    int      frames;                       /**< calls not returned yet */
+#endif
     int breakFunction; /**< For debugging: break at this function */
     int breakCount;    /**< Used for breakpoints, triggered by OP_BREAK */
 
@@ -215,6 +229,10 @@ void VM_Free(vm_t* vm);
  * @param[in] command Basic parameter passed to the bytecode.
  * @return Return value of the function call by the VM. */
 intptr_t VM_Call(vm_t* vm, int command, ...);
+
+/** Marks len bytes at vmAddr as initialized (init != 0) or uninitialized.
+ * Only has an effect in a VM_CHECKED build. Used by vm_poison in vmrcc. */
+void VM_Poison(vm_t* vm, intptr_t vmAddr, int len, int init);
 
 /** Helper function for syscalls VMA(x) macro:
  * Translate from virtual machine memory to real machine memory.

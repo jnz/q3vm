@@ -80,7 +80,7 @@ void exitscope(void) {
 Symbol install(const char *name, Table *tpp, int level, int arena) {
 	Table tp = *tpp;
 	struct entry *p;
-	unsigned h = (unsigned long)name&(HASHSIZE-1);
+	unsigned h = (unsigned long long)name&(HASHSIZE-1);
 
 	assert(level == 0 || level >= tp->level);
 	if (level > 0 && tp->level < level)
@@ -97,7 +97,7 @@ Symbol install(const char *name, Table *tpp, int level, int arena) {
 Symbol relocate(const char *name, Table src, Table dst) {
 	struct entry *p, **q;
 	Symbol *r;
-	unsigned h = (unsigned long)name&(HASHSIZE-1);
+	unsigned h = (unsigned long long)name&(HASHSIZE-1);
 
 	for (q = &src->buckets[h]; *q; q = &(*q)->link)
 		if (name == (*q)->sym.name)
@@ -126,7 +126,7 @@ Symbol relocate(const char *name, Table src, Table dst) {
 }
 Symbol lookup(const char *name, Table tp) {
 	struct entry *p;
-	unsigned h = (unsigned long)name&(HASHSIZE-1);
+	unsigned h = (unsigned long long)name&(HASHSIZE-1);
 
 	assert(tp);
 	do

@@ -920,6 +920,22 @@ static void HackToSegment(segmentName_t seg)
     }
 }
 
+/* Initialized data of one label stays in one segment. The first item after a
+ * label picks the segment (see ASM(BYTE)) and the later items of the same label
+ * stay there. Otherwise a struct that mixes byte and word fields is split: its
+ * label moves with the first item only. Big endian hosts swap the data segment
+ * as 32-bit words, so mixed data is only correct on little endian hosts. */
+static int dataSegmentChosen;
+
+static void ChooseDataSegment(segmentName_t seg)
+{
+    if (!dataSegmentChosen)
+    {
+        HackToSegment(seg);
+        dataSegmentChosen = 1;
+    }
+}
+
 //#define STAT(L) report("STAT " L "\n");
 #define STAT(L)
 #define ASM(O) int TryAssemble##O()
@@ -1054,10 +1070,12 @@ ASM(PROC)
 
         DefineSymbol(token, instructionCount); // segment[CODESEG].imageUsed );
 
+        /* frames are multiples of 8 bytes, so that a frame whose arguments
+         * are 8 byte values keeps them 8 byte aligned in memory */
         currentLocals = ParseValue(); // locals
-        currentLocals = (currentLocals + 3) & ~3;
+        currentLocals = (currentLocals + 7) & ~7;
         currentArgs   = ParseValue(); // arg marshalling
-        currentArgs   = (currentArgs + 3) & ~3;
+        currentArgs   = (currentArgs + 7) & ~7;
 
         if (8 + currentLocals + currentArgs >= 32767)
         {
@@ -1104,7 +1122,7 @@ ASM(ADDRESS)
         v = ParseExpression();
 
         /* Addresses are 32 bits wide, and therefore go into data segment. */
-        HackToSegment(DATASEG);
+        ChooseDataSegment(DATASEG);
         EmitInt(currentSegment, v);
         if (passNumber == 1 && token[0] == '$') // crude test for labels
             EmitInt(&segment[JTRGSEG], v);
@@ -1251,17 +1269,19 @@ ASM(BYTE)
         if (v == 1)
         {
             /* Character (1-byte) values go into lit(eral) segment. */
-            HackToSegment(LITSEG);
+            ChooseDataSegment(LITSEG);
         }
         else if (v == 4)
         {
             /* 32-bit (4-byte) values go into data segment. */
-            HackToSegment(DATASEG);
+            ChooseDataSegment(DATASEG);
         }
         else if (v == 2)
         {
-            /* and 16-bit (2-byte) values will cause q3asm to barf. */
-            CodeError("16 bit initialized data not supported");
+            /* 16-bit (2-byte) values are not byte swapped, so they go in the lit
+             * segment with the char data. They are stored little endian, so a
+             * big endian host would need a 16-bit swap at load time. */
+            ChooseDataSegment(LITSEG);
         }
 
         // emit little endien
@@ -1285,6 +1305,7 @@ ASM(LABEL)
     {
         STAT("LABEL");
         Parse();
+        dataSegmentChosen = 0;
         if (currentSegment == &segment[CODESEG])
         {
             DefineSymbol(token, instructionCount);

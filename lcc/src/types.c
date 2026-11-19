@@ -18,12 +18,12 @@ Type doubletype;		/* double */
 Type floattype;			/* float */
 Type inttype;			/* signed int */
 Type longdouble;		/* long double */
-Type longtype;			/* long */
+Type longtype;			/* long long */
 Type longlong;			/* long long */
 Type shorttype;			/* signed short int */
 Type signedchar;		/* signed char */
 Type unsignedchar;		/* unsigned char */
-Type unsignedlong;		/* unsigned long int */
+Type unsignedlong;		/* unsigned long long int */
 Type unsignedlonglong;		/* unsigned long long int */
 Type unsignedshort;		/* unsigned short int */
 Type unsignedtype;		/* unsigned int */
@@ -65,7 +65,7 @@ static Type xxinit(int op, char *name, Metrics m) {
 	return ty;
 }
 static Type type(int op, Type ty, int size, int align, void *sym) {
-	unsigned h = (op^((unsigned long)ty>>3))
+	unsigned h = (op^((unsigned long long)ty>>3))
 &(NELEMS(typetable)-1);
 	struct entry *tn;
 

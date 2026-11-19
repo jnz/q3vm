@@ -53,7 +53,7 @@ static Node node(int op, Node l, Node r, Symbol sym) {
 	int i;
 	struct dag *p;
 
-	i = (opindex(op)^((unsigned long)sym>>2))&(NELEMS(buckets)-1);
+	i = (opindex(op)^((unsigned long long)sym>>2))&(NELEMS(buckets)-1);
 	for (p = buckets[i]; p; p = p->hlink)
 		if (p->node.op      == op && p->node.syms[0] == sym
 		&&  p->node.kids[0] == l  && p->node.kids[1] == r)
@@ -278,18 +278,18 @@ Node listnodes(Tree tp, int tlab, int flab) {
 				Tree q = tp->kids[1];
 				if ((q->op == CNST+I && q->u.v.i == 0)
 				||  (q->op == CNST+U && q->u.v.u == 0))
-					q = bittree(BAND, x, cnsttree(unsignedtype, (unsigned long)~mask));
+					q = bittree(BAND, x, cnsttree(unsignedtype, (unsigned long long)~mask));
 				else if ((q->op == CNST+I && (q->u.v.i&fmask) == fmask)
 				||       (q->op == CNST+U && (q->u.v.u&fmask) == fmask))
-					q = bittree(BOR, x, cnsttree(unsignedtype, (unsigned long)mask));
+					q = bittree(BOR, x, cnsttree(unsignedtype, (unsigned long long)mask));
 				else {
 					listnodes(q, 0, 0);
 					q = bittree(BOR,
 						bittree(BAND, rvalue(lvalue(x)),
-							cnsttree(unsignedtype, (unsigned long)~mask)),
+							cnsttree(unsignedtype, (unsigned long long)~mask)),
 						bittree(BAND, shtree(LSH, cast(q, unsignedtype),
-							cnsttree(unsignedtype, (unsigned long)fieldright(f))),
-							cnsttree(unsignedtype, (unsigned long)mask)));
+							cnsttree(unsignedtype, (unsigned long long)fieldright(f))),
+							cnsttree(unsignedtype, (unsigned long long)mask)));
 				}
 				r = listnodes(q, 0, 0);
 				op = ASGN + ttob(q->type);
@@ -350,14 +350,14 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		      	p = node(tp->op == INDIR+B ? tp->op : op, l, NULL, NULL); } break;
 	case FIELD: { Tree q = tp->kids[0];
 		      if (tp->type == inttype) {
-		      	long n = fieldleft(tp->u.field);
+		      	long long n = fieldleft(tp->u.field);
 		      	q = shtree(RSH,
 		      		shtree(LSH, q, cnsttree(inttype, n)),
 		      		cnsttree(inttype, n + fieldright(tp->u.field)));
 		      } else if (fieldsize(tp->u.field) < 8*tp->u.field->type->size)
 		      	q = bittree(BAND,
-		      		shtree(RSH, q, cnsttree(inttype, (long)fieldright(tp->u.field))),
-		      		cnsttree(unsignedtype, (unsigned long)fieldmask(tp->u.field)));
+		      		shtree(RSH, q, cnsttree(inttype, (long long)fieldright(tp->u.field))),
+		      		cnsttree(unsignedtype, (unsigned long long)fieldmask(tp->u.field)));
 		      assert(tlab == 0 && flab == 0);
 		      p = listnodes(q, 0, 0); } break;
 	case ADDRG:
@@ -528,9 +528,9 @@ void emitcode(void) {
 			       	defglobal(cp->u.swtch.table, LIT);
 			       	(*IR->defaddress)(equated(cp->u.swtch.labels[0]));
 			       	for (i = 1; i < cp->u.swtch.size; i++) {
-			       		long k = cp->u.swtch.values[i-1];
+			       		long long k = cp->u.swtch.values[i-1];
 			       		while (++k < cp->u.swtch.values[i])
-			       			assert(k < LONG_MAX),
+			       			assert(k < LLONG_MAX),
 			       			(*IR->defaddress)(equated(cp->u.swtch.deflab));
 			       		(*IR->defaddress)(equated(cp->u.swtch.labels[i]));
 			       	}
