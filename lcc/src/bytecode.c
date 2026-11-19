@@ -23,17 +23,23 @@ static void I(defaddress)(Symbol p) {
 	print("address %s\n", p->x.name);
 }
 
+/* 64-bit value as two little endian 32-bit words (low word first) */
+static void defword64(unsigned long bits) {
+	print("byte 4 %u\n", (unsigned)(bits & 0xFFFFFFFFu));
+	print("byte 4 %u\n", (unsigned)((bits >> 16) >> 16));
+}
+
 static void I(defconst)(int suffix, int size, Value v) {
 	switch (suffix) {
 	case I:
 		if (size > sizeof (int))
-			print("byte %d %D\n", size, v.i);
+			defword64((unsigned long)v.i);
 		else
 			print("byte %d %d\n", size, v.i);
 		return;
 	case U:
 		if (size > sizeof (unsigned))
-			print("byte %d %U\n", size, v.u);
+			defword64(v.u);
 		else
 			print("byte %d %u\n", size, v.u);
 		return;
@@ -67,7 +73,12 @@ static void I(defsymbol)(Symbol p) {
 		case U: p->x.name = stringf("%U", p->u.c.v.u); break;
 		case P: p->x.name = stringf("%U", p->u.c.v.p); break;
 		case F:
-			{	// JDC: added this to get inline floats
+			if (p->type->size == 8) {	// double: full 64-bit pattern
+				unsigned long bits;
+
+				memcpy(&bits, &p->u.c.v.d, sizeof bits);
+				p->x.name = stringf("%U", bits);
+			} else {	// JDC: added this to get inline floats
 				floatint_t temp;
 
 				temp.f = p->u.c.v.d;
@@ -126,7 +137,11 @@ static void dumptree(Node p) {
 		assert(optype(p->op) != B);
 		dumptree(p->kids[0]);
 		print("%s\n", opname(p->op));
-		if ( !p->count ) { printf("pop\n"); };	// JDC
+		if ( !p->count ) {	// JDC
+			printf("pop\n");
+			if (opsize(p->op) == 8)	// 64-bit result is two stack cells
+				printf("pop\n");
+		};
 		return;
 	case ASGN: case BOR: case BAND: case BXOR: case RSH: case LSH:
 	case ADD: case SUB: case DIV: case MUL: case MOD:
@@ -181,6 +196,8 @@ static void gen02(Node p) {
 	assert(p);
 	if (generic(p->op) == ARG) {
 		assert(p->syms[0]);
+		if (p->syms[0]->u.c.v.i == 8)	/* 64-bit args are 8 byte aligned */
+			argoffset = roundup(argoffset, 8);
 		argoffset += (p->syms[0]->u.c.v.i < 4 ? 4 : p->syms[0]->u.c.v.i);
 	} else if (generic(p->op) == CALL) {
 		maxargoffset = (argoffset > maxargoffset ? argoffset : maxargoffset);
@@ -325,10 +342,10 @@ Interface bytecodeIR = {
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
 	{4, 4, 0},	/* long */
-	{4, 4, 0},	/* long long */
+	{8, 8, 0},	/* long long */			// 64-bit integers are native (2 VM stack cells)
 	{4, 4, 0},	/* float */				// JDC: use inline floats
-	{4, 4, 0},	/* double */			// JDC: don't ever emit 8 byte double code
-	{4, 4, 0},	/* long double */		// JDC: don't ever emit 8 byte double code
+	{8, 8, 0},	/* double */			// 64-bit floats are native (2 VM stack cells)
+	{8, 8, 0},	/* long double */		// same as double
 	{4, 4, 0},	/* T* */
 	{0, 4, 0},	/* struct */
 	0,		/* little_endian */

@@ -55,6 +55,11 @@
 /** Get argument in syscall and interpret it bit by bit as IEEE 754 float */
 #define VMF(x) VM_IntToFloat(args[x])
 
+/** Get 64-bit argument in syscall. It takes two argument words, the low word
+ * first. A 64-bit double is the same bit pattern, see VM_Int64ToDouble. */
+#define VMI64(x) \
+    ((int64_t)(((uint64_t)(uint32_t)args[(x) + 1] << 32) | (uint32_t)args[(x)]))
+
 /******************************************************************************
  * TYPEDEFS
  ******************************************************************************/
@@ -229,6 +234,12 @@ void* VM_ArgPtr(intptr_t vmAddr, vm_t* vm);
  * @param[in] x Argument on call stack.
  * @return Value as float. */
 float VM_IntToFloat(int32_t x);
+
+/** Helper function for syscalls: interpret a 64-bit argument (see VMI64) bit by
+ * bit as IEEE 754 double.
+ * @param[in] x 64-bit value from the call stack.
+ * @return Value as double. */
+double VM_Int64ToDouble(int64_t x);
 
 /** Helper function for syscalls:
  * Just put the float in a float/int union and return the int.

@@ -76,7 +76,7 @@
 #endif
 
 /** Max. number of op codes in op codes table */
-#define OPCODE_TABLE_SIZE 64
+#define OPCODE_TABLE_SIZE 128
 /** Mask for a valid opcode (so no one can escape the sandbox) */
 #define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
 
@@ -174,6 +174,68 @@ typedef enum {
     OP_CVIF, /* Convert to integer from float */
     OP_CVFI, /* Convert to float from integer */
 
+    /*-------------------*/
+
+    /* 64-bit integers and doubles take two stack cells (low word below the
+       high word). The 8 suffix marks the 64-bit version of an operation. */
+    OP_CONST8, /* Load 64-bit constant (two operand words, low word first) */
+    OP_LOAD8,  /* Load 8-bytes from memory */
+    OP_STORE8, /* Store 8-bytes to memory */
+    OP_ARG8,   /* Marshal 64-bit argument */
+    OP_CALL8,  /* Call subroutine, native result is 64-bit */
+
+    OP_ADD8,  /* Add 64-bit integers */
+    OP_SUB8,  /* Subtract 64-bit integers */
+    OP_MUL8,  /* Multiply 64-bit integers */
+    OP_DIVI8, /* Divide signed 64-bit integers */
+    OP_DIVU8, /* Divide unsigned 64-bit integers */
+    OP_MODI8, /* Modulus (signed 64-bit) */
+    OP_MODU8, /* Modulus (unsigned 64-bit) */
+    OP_BAND8, /* Bitwise AND (64-bit) */
+    OP_BOR8,  /* Bitwise OR (64-bit) */
+    OP_BXOR8, /* Bitwise eXclusive-OR (64-bit) */
+    OP_BCOM8, /* Bitwise COMplement (64-bit) */
+    OP_LSH8,  /* Left-shift (64-bit) */
+    OP_RSHI8, /* Right-shift (64-bit, algebraic) */
+    OP_RSHU8, /* Right-shift (64-bit, bitwise) */
+    OP_NEGI8, /* Negate 64-bit integer */
+
+    OP_ADDD, /* Add doubles */
+    OP_SUBD, /* Subtract doubles */
+    OP_MULD, /* Multiply doubles */
+    OP_DIVD, /* Divide doubles */
+    OP_NEGD, /* Negate double */
+
+    OP_EQ8, /* Compare 64-bit integers, jump if equal */
+    OP_NE8, /* Compare 64-bit integers, jump if not equal */
+    OP_LTI8, /* Compare 64-bit integers, jump if less-than */
+    OP_LEI8, /* Compare 64-bit integers, jump if less-than-or-equal */
+    OP_GTI8, /* Compare 64-bit integers, jump if greater-than */
+    OP_GEI8, /* Compare 64-bit integers, jump if greater-than-or-equal */
+    OP_LTU8, /* Compare unsigned 64-bit integers, jump if less-than */
+    OP_LEU8, /* Compare unsigned 64-bit integers, jump if <= */
+    OP_GTU8, /* Compare unsigned 64-bit integers, jump if greater-than */
+    OP_GEU8, /* Compare unsigned 64-bit integers, jump if >= */
+
+    OP_EQD, /* Compare doubles, jump if equal */
+    OP_NED, /* Compare doubles, jump if not-equal */
+    OP_LTD, /* Compare doubles, jump if less-than */
+    OP_LED, /* Compare doubles, jump if less-than-or-equal */
+    OP_GTD, /* Compare doubles, jump if greater-than */
+    OP_GED, /* Compare doubles, jump if greater-than-or-equal */
+
+    OP_SEXT32,  /* 32-bit to 64-bit: sign-extend the top cell */
+    OP_ZEXT32,  /* 32-bit to 64-bit: zero-extend the top cell */
+    OP_TRUNC64, /* 64-bit to 32-bit: drop the high word */
+    OP_I64TOD,  /* Convert signed 64-bit integer to double */
+    OP_DTOI64,  /* Convert double to signed 64-bit integer */
+    OP_I64TOF,  /* Convert signed 64-bit integer to float */
+    OP_FTOD,    /* Convert float to double */
+    OP_DTOF,    /* Convert double to float */
+
+    OP_ZEX8,  /* Zero-extend 8-bit: keep the low byte of the top cell */
+    OP_ZEX16, /* Zero-extend 16-bit: keep the low 16 bits of the top cell */
+
     OP_MAX /* Make this the last item */
 } opcode_t;
 
@@ -240,6 +302,57 @@ typedef enum {
 #define goto_OP_MULF case OP_MULF
 #define goto_OP_CVIF case OP_CVIF
 #define goto_OP_CVFI case OP_CVFI
+#define goto_OP_CONST8 case OP_CONST8
+#define goto_OP_LOAD8 case OP_LOAD8
+#define goto_OP_STORE8 case OP_STORE8
+#define goto_OP_ARG8 case OP_ARG8
+#define goto_OP_CALL8 case OP_CALL8
+#define goto_OP_ADD8 case OP_ADD8
+#define goto_OP_SUB8 case OP_SUB8
+#define goto_OP_MUL8 case OP_MUL8
+#define goto_OP_DIVI8 case OP_DIVI8
+#define goto_OP_DIVU8 case OP_DIVU8
+#define goto_OP_MODI8 case OP_MODI8
+#define goto_OP_MODU8 case OP_MODU8
+#define goto_OP_BAND8 case OP_BAND8
+#define goto_OP_BOR8 case OP_BOR8
+#define goto_OP_BXOR8 case OP_BXOR8
+#define goto_OP_BCOM8 case OP_BCOM8
+#define goto_OP_LSH8 case OP_LSH8
+#define goto_OP_RSHI8 case OP_RSHI8
+#define goto_OP_RSHU8 case OP_RSHU8
+#define goto_OP_NEGI8 case OP_NEGI8
+#define goto_OP_ADDD case OP_ADDD
+#define goto_OP_SUBD case OP_SUBD
+#define goto_OP_MULD case OP_MULD
+#define goto_OP_DIVD case OP_DIVD
+#define goto_OP_NEGD case OP_NEGD
+#define goto_OP_EQ8 case OP_EQ8
+#define goto_OP_NE8 case OP_NE8
+#define goto_OP_LTI8 case OP_LTI8
+#define goto_OP_LEI8 case OP_LEI8
+#define goto_OP_GTI8 case OP_GTI8
+#define goto_OP_GEI8 case OP_GEI8
+#define goto_OP_LTU8 case OP_LTU8
+#define goto_OP_LEU8 case OP_LEU8
+#define goto_OP_GTU8 case OP_GTU8
+#define goto_OP_GEU8 case OP_GEU8
+#define goto_OP_EQD case OP_EQD
+#define goto_OP_NED case OP_NED
+#define goto_OP_LTD case OP_LTD
+#define goto_OP_LED case OP_LED
+#define goto_OP_GTD case OP_GTD
+#define goto_OP_GED case OP_GED
+#define goto_OP_SEXT32 case OP_SEXT32
+#define goto_OP_ZEXT32 case OP_ZEXT32
+#define goto_OP_TRUNC64 case OP_TRUNC64
+#define goto_OP_I64TOD case OP_I64TOD
+#define goto_OP_DTOI64 case OP_DTOI64
+#define goto_OP_I64TOF case OP_I64TOF
+#define goto_OP_FTOD case OP_FTOD
+#define goto_OP_DTOF case OP_DTOF
+#define goto_OP_ZEX8 case OP_ZEX8
+#define goto_OP_ZEX16 case OP_ZEX16
 #endif
 
 /******************************************************************************
@@ -263,7 +376,17 @@ const static char* opnames[OPCODE_TABLE_SIZE] = {
     "OP_MULU",   "OP_BAND",   "OP_BOR",    "OP_BXOR",  "OP_BCOM",
     "OP_LSH",    "OP_RSHI",   "OP_RSHU",   "OP_NEGF",  "OP_ADDF",
     "OP_SUBF",   "OP_DIVF",   "OP_MULF",   "OP_CVIF",  "OP_CVFI",
-    "OP_UNDEF",  "OP_UNDEF",  "OP_UNDEF",  "OP_UNDEF",
+    "OP_CONST8", "OP_LOAD8",  "OP_STORE8", "OP_ARG8",  "OP_CALL8",
+    "OP_ADD8",   "OP_SUB8",   "OP_MUL8",   "OP_DIVI8", "OP_DIVU8",
+    "OP_MODI8",  "OP_MODU8",  "OP_BAND8",  "OP_BOR8",  "OP_BXOR8",
+    "OP_BCOM8",  "OP_LSH8",   "OP_RSHI8",  "OP_RSHU8", "OP_NEGI8",
+    "OP_ADDD",   "OP_SUBD",   "OP_MULD",   "OP_DIVD",  "OP_NEGD",
+    "OP_EQ8",    "OP_NE8",    "OP_LTI8",   "OP_LEI8",  "OP_GTI8",
+    "OP_GEI8",   "OP_LTU8",   "OP_LEU8",   "OP_GTU8",  "OP_GEU8",
+    "OP_EQD",    "OP_NED",    "OP_LTD",    "OP_LED",   "OP_GTD",
+    "OP_GED",    "OP_SEXT32", "OP_ZEXT32", "OP_TRUNC64", "OP_I64TOD",
+    "OP_DTOI64", "OP_I64TOF", "OP_FTOD",   "OP_DTOF",   "OP_ZEX8",
+    "OP_ZEX16",
 };
 #endif
 
@@ -291,7 +414,7 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header);
  * @param[in] vm Pointer to initialized virtual machine.
  * @param[in] args Arguments for function call.
  * @return Return value of the function call. */
-static int VM_CallInterpreted(vm_t* vm, int* args);
+static intptr_t VM_CallInterpreted(vm_t* vm, int* args);
 
 /** Executes a block copy operation (memcpy) within currentVM data space.
  * @param[out] dest Pointer (in VM space).
@@ -499,7 +622,9 @@ static const vmHeader_t* VM_LoadQVM(vm_t* vm, const uint8_t* bytecode,
 
     /* allocate zero filled space for initialized and uninitialized data
      leave some space beyond data mask so we can secure all mask operations */
-    vm->dataAlloc = dataLength + 4;
+    /* 8-byte loads and stores at the top of the data can reach 7 bytes past
+       dataMask, so keep some slack */
+    vm->dataAlloc = dataLength + 8;
     vm->dataBase  = (uint8_t*)Com_malloc(vm->dataAlloc, vm, VM_ALLOC_DATA_SEC);
     vm->dataMask  = dataLength - 1;
     if (vm->dataBase == NULL)
@@ -627,6 +752,16 @@ float VM_IntToFloat(int32_t x)
     } fi;
     fi.i = x;
     return fi.f;
+}
+
+double VM_Int64ToDouble(int64_t x)
+{
+    union {
+        double  d;
+        int64_t i;
+    } di;
+    di.i = x;
+    return di.d;
 }
 
 int32_t VM_FloatToInt(float f)
@@ -761,12 +896,36 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_LEF:
         case OP_GTF:
         case OP_GEF:
+        case OP_EQ8:
+        case OP_NE8:
+        case OP_LTI8:
+        case OP_LEI8:
+        case OP_GTI8:
+        case OP_GEI8:
+        case OP_LTU8:
+        case OP_LEU8:
+        case OP_GTU8:
+        case OP_GEU8:
+        case OP_EQD:
+        case OP_NED:
+        case OP_LTD:
+        case OP_LED:
+        case OP_GTD:
+        case OP_GED:
         case OP_BLOCK_COPY:
             codeBase[int_pc] = LittleEndianToHost(&code[byte_pc]);
             byte_pc += 4;
             int_pc++;
             break;
+        case OP_CONST8:
+            /* 64-bit constant: low word first, two operand words */
+            codeBase[int_pc]     = LittleEndianToHost(&code[byte_pc]);
+            codeBase[int_pc + 1] = LittleEndianToHost(&code[byte_pc + 4]);
+            byte_pc += 8;
+            int_pc += 2;
+            break;
         case OP_ARG:
+        case OP_ARG8:
             codeBase[int_pc] = (int)code[byte_pc];
             byte_pc++;
             int_pc++;
@@ -813,6 +972,22 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_LEF:
         case OP_GTF:
         case OP_GEF:
+        case OP_EQ8:
+        case OP_NE8:
+        case OP_LTI8:
+        case OP_LEI8:
+        case OP_GTI8:
+        case OP_GEI8:
+        case OP_LTU8:
+        case OP_LEU8:
+        case OP_GTU8:
+        case OP_GEU8:
+        case OP_EQD:
+        case OP_NED:
+        case OP_LTD:
+        case OP_LED:
+        case OP_GTD:
+        case OP_GED:
             if (codeBase[int_pc] < 0 || codeBase[int_pc] > vm->instructionCount)
             {
                 Com_Error(vm->lastError = VM_JUMP_TO_INVALID_INSTRUCTION,
@@ -835,7 +1010,11 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
         case OP_LEAVE:
         case OP_BLOCK_COPY:
         case OP_ARG:
+        case OP_ARG8:
             int_pc++;
+            break;
+        case OP_CONST8:
+            int_pc += 2;
             break;
 
         default:
@@ -844,6 +1023,101 @@ static int VM_PrepareInterpreter(vm_t* vm, const vmHeader_t* header)
     }
     return 0;
 }
+
+/******************************************************************************
+ * 64-BIT HELPERS
+ ******************************************************************************/
+
+/* A 64-bit value takes two operand stack cells: the low word is in the cell
+ * below the high word. "top" is the index of the high word. */
+static int64_t StackGet64(const int* s, uint8_t top)
+{
+    uint64_t lo = (uint32_t)s[(uint8_t)(top - 1)];
+    uint64_t hi = (uint32_t)s[top];
+    return (int64_t)((hi << 32) | lo);
+}
+
+static void StackSet64(int* s, uint8_t top, int64_t v)
+{
+    uint64_t u            = (uint64_t)v;
+    s[(uint8_t)(top - 1)] = (int)(uint32_t)u;
+    s[top]                = (int)(uint32_t)(u >> 32);
+}
+
+static double StackGetD(const int* s, uint8_t top)
+{
+    union {
+        double   d;
+        uint64_t u;
+    } x;
+    x.u = (uint64_t)StackGet64(s, top);
+    return x.d;
+}
+
+static void StackSetD(int* s, uint8_t top, double d)
+{
+    union {
+        double   d;
+        uint64_t u;
+    } x;
+    x.d = d;
+    StackSet64(s, top, (int64_t)x.u);
+}
+
+/* C leaves INT64_MIN / -1 and out of range float to integer conversions
+ * undefined, so give them a defined result. */
+static int64_t DivI64(int64_t a, int64_t b)
+{
+    if (b == -1)
+    {
+        return (int64_t)(0 - (uint64_t)a);
+    }
+    return a / b;
+}
+
+static int64_t ModI64(int64_t a, int64_t b)
+{
+    if (b == -1)
+    {
+        return 0;
+    }
+    return a % b;
+}
+
+static int64_t DoubleToI64(double d)
+{
+    if (d != d) /* NaN */
+    {
+        return 0;
+    }
+    if (d >= 9223372036854775808.0)
+    {
+        return INT64_MAX;
+    }
+    if (d < -9223372036854775808.0)
+    {
+        return INT64_MIN;
+    }
+    return (int64_t)d;
+}
+
+/* Operands of a 64-bit or double op. After opStackOfs has been moved to the
+ * high word of the first operand, the second operand is 2 cells above it. */
+#define OPERAND64(n) StackGet64(opStack, (uint8_t)(opStackOfs + (n)))
+#define OPERANDD(n) StackGetD(opStack, (uint8_t)(opStackOfs + (n)))
+
+/* Jump to the operand address if cond is true, else continue */
+#define JUMP_IF(cond)                                                          \
+    if (cond)                                                                  \
+    {                                                                          \
+        programCounter = r2;                                                   \
+        DISPATCH();                                                            \
+    }                                                                          \
+    else                                                                       \
+    {                                                                          \
+        programCounter += 1;                                                   \
+        DISPATCH();                                                            \
+    }
 
 /*
 ==============
@@ -868,7 +1142,7 @@ locals from sp
 ==============
 */
 
-static int VM_CallInterpreted(vm_t* vm, int* args)
+static intptr_t VM_CallInterpreted(vm_t* vm, int* args)
 {
     uint8_t  stack[OPSTACK_SIZE + 15];
     int*     opStack;
@@ -881,6 +1155,9 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
     int      v1;
     int      dataMask;
     int      arg;
+    int      wideReturn; /* syscall result is 64-bit (OP_CALL8) */
+    int64_t  a64;
+    double   d1;
 #ifdef DEBUG_VM
     vmSymbol_t* profileSymbol;
 #endif
@@ -946,10 +1223,29 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         &&goto_OP_RSHI,   &&goto_OP_RSHU,       &&goto_OP_NEGF,
         &&goto_OP_ADDF,   &&goto_OP_SUBF,       &&goto_OP_DIVF,
         &&goto_OP_MULF,   &&goto_OP_CVIF,       &&goto_OP_CVFI,
-        &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
-        &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
-        &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
-        &&goto_OP_UNDEF, /* Invalid OP CODE for opcode_table_mask */
+        &&goto_OP_CONST8, &&goto_OP_LOAD8,      &&goto_OP_STORE8,
+        &&goto_OP_ARG8,   &&goto_OP_CALL8,      &&goto_OP_ADD8,
+        &&goto_OP_SUB8,   &&goto_OP_MUL8,       &&goto_OP_DIVI8,
+        &&goto_OP_DIVU8,  &&goto_OP_MODI8,      &&goto_OP_MODU8,
+        &&goto_OP_BAND8,  &&goto_OP_BOR8,       &&goto_OP_BXOR8,
+        &&goto_OP_BCOM8,  &&goto_OP_LSH8,       &&goto_OP_RSHI8,
+        &&goto_OP_RSHU8,  &&goto_OP_NEGI8,      &&goto_OP_ADDD,
+        &&goto_OP_SUBD,   &&goto_OP_MULD,       &&goto_OP_DIVD,
+        &&goto_OP_NEGD,   &&goto_OP_EQ8,        &&goto_OP_NE8,
+        &&goto_OP_LTI8,   &&goto_OP_LEI8,       &&goto_OP_GTI8,
+        &&goto_OP_GEI8,   &&goto_OP_LTU8,       &&goto_OP_LEU8,
+        &&goto_OP_GTU8,   &&goto_OP_GEU8,       &&goto_OP_EQD,
+        &&goto_OP_NED,    &&goto_OP_LTD,        &&goto_OP_LED,
+        &&goto_OP_GTD,    &&goto_OP_GED,        &&goto_OP_SEXT32,
+        &&goto_OP_ZEXT32, &&goto_OP_TRUNC64,    &&goto_OP_I64TOD,
+        &&goto_OP_DTOI64, &&goto_OP_I64TOF,     &&goto_OP_FTOD,
+        &&goto_OP_DTOF,   &&goto_OP_ZEX8,       &&goto_OP_ZEX16,
+        /* Invalid OP CODE for opcode_table_mask */
+        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF, &&goto_OP_UNDEF,
+        &&goto_OP_UNDEF,
     };
 #define DISPATCH2()                                                            \
     opcode = codeImage[programCounter++];                                      \
@@ -1073,7 +1369,12 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             programCounter += 1;
             opStackOfs -= 2;
             DISPATCH();
+        goto_OP_CALL8:
+            wideReturn = 1;
+            goto callOp;
         goto_OP_CALL:
+            wideReturn = 0;
+        callOp:
             /* save current program counter */
             *(int*)&image[programStack] = programCounter;
 
@@ -1082,7 +1383,7 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
             opStackOfs--;
             if (programCounter < 0) /* system call */
             {
-                int r;
+                intptr_t r;
 #ifdef DEBUG_VM
                 if (vm_debugLevel)
                 {
@@ -1122,8 +1423,16 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
 #endif
 
                 /* save return value */
-                opStackOfs++;
-                opStack[opStackOfs] = r;
+                if (wideReturn)
+                {
+                    opStackOfs += 2;
+                    StackSet64(opStack, opStackOfs, (int64_t)r);
+                }
+                else
+                {
+                    opStackOfs++;
+                    opStack[opStackOfs] = (int)r;
+                }
                 programCounter      = *(int*)&image[programStack];
 #ifdef DEBUG_VM
                 if (vm_debugLevel)
@@ -1533,13 +1842,230 @@ static int VM_CallInterpreted(vm_t* vm, int* args)
         goto_OP_SEX16:
             opStack[opStackOfs] = (int16_t)opStack[opStackOfs];
             DISPATCH();
+
+        /*===================================================================*/
+        /* 64-bit integers and doubles, see StackGet64 for the layout */
+
+        goto_OP_CONST8:
+            opStackOfs += 2;
+            opStack[(uint8_t)(opStackOfs - 1)] = codeImage[programCounter];
+            opStack[opStackOfs]                = codeImage[programCounter + 1];
+            programCounter += 2;
+            DISPATCH();
+        goto_OP_LOAD8:
+            memcpy(&a64, &image[r0 & dataMask], sizeof(a64));
+            opStackOfs++;
+            StackSet64(opStack, opStackOfs, a64);
+            DISPATCH();
+        goto_OP_STORE8:
+            a64 = StackGet64(opStack, opStackOfs);
+            memcpy(&image[opStack[(uint8_t)(opStackOfs - 2)] & dataMask], &a64,
+                   sizeof(a64));
+            opStackOfs -= 3;
+            DISPATCH();
+        goto_OP_ARG8:
+            /* single byte offset from programStack */
+            a64 = StackGet64(opStack, opStackOfs);
+            memcpy(&image[(codeImage[programCounter] + programStack) &
+                          dataMask],
+                   &a64, sizeof(a64));
+            opStackOfs -= 2;
+            programCounter += 1;
+            DISPATCH();
+
+        goto_OP_ADD8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) +
+                                 (uint64_t)OPERAND64(2)));
+            DISPATCH();
+        goto_OP_SUB8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) -
+                                 (uint64_t)OPERAND64(2)));
+            DISPATCH();
+        goto_OP_MUL8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) *
+                                 (uint64_t)OPERAND64(2)));
+            DISPATCH();
+        goto_OP_DIVI8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs, DivI64(OPERAND64(0), OPERAND64(2)));
+            DISPATCH();
+        goto_OP_DIVU8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) /
+                                 (uint64_t)OPERAND64(2)));
+            DISPATCH();
+        goto_OP_MODI8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs, ModI64(OPERAND64(0), OPERAND64(2)));
+            DISPATCH();
+        goto_OP_MODU8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) %
+                                 (uint64_t)OPERAND64(2)));
+            DISPATCH();
+        goto_OP_BAND8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs, OPERAND64(0) & OPERAND64(2));
+            DISPATCH();
+        goto_OP_BOR8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs, OPERAND64(0) | OPERAND64(2));
+            DISPATCH();
+        goto_OP_BXOR8:
+            opStackOfs -= 2;
+            StackSet64(opStack, opStackOfs, OPERAND64(0) ^ OPERAND64(2));
+            DISPATCH();
+        goto_OP_BCOM8:
+            StackSet64(opStack, opStackOfs, ~OPERAND64(0));
+            DISPATCH();
+        goto_OP_LSH8:
+            /* the shift count is a single cell on top of the value */
+            v1 = opStack[opStackOfs] & 63;
+            opStackOfs--;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) << v1));
+            DISPATCH();
+        goto_OP_RSHI8:
+            v1 = opStack[opStackOfs] & 63;
+            opStackOfs--;
+            StackSet64(opStack, opStackOfs, OPERAND64(0) >> v1);
+            DISPATCH();
+        goto_OP_RSHU8:
+            v1 = opStack[opStackOfs] & 63;
+            opStackOfs--;
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)((uint64_t)OPERAND64(0) >> v1));
+            DISPATCH();
+        goto_OP_NEGI8:
+            StackSet64(opStack, opStackOfs,
+                       (int64_t)(0 - (uint64_t)OPERAND64(0)));
+            DISPATCH();
+
+        goto_OP_ADDD:
+            opStackOfs -= 2;
+            StackSetD(opStack, opStackOfs, OPERANDD(0) + OPERANDD(2));
+            DISPATCH();
+        goto_OP_SUBD:
+            opStackOfs -= 2;
+            StackSetD(opStack, opStackOfs, OPERANDD(0) - OPERANDD(2));
+            DISPATCH();
+        goto_OP_MULD:
+            opStackOfs -= 2;
+            StackSetD(opStack, opStackOfs, OPERANDD(0) * OPERANDD(2));
+            DISPATCH();
+        goto_OP_DIVD:
+            opStackOfs -= 2;
+            StackSetD(opStack, opStackOfs, OPERANDD(0) / OPERANDD(2));
+            DISPATCH();
+        goto_OP_NEGD:
+            StackSetD(opStack, opStackOfs, -OPERANDD(0));
+            DISPATCH();
+
+        /* the two operands are 4 cells: jump target is the operand word */
+        goto_OP_EQ8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) == OPERAND64(4));
+        goto_OP_NE8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) != OPERAND64(4));
+        goto_OP_LTI8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) < OPERAND64(4));
+        goto_OP_LEI8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) <= OPERAND64(4));
+        goto_OP_GTI8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) > OPERAND64(4));
+        goto_OP_GEI8:
+            opStackOfs -= 4;
+            JUMP_IF(OPERAND64(2) >= OPERAND64(4));
+        goto_OP_LTU8:
+            opStackOfs -= 4;
+            JUMP_IF((uint64_t)OPERAND64(2) < (uint64_t)OPERAND64(4));
+        goto_OP_LEU8:
+            opStackOfs -= 4;
+            JUMP_IF((uint64_t)OPERAND64(2) <= (uint64_t)OPERAND64(4));
+        goto_OP_GTU8:
+            opStackOfs -= 4;
+            JUMP_IF((uint64_t)OPERAND64(2) > (uint64_t)OPERAND64(4));
+        goto_OP_GEU8:
+            opStackOfs -= 4;
+            JUMP_IF((uint64_t)OPERAND64(2) >= (uint64_t)OPERAND64(4));
+        goto_OP_EQD:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) == OPERANDD(4));
+        goto_OP_NED:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) != OPERANDD(4));
+        goto_OP_LTD:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) < OPERANDD(4));
+        goto_OP_LED:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) <= OPERANDD(4));
+        goto_OP_GTD:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) > OPERANDD(4));
+        goto_OP_GED:
+            opStackOfs -= 4;
+            JUMP_IF(OPERANDD(2) >= OPERANDD(4));
+
+        goto_OP_SEXT32:
+            opStackOfs++;
+            opStack[opStackOfs] =
+                (opStack[(uint8_t)(opStackOfs - 1)] < 0) ? -1 : 0;
+            DISPATCH();
+        goto_OP_ZEXT32:
+            opStackOfs++;
+            opStack[opStackOfs] = 0;
+            DISPATCH();
+        goto_OP_TRUNC64:
+            opStackOfs--;
+            DISPATCH();
+        goto_OP_I64TOD:
+            StackSetD(opStack, opStackOfs, (double)OPERAND64(0));
+            DISPATCH();
+        goto_OP_DTOI64:
+            StackSet64(opStack, opStackOfs, DoubleToI64(OPERANDD(0)));
+            DISPATCH();
+        goto_OP_I64TOF:
+            a64 = OPERAND64(0);
+            opStackOfs--;
+            ((float*)opStack)[opStackOfs] = (float)a64;
+            DISPATCH();
+        goto_OP_FTOD:
+            d1 = ((float*)opStack)[opStackOfs];
+            opStackOfs++;
+            StackSetD(opStack, opStackOfs, d1);
+            DISPATCH();
+        goto_OP_DTOF:
+            d1 = OPERANDD(0);
+            opStackOfs--;
+            ((float*)opStack)[opStackOfs] = (float)d1;
+            DISPATCH();
+        goto_OP_ZEX8:
+            opStack[opStackOfs] = (uint8_t)opStack[opStackOfs];
+            DISPATCH();
+        goto_OP_ZEX16:
+            opStack[opStackOfs] = (uint16_t)opStack[opStackOfs];
+            DISPATCH();
         }
     }
 
 done:
     vm->currentlyInterpreting = 0;
 
-    if (opStackOfs != 1 || *opStack != 0x0000BEEF)
+    /* one result cell, or two for a 64-bit result */
+    if ((opStackOfs != 1 && opStackOfs != 2) || *opStack != 0x0000BEEF)
     {
         Com_Error(vm->lastError = VM_STACK_ERROR,
                   "Interpreter stack error");
@@ -1548,7 +2074,11 @@ done:
     vm->programStack = stackOnEntry;
 
     /* return the result of the bytecode computations */
-    return opStack[opStackOfs];
+    if (opStackOfs == 2)
+    {
+        return (intptr_t)StackGet64(opStack, 2);
+    }
+    return opStack[1];
 }
 
 /* DEBUG FUNCTIONS */

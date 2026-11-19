@@ -580,7 +580,7 @@ Tree cast(Tree p, Type type) {
 										p, consttree(1, inttype)), NULL)),
 							simplify(CVU, ssrc,
 								simplify(BAND, src,
-									p, consttree(1, unsignedtype)), NULL));
+									p, consttree(1, src)), NULL));
 					} else
 						p = simplify(CVU, dst, p, NULL);
 					break;
@@ -592,7 +592,7 @@ Tree cast(Tree p, Type type) {
 							simplify(GE, src, p, c),
 							(*optree['+'])(ADD,
 								cast(cast(simplify(SUB, src, p, c), sdst), dst),
-								cast(cnsttree(unsignedlong, (unsigned long)sdst->u.sym->u.limits.max.i + 1), dst)),
+								cnsttree(dst, (unsigned long)sdst->u.sym->u.limits.max.i + 1)),
 							simplify(CVF, sdst, p, NULL));
 					} else
 						p = simplify(CVF, dst, p, NULL);

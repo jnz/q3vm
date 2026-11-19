@@ -694,31 +694,61 @@ int gettok(void) {
 		}
 	}
 }
+/* does n fit in the integer type t? */
+static int fits(Type t, unsigned long n) {
+	if (t->op == INT)
+		return n <= (unsigned long)t->u.sym->u.limits.max.i;
+	return n <= t->u.sym->u.limits.max.u;
+}
+/* C rules: the first type in the candidate list that can hold the value */
+static Type intconstant(unsigned long n, int overflow, int base, int u, int l) {
+	Type cand[6];
+	int k = 0, i;
+
+	if (u == 0 && l == 0) {
+		cand[k++] = inttype;
+		if (base != 10)
+			cand[k++] = unsignedtype;
+		cand[k++] = longtype;
+		if (base != 10)
+			cand[k++] = unsignedlong;
+		cand[k++] = longlong;
+		if (base != 10)
+			cand[k++] = unsignedlonglong;
+	} else if (u == 0 && l == 1) {
+		cand[k++] = longtype;
+		cand[k++] = longlong;
+	} else if (u == 0) {
+		cand[k++] = longlong;
+	} else if (l == 0) {
+		cand[k++] = unsignedtype;
+		cand[k++] = unsignedlong;
+		cand[k++] = unsignedlonglong;
+	} else if (l == 1) {
+		cand[k++] = unsignedlong;
+		cand[k++] = unsignedlonglong;
+	} else {
+		cand[k++] = unsignedlonglong;
+	}
+	for (i = 0; i < k; i++)
+		if (!overflow && fits(cand[i], n))
+			return cand[i];
+	return cand[k - 1];
+}
 static Symbol icon(unsigned long n, int overflow, int base) {
-	if (((*cp=='u'||*cp=='U') && (cp[1]=='l'||cp[1]=='L'))
-	||  ((*cp=='l'||*cp=='L') && (cp[1]=='u'||cp[1]=='U'))) {
-		tval.type = unsignedlong;
-		cp += 2;
-	} else if (*cp == 'u' || *cp == 'U') {
-		if (overflow || n > unsignedtype->u.sym->u.limits.max.i)
-			tval.type = unsignedlong;
+	int u = 0, l = 0;
+
+	/* integer suffixes: any order of u, l, ll */
+	for (;;) {
+		if ((*cp == 'u' || *cp == 'U') && u == 0)
+			u = 1;
+		else if ((*cp == 'l' || *cp == 'L') && l < 2)
+			l++;
 		else
-			tval.type = unsignedtype;
-		cp += 1;
-	} else if (*cp == 'l' || *cp == 'L') {
-		if (overflow || n > longtype->u.sym->u.limits.max.i)
-			tval.type = unsignedlong;
-		else
-			tval.type = longtype;
-		cp += 1;
-	} else if (overflow || n > longtype->u.sym->u.limits.max.i)
-		tval.type = unsignedlong;
-	else if (n > inttype->u.sym->u.limits.max.i)
-		tval.type = longtype;
-	else if (base != 10 && n > inttype->u.sym->u.limits.max.i)
-		tval.type = unsignedtype;
-	else
-		tval.type = inttype;
+			break;
+		cp++;
+	}
+	tval.type = intconstant(n, overflow, base, u, l);
 	switch (tval.type->op) {
 	case INT:
 		if (overflow || n > tval.type->u.sym->u.limits.max.i) {

@@ -113,7 +113,66 @@ typedef enum {
     OP_MULF,
 
     OP_CVIF,
-    OP_CVFI
+    OP_CVFI,
+
+    /* 64-bit integers and doubles, same order as in vm.c */
+    OP_CONST8,
+    OP_LOAD8,
+    OP_STORE8,
+    OP_ARG8,
+    OP_CALL8,
+
+    OP_ADD8,
+    OP_SUB8,
+    OP_MUL8,
+    OP_DIVI8,
+    OP_DIVU8,
+    OP_MODI8,
+    OP_MODU8,
+    OP_BAND8,
+    OP_BOR8,
+    OP_BXOR8,
+    OP_BCOM8,
+    OP_LSH8,
+    OP_RSHI8,
+    OP_RSHU8,
+    OP_NEGI8,
+
+    OP_ADDD,
+    OP_SUBD,
+    OP_MULD,
+    OP_DIVD,
+    OP_NEGD,
+
+    OP_EQ8,
+    OP_NE8,
+    OP_LTI8,
+    OP_LEI8,
+    OP_GTI8,
+    OP_GEI8,
+    OP_LTU8,
+    OP_LEU8,
+    OP_GTU8,
+    OP_GEU8,
+
+    OP_EQD,
+    OP_NED,
+    OP_LTD,
+    OP_LED,
+    OP_GTD,
+    OP_GED,
+
+    OP_SEXT32,
+    OP_ZEXT32,
+    OP_TRUNC64,
+    OP_I64TOD,
+    OP_DTOI64,
+    OP_I64TOF,
+    OP_FTOD,
+    OP_DTOF,
+
+    OP_ZEX8,
+    OP_ZEX16
 } opcode_t;
 
 typedef enum {
@@ -871,13 +930,21 @@ static void HackToSegment(segmentName_t seg)
  -PH
 */
 
+/* the 64-bit versions of the LCC IR ops end with 8, e.g. ARGI8, CALLF8 */
+static int IsWideOp(void)
+{
+    size_t n = strlen(token);
+    return n > 0 && token[n - 1] == '8';
+}
+
 // call instructions reset currentArgOffset
+// CALLI8 (and friends) return a 64-bit value
 ASM(CALL)
 {
     if (!strncmp(token, "CALL", 4))
     {
         STAT("CALL");
-        EmitByte(&segment[CODESEG], OP_CALL);
+        EmitByte(&segment[CODESEG], IsWideOp() ? OP_CALL8 : OP_CALL);
         instructionCount++;
         currentArgOffset = 0;
         return 1;
@@ -886,20 +953,27 @@ ASM(CALL)
 }
 
 // arg is converted to a reversed store
+// 64-bit arguments are 8 byte aligned, the same as the callee's parameters
 ASM(ARG)
 {
     if (!strncmp(token, "ARG", 3))
     {
+        int is8 = IsWideOp();
+
         STAT("ARG");
-        EmitByte(&segment[CODESEG], OP_ARG);
+        EmitByte(&segment[CODESEG], is8 ? OP_ARG8 : OP_ARG);
         instructionCount++;
+        if (is8)
+        {
+            currentArgOffset = (currentArgOffset + 7) & ~7;
+        }
         if (8 + currentArgOffset >= 256)
         {
             CodeError("currentArgOffset >= 256");
             return 1;
         }
         EmitByte(&segment[CODESEG], 8 + currentArgOffset);
-        currentArgOffset += 4;
+        currentArgOffset += is8 ? 8 : 4;
         return 1;
     }
     return 0;
@@ -1224,6 +1298,142 @@ ASM(LABEL)
     return 0;
 }
 
+static void EmitOp(int opcode)
+{
+    EmitByte(&segment[CODESEG], opcode);
+    instructionCount++;
+}
+
+/* truncate to a 1 or 2 byte integer: sign extend for signed, zero extend for
+ * unsigned types, so that the value in the cell is the converted value */
+static void EmitNarrow(char dst, int dstSize)
+{
+    if (dst == 'I')
+    {
+        EmitOp(dstSize == 1 ? OP_SEX8 : OP_SEX16);
+    }
+    else
+    {
+        EmitOp(dstSize == 1 ? OP_ZEX8 : OP_ZEX16);
+    }
+}
+
+/*
+==============
+AssembleConversion
+
+LCC names conversions CV<src><dst><dstsize> and gives the source size as the
+operand, e.g. CVII4 1 (char to int), CVFI8 8 (double to long long). The source
+size decides which ops are needed. A value of 8 bytes takes two stack cells.
+==============
+*/
+static void AssembleConversion(void)
+{
+    char src     = token[2];
+    char dst     = token[3];
+    int  dstSize = token[4] - '0';
+    int  srcSize;
+
+    Parse();
+    srcSize = atoiNoCap(token);
+
+    if (dst == 'F')
+    {
+        if (dstSize == 8)
+        {
+            if (src == 'F')
+            {
+                if (srcSize == 4)
+                {
+                    EmitOp(OP_FTOD);
+                }
+            }
+            else
+            {
+                if (srcSize != 8)
+                {
+                    EmitOp(src == 'U' ? OP_ZEXT32 : OP_SEXT32);
+                }
+                EmitOp(OP_I64TOD);
+            }
+        }
+        else if (src == 'F')
+        {
+            if (srcSize == 8)
+            {
+                EmitOp(OP_DTOF);
+            }
+        }
+        else if (srcSize == 8)
+        {
+            EmitOp(OP_I64TOF);
+        }
+        else
+        {
+            EmitOp(OP_CVIF);
+        }
+    }
+    else if (src == 'F')
+    {
+        if (srcSize == 4)
+        {
+            if (dstSize == 8)
+            {
+                EmitOp(OP_FTOD);
+                EmitOp(OP_DTOI64);
+            }
+            else
+            {
+                EmitOp(OP_CVFI);
+            }
+        }
+        else
+        {
+            EmitOp(OP_DTOI64);
+            if (dstSize != 8)
+            {
+                EmitOp(OP_TRUNC64);
+            }
+        }
+    }
+    else if (srcSize == 8)
+    {
+        if (dstSize != 8)
+        {
+            EmitOp(OP_TRUNC64);
+            if (dstSize < 4)
+            {
+                EmitNarrow(dst, dstSize);
+            }
+        }
+    }
+    else if (dstSize == 8)
+    {
+        if (src == 'I' && srcSize == 1)
+        {
+            EmitOp(OP_SEX8);
+        }
+        else if (src == 'I' && srcSize == 2)
+        {
+            EmitOp(OP_SEX16);
+        }
+        EmitOp(src == 'I' ? OP_SEXT32 : OP_ZEXT32);
+    }
+    else if (dstSize == 4 && src == 'I' && srcSize == 1)
+    {
+        EmitOp(OP_SEX8);
+    }
+    else if (dstSize == 4 && src == 'I' && srcSize == 2)
+    {
+        EmitOp(OP_SEX16);
+    }
+    else if (dstSize < 4 && srcSize > dstSize)
+    {
+        EmitNarrow(dst, dstSize);
+    }
+    /* otherwise the value is already in the right form, e.g. CVUI4 4 */
+}
+
 /*
 ==============
 AssembleLine
@@ -1240,6 +1450,12 @@ static void AssembleLine(void)
     Parse();
     if (!token[0])
     {
+        return;
+    }
+
+    if (!strncmp(token, "CV", 2))
+    {
+        AssembleConversion();
         return;
     }
 
@@ -1270,30 +1486,25 @@ static void AssembleLine(void)
                 return; // we ignore most conversions
             }
 
-            // sign extensions need to check next parm
             opcode = op->opcode;
-            if (opcode == OP_SEX8)
-            {
-                Parse();
-                if (token[0] == '1')
-                {
-                    opcode = OP_SEX8;
-                }
-                else if (token[0] == '2')
-                {
-                    opcode = OP_SEX16;
-                }
-                else
-                {
-                    CodeError("Bad sign extension: %s\n", token);
-                    return;
-                }
-            }
 
             // check for expression
             Parse();
-            if (token[0] && op->opcode != OP_CVIF && op->opcode != OP_CVFI)
+            if (token[0])
             {
+                if (opcode == OP_CONST8)
+                {
+                    /* 64-bit constants do not fit in an expression: low word
+                       first, like the data segment */
+                    uint64_t value = strtoull(token, NULL, 10);
+
+                    EmitByte(&segment[CODESEG], opcode);
+                    EmitInt(&segment[CODESEG], (int)(uint32_t)value);
+                    EmitInt(&segment[CODESEG], (int)(uint32_t)(value >> 32));
+                    instructionCount++;
+                    return;
+                }
+
                 expression = ParseExpression();
 
                 // code like this can generate non-dword block copies:
