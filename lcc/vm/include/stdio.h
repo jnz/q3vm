@@ -27,6 +27,8 @@ int printf(const char* fmt, ...);
 int fprintf(FILE* f, const char* fmt, ...);
 int sprintf(char* buf, const char* fmt, ...);
 int sscanf(const char* buf, const char* fmt, ...);
+int vprintf(const char* fmt, va_list ap);
+int vfprintf(FILE* f, const char* fmt, va_list ap);
 
 FILE* fopen(const char* name, const char* mode);
 FILE* freopen(const char* name, const char* mode, FILE* f);

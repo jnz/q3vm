@@ -18,21 +18,27 @@ ifeq ($(WIDTH),64)
 TARGET   = bytecode64
 WIDE_DEF =
 VM_DEF   = -DQ3VM_INT64
+VMLIB_DEF = 
 else ifeq ($(WIDTH),32)
 TARGET   = bytecode
 WIDE_DEF = -DLCC_WIDE32
 VM_DEF   =
+VMLIB_DEF = -DLCC_WIDE32
 else
 $(error WIDTH must be 32 or 64)
 endif
 
+# the objects depend on WIDTH, which make does not see: a change of width
+# removes them first
+$(shell mkdir -p build; [ "$$(cat build/.width 2>/dev/null)" = "$(WIDTH)" ] || (rm -rf build/rcc_* build/vm*.asm build/bg_lib.asm rcc.qvm vmrcc vmrcc_checked; echo $(WIDTH) > build/.width))
+
 HOST_CC     = gcc
-HOST_CFLAGS = -std=gnu99 -O2 -ffp-contract=off -Wall -Wextra -I../../src/vm $(VM_DEF)
+HOST_CFLAGS = -std=gnu99 -O2 -ffp-contract=off -Wall -Wextra -I../../src/vm $(VM_DEF) -DVM_LOG_STDERR
 
 # -N: only the headers in include/ are used, never the host system headers.
 # A -I directory is relative to the directory of the source file, not to the
 # current directory, so the rcc sources in ../src use ../vm/include.
-VM_CFLAGS = -S -Wf-target=$(TARGET) -N
+VM_CFLAGS = -S -Wf-target=$(TARGET) -N $(WIDE_DEF)
 
 RCC_SRCS = $(wildcard ../src/*.c)
 RCC_ASMS = $(patsubst ../src/%.c,build/rcc_%.asm,$(RCC_SRCS))
@@ -53,7 +59,7 @@ build/vmmain.asm: vmmain.c vmsys.h
 
 build/vmlib.asm: vmlib.c vmsys.h
 	@mkdir -p build
-	lcc $(VM_CFLAGS) -Iinclude -o $@ $<
+	lcc $(VM_CFLAGS) $(VMLIB_DEF) -Iinclude -o $@ $<
 
 build/bg_lib.asm: ../../test/bg_lib.c ../../test/bg_lib.h
 	@mkdir -p build
@@ -62,20 +68,75 @@ build/bg_lib.asm: ../../test/bg_lib.c ../../test/bg_lib.h
 rcc.qvm: $(addsuffix .asm,$(LIB_OBJS)) $(RCC_ASMS) vm_syscalls.asm
 	q3asm -o rcc $(LIB_OBJS) $(RCC_OBJS) vm_syscalls
 
-vmrcc: vmrcc.c ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -o $@ vmrcc.c ../../src/vm/vm.c -lm
+vmrcc: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
 
 # checked runner: a valgrind-like VM, see VM_CHECKED in src/vm/vm.c
-vmrcc_checked: vmrcc.c ../../src/vm/vm.c ../../src/vm/vm.h
-	$(HOST_CC) $(HOST_CFLAGS) -DVM_CHECKED -o $@ vmrcc.c ../../src/vm/vm.c -lm
+vmrcc_checked: vmrcc.c vmhost.c vmhost.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DVM_CHECKED -o $@ vmrcc.c vmhost.c ../../src/vm/vm.c -lm
 
 # every source of the compiler, compiled by the VM and by the native compiler,
 # the output must be the same. The checked VM also reports memory and stack errors.
-test: all vmrcc_checked
+test: all vmrcc_checked runexamples
 	TARGET=$(TARGET) ./check.sh -I ../vm/include ../src/*.c
 	TARGET=$(TARGET) VMRCC=$(abspath vmrcc_checked) ./check.sh -I ../vm/include ../src/*.c
 
+# lcc-run: one executable with the compiler, the runtime, the preprocessor, the
+# assembler and the include files inside it (see lcc-run.c and payload.py)
+LCC_RUN_HEADERS = $(wildcard include/*.h)
+LCC_RUN_PAYLOAD = bin/q3cpp=../../bin/linux/q3cpp q3asm.qvm=q3asm.qvm \
+	rcc.qvm=rcc.qvm lib/vmmain.asm=build/vmmain.asm lib/vmlib.asm=build/vmlib.asm \
+	lib/bg_lib.asm=build/bg_lib.asm lib/vm_syscalls.asm=vm_syscalls.asm \
+	$(foreach h,$(LCC_RUN_HEADERS),$(h)=$(h))
+
+payload.c: rcc.qvm build/vmmain.asm build/vmlib.asm build/bg_lib.asm vm_syscalls.asm \
+	$(LCC_RUN_HEADERS) ../../bin/linux/q3cpp q3asm.qvm payload.py
+	python3 -I payload.py payload.c $(LCC_RUN_PAYLOAD)
+
+lcc-run: lcc-run.c vmhost.c vmhost.h payload.c payload.h ../../src/vm/vm.c ../../src/vm/vm.h
+	$(HOST_CC) $(HOST_CFLAGS) -DQ3VM_INT64 -DLCC_RUN_WIDTH=$(WIDTH) -o $@ lcc-run.c vmhost.c payload.c ../../src/vm/vm.c -lm
+
 clean:
+	rm -rf build64 q3asm.qvm
+	rm -f payload.c lcc-run
 	rm -rf build rcc.qvm vmrcc vmrcc_checked
 
 .PHONY: all clean test
+
+runexamples: all lcc-run
+	@for f in examples/*.c; do \
+	    b=$${f%.c}; \
+	    ./lcc-run $$f alpha beta > $$b.out 2>/dev/null && diff -q $$b.out $$b.expected >/dev/null && echo "ok   $$f" || { echo "FAIL $$f"; exit 1; }; \
+	done
+
+# q3asm.qvm: the assembler as a VM image. It uses 64-bit integers, so it is built
+# for the bytecode64 target whatever WIDTH is, with a runtime library of its own
+# (build64). The VM that runs it must be built with Q3VM_INT64, as lcc-run is.
+Q3ASM_INCLUDE = ../lcc/vm/include # relative to the source directory, ../../q3asm
+
+build64/vmmain.asm: vmmain.c vmsys.h
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -Iinclude -o $@ $<
+
+build64/vmlib.asm: vmlib.c vmsys.h
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -Iinclude -o $@ $<
+
+build64/bg_lib.asm: ../../test/bg_lib.c ../../test/bg_lib.h
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -o $@ $<
+
+build64/q3asm.asm: ../../q3asm/q3asm.c ../../q3asm/opstrings.h ../../q3asm/cmdlib.h \
+	../../q3asm/q_platform.h $(wildcard include/*.h)
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -I$(Q3ASM_INCLUDE) -I../../q3asm -o $@ ../../q3asm/q3asm.c
+
+build64/cmdlib.asm: ../../q3asm/cmdlib.c ../../q3asm/cmdlib.h $(wildcard include/*.h)
+	@mkdir -p build64
+	lcc -S -Wf-target=bytecode64 -N -I$(Q3ASM_INCLUDE) -I../../q3asm -o $@ ../../q3asm/cmdlib.c
+
+q3asm.qvm: build64/vmmain.asm build64/vmlib.asm build64/bg_lib.asm build64/q3asm.asm \
+	build64/cmdlib.asm vm_syscalls.asm
+	../../bin/linux/q3asm -o q3asm build64/vmmain build64/vmlib build64/bg_lib \
+		build64/q3asm build64/cmdlib vm_syscalls
+

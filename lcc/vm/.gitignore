@@ -5,3 +5,8 @@ __pycache__/
 *.asm.tmp
 vmrcc
 vmrcc_checked
+examples/*.out
+payload.c
+lcc-run
+build64/
+q3asm.qvm

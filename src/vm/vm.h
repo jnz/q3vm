@@ -40,8 +40,12 @@
 /**< Maximum length of a pathname, 64 to be Q3 compatible */
 #define VM_MAX_QPATH 64
 
-/** Redirect printf() calls with this macro */
+/** Redirect printf() calls with this macro, a host may define its own first */
+#ifdef VM_LOG_STDERR
+#define Com_Printf(...) fprintf(stderr, __VA_ARGS__)
+#elif !defined(Com_Printf)
 #define Com_Printf printf
+#endif
 
 /** Redirect memset() calls with this macro */
 #define Com_Memset memset

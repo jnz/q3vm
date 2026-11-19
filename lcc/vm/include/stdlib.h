@@ -20,6 +20,10 @@ int atoi(const char* s);
 long atol(const char* s);
 double atof(const char* s);
 long strtol(const char* s, char** end, int base);
+#ifndef LCC_WIDE32
+unsigned long long strtoull(const char* s, char** end, int base);
+long long atoll(const char* s);
+#endif
 double strtod(const char* s, char** end);
 
 typedef int cmp_t(const void*, const void*);

@@ -8,6 +8,7 @@ extern int errno;
 #define ENOENT 2
 #define EACCES 13
 #define EINVAL 22
+#define EEXIST 17
 #define ERANGE 34
 
 #endif

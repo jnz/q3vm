@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "vmsys.h"
 
 int vsprintf(char* buffer, const char* fmt, va_list argptr);
@@ -597,4 +599,135 @@ int sprintf(char* buf, const char* fmt, ...)
     len = vsprintf(buf, fmt, ap);
     va_end(ap);
     return len;
+}
+
+int vprintf(const char* fmt, va_list ap)
+{
+    return vprintf_to(stdout, fmt, ap);
+}
+
+int vfprintf(FILE* f, const char* fmt, va_list ap)
+{
+    return vprintf_to(f, fmt, ap);
+}
+
+/* ---------- more conversions and strings, for the assembler ---------- */
+
+#ifndef LCC_WIDE32
+unsigned long long strtoull(const char* s, char** end, int base)
+{
+    unsigned long long value = 0;
+
+    while (isspace(*s))
+    {
+        s++;
+    }
+    if (base == 0)
+    {
+        base = 10;
+        if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+        {
+            base = 16;
+            s += 2;
+        }
+        else if (s[0] == '0')
+        {
+            base = 8;
+        }
+    }
+    for (;; s++)
+    {
+        int digit;
+
+        if (isdigit(*s))
+        {
+            digit = *s - '0';
+        }
+        else if (isalpha(*s))
+        {
+            digit = tolower(*s) - 'a' + 10;
+        }
+        else
+        {
+            break;
+        }
+        if (digit >= base)
+        {
+            break;
+        }
+        value = value * base + digit;
+    }
+    if (end)
+    {
+        *end = (char*)s;
+    }
+    return value;
+}
+
+long long atoll(const char* s)
+{
+    int                negative = 0;
+    unsigned long long value;
+
+    while (isspace(*s))
+    {
+        s++;
+    }
+    if (*s == '-' || *s == '+')
+    {
+        negative = *s == '-';
+        s++;
+    }
+    value = strtoull(s, NULL, 10);
+    return negative ? -(long long)value : (long long)value;
+}
+#endif
+
+char* strncat(char* dest, const char* src, size_t n)
+{
+    char* d = dest + strlen(dest);
+
+    while (n-- > 0 && *src)
+    {
+        *d++ = *src++;
+    }
+    *d = 0;
+    return dest;
+}
+
+char* strerror(int errnum)
+{
+    (void)errnum;
+    return "error";
+}
+
+/* the VM has no current directory and no file status of its own */
+char* getcwd(char* buf, int size)
+{
+    if (size < 2)
+    {
+        return NULL;
+    }
+    strcpy(buf, "/");
+    return buf;
+}
+
+int chdir(const char* path)
+{
+    (void)path;
+    return -1;
+}
+
+int mkdir(const char* path, mode_t mode)
+{
+    (void)path;
+    (void)mode;
+    return -1;
+}
+
+int stat(const char* path, struct stat* buf)
+{
+    (void)path;
+    (void)buf;
+    return -1;
 }
