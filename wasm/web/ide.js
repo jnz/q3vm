@@ -93,7 +93,8 @@
         putUserFiles(files);
         return runImage(driver, ["driver", baseName(name), ...args]);
       },
-      // runs the compiler only and returns the assembly, or null when it fails
+      // runs the preprocessor and the compiler only; returns { preprocessed, asm }, or
+      // null when they fail
       compile(name, files) {
         putUserFiles(files);
         const status = runImage(driver, ["driver", "-S", baseName(name)]);
@@ -101,8 +102,11 @@
           return null;
         }
         const base = baseName(name).replace(/\.c$/, "");
-        const asm = getFile(base + ".asm");
-        return asm ? decoder.decode(asm) : null;
+        const text = (bytes) => (bytes ? decoder.decode(bytes) : "");
+        return {
+          preprocessed: text(getFile(base + ".i")),
+          asm: text(getFile(base + ".asm")),
+        };
       },
     };
     return ide;

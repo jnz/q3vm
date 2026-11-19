@@ -15,7 +15,7 @@
   header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
   header h1 { font-size: 16px; margin: 0; }
   header .status { color: var(--muted); margin-left: auto; }
-  main { display: grid; grid-template-columns: 200px 1fr; height: calc(100vh - 46px); }
+  main { display: grid; grid-template-columns: 200px 1fr; height: calc(100vh - 110px); }
   aside { border-right: 1px solid var(--line); padding: 8px; overflow: auto; background: var(--panel); }
   aside ul { list-style: none; margin: 8px 0; padding: 0; }
   aside li { padding: 4px 6px; border-radius: 4px; cursor: pointer; word-break: break-all; }
@@ -35,6 +35,7 @@
   #console .err { color: var(--err); }
   #assembly { color: var(--muted); }
   .hint { color: var(--muted); font-size: 12px; }
+  footer.legal { padding: 4px 12px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
   @media (max-width: 640px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: auto; }
     aside { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -62,7 +63,11 @@
       <span class="name" id="current">no file</span>
       <input type="text" id="args" placeholder="program arguments" size="24">
       <button class="primary" id="run" disabled>Run</button>
-      <button id="compile" disabled>Show assembly</button>
+      <button id="compile" disabled>Compile</button>
+      <select id="view" title="what to show after Compile">
+        <option value="asm">assembly</option>
+        <option value="i">preprocessed</option>
+      </select>
       <button id="clear">Clear output</button>
     </div>
     <textarea id="editor" spellcheck="false" disabled></textarea>
@@ -72,6 +77,12 @@
     </div>
   </section>
 </main>
+<footer class="legal">
+  This project uses q3vm, lcc, Emscripten, bg_lib and each of them has its own license terms.
+  The compiler is lcc, by Christopher W. Fraser and David R. Hanson, which is available free of charge;
+  bug reports on this IDE go to <a href="https://github.com/mingodad/q3vm">https://github.com/mingodad/q3vm</a>.
+  See the COPYING.txt and COPYRIGHT files of the repository for the terms.
+</footer>
 
 <script src="vm.js"></script>
 <script src="ide.js"></script>
@@ -225,16 +236,33 @@
     line("exit " + status, status !== 0);
   };
 
+  // the result of the last Compile, so that the view can change without compiling again
+  let lastBuild = null;
+
+  function showBuild() {
+    if (lastBuild === null) {
+      asmEl.textContent = "";
+      return;
+    }
+    asmEl.textContent = $("view").value === "i" ? lastBuild.preprocessed : lastBuild.asm;
+  }
+
   $("compile").onclick = () => {
     if (current === null) return;
     files[current] = $("editor").value;
-    const asm = ide.compile(current, files);
-    asmEl.textContent = asm === null ? "the compiler failed, see the console" : asm;
+    lastBuild = ide.compile(current, files);
+    if (lastBuild === null) {
+      asmEl.textContent = "the compiler failed, see the console";
+      return;
+    }
+    showBuild();
   };
+  $("view").onchange = showBuild;
 
   $("clear").onclick = () => {
     consoleEl.textContent = "";
     asmEl.textContent = "";
+    lastBuild = null;
   };
 
   async function start() {

@@ -37,9 +37,11 @@ async function main() {
   // 2. the compiler alone gives the assembly of the program
   {
     const { ide } = await newIde();
-    const asm = ide.compile("hello.c", { "hello.c": await ide.example(ide.examples[0]) });
-    assert.ok(asm && asm.includes("proc main"), "assembly has main");
-    console.log("ok   compile returns the assembly");
+    const out = ide.compile("hello.c", { "hello.c": await ide.example(ide.examples[0]) });
+    assert.ok(out && out.asm.includes("proc main"), "assembly has main");
+    assert.ok(out.preprocessed.includes("int main(int argc"), "preprocessed has main");
+    assert.ok(!out.preprocessed.includes("#include"), "includes are expanded");
+    console.log("ok   compile returns the preprocessed text and the assembly");
   }
 
   // 3. a compile error is reported, and the status is 1, as in lcc-run
