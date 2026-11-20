@@ -48,7 +48,7 @@ typedef unsigned long long UWide;
 #define roundup(x,n) (((x)+((n)-1))&(~((n)-1)))
 #define mkop(op,ty) (specific((op) + ttob(ty)))
 
-#define extend(x,ty) ((x)&(1<<(8*(ty)->size-1)) ? (x)|((~((UWide)0))<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
+#define extend(x,ty) ((x)&((UWide)1<<(8*(ty)->size-1)) ? (x)|((~((UWide)0))<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
 #define ones(n) ((n)>=8*sizeof (UWide) ? ~((UWide)0) : ~((~((UWide)0))<<(n)))
 
 #define isqual(t)     ((t)->op >= CONST)
