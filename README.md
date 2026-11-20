@@ -283,8 +283,28 @@ does not need the compiler for that:
 
 `-I dir` adds the headers of `dir`, and the arguments after the C file are passed
 to `main`. `-f file` puts a host file in the virtual file system, for the program
-to open (for example a template for a tool that reads one). A program that
-writes files writes them to the virtual file system only, not to the host.
+to open. For example, lemon reads a template file of its own:
+
+    > ./lcc-run -f lempar.c lemon.c -Tlempar.c grammar.y
+
+The VM's files are in memory, with the VM's `/` as the root. An overlay is a host
+directory behind them, and two options choose how it is used:
+
+ * `-overlay` or `-overlay=DIR`: a file that is not in memory is read from the host
+   directory `DIR`, which is the VM's `/`. `DIR` is `./` by default.
+ * `-overlay-write=memory`: writes stay in memory. This is the default for
+   `lcc-run`.
+ * `-overlay-write=disk`: a file the VM writes is saved to the overlay directory
+   when it is closed. It needs `-overlay`.
+
+The options come before the C file, or the `.qvm` file.
+
+`vmrun64` takes the same options before its image, but its defaults are
+`-overlay` and `-overlay-write=disk`, so the files of the current directory are
+read and written as before:
+
+    > ./vmrun64 -overlay-write=memory image.qvm arguments
+
 The steps are:
 
  * `q3cpp.qvm`, the preprocessor
