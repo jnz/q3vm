@@ -334,6 +334,23 @@ from `file://`, so a web server is needed. `make` in `wasm/` builds only the
 module, `make node` builds the module for Node.js, and `node test_ide.js` checks
 the IDE core in Node.
 
+sqlite in the VM
+----------------
+
+The sqlite shell runs in the VM, from the sqlite amalgamation (`sqlite3.c`, `sqlite3.h`,
+`shell.c`, `qrf.h`) from sqlite.org, which this repository does not contain. The
+example is in `lcc/vm/examples/sqlite`:
+
+    > make WIDTH=64 -C lcc/vm lcc-run vmrun64
+    > make -C lcc/vm/examples/sqlite SQLITE=/path/to/sqlite
+    > lcc/vm/vmrun64 -heap=200M lcc/vm/examples/sqlite/shell.qvm :memory: < script.sql
+
+It needs the 64-bit tools, and a heap of 200 MB, which is the most the VM's BSS
+limit allows with the shell's image. Databases are in memory: sqlite's
+`memdb` VFS (`ATTACH 'file:NAME?vfs=memdb' AS m;`). The VM has no file layer
+for sqlite, so a file name opens nothing. `vmglue.c` gives sqlite the default
+VFS that it needs under `SQLITE_OS_OTHER`.
+
 Callback functions required in host application
 -----------------------------------------------
 
