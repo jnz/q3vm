@@ -27,7 +27,7 @@ typedef unsigned long long UWide;
 	|| specific(op)==ADDRF+P)
 
 #define	MAXLINE  512
-#define	BUFSIZE 4096
+#define	BUFSIZE 16384	/* also the longest string literal, with its adjacent literals */
 
 #define istypename(t,tsym) (kind[t] == CHAR \
 	|| (t == ID && tsym && tsym->sclass == TYPEDEF))

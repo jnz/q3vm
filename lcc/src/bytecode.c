@@ -24,9 +24,11 @@ static void I(defaddress)(Symbol p) {
 }
 
 /* 64-bit value as two little endian 32-bit words (low word first) */
+/* the assembler reads a value as an int, so a word above 2^31 is printed as the
+ * negative int with the same bits */
 static void defword64(UWide bits) {
-	print("byte 4 %u\n", (unsigned)(bits & 0xFFFFFFFFu));
-	print("byte 4 %u\n", (unsigned)((bits >> 16) >> 16));
+	print("byte 4 %d\n", (int)(unsigned)(bits & 0xFFFFFFFFu));
+	print("byte 4 %d\n", (int)(unsigned)((bits >> 16) >> 16));
 }
 
 static void I(defconst)(int suffix, int size, Value v) {
