@@ -16,3 +16,5 @@ equ	vm_remove	-13
 equ	vm_poison	-14
 equ	vm_strtod	-15
 equ	vm_run		-16
+equ	vm_heap_start	-17
+equ	vm_heap_end	-18

@@ -54,6 +54,10 @@ int main(int argc, char** argv)
 
         if (option == 0)
         {
+            option = vmhost_option(argv[first]);
+        }
+        if (option == 0)
+        {
             break;
         }
         if (option < 0)
@@ -65,7 +69,7 @@ int main(int argc, char** argv)
     }
     if (first >= argc || vfs_check())
     {
-        fprintf(stderr, "usage: %s [-overlay[=DIR]] [-overlay-write=memory|disk] image.qvm [arguments]\n",
+        fprintf(stderr, "usage: %s [-overlay[=DIR]] [-overlay-write=memory|disk] [-heap=SIZE] image.qvm [arguments]\n",
                 argv[0]);
         if (vfs_check())
         {

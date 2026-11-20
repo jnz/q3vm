@@ -124,8 +124,8 @@ static void usage(const char* name)
 {
     fprintf(stderr, "lcc-run: %d-bit target (the compiler and the programs it builds)\n",
             LCC_RUN_WIDTH);
-    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... [-f file]... [-overlay[=DIR]]\n"
-            "       [-overlay-write=memory|disk] file.c|file.qvm [arguments...]\n", name);
+    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... [-f file]... [-s file.c]... [-overlay[=DIR]]\n"
+            "       [-overlay-write=memory|disk] [-heap=SIZE] file.c|file.qvm [arguments...]\n", name);
     exit(2);
 }
 
@@ -218,11 +218,19 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
+        else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc)
+        {
+            if (!put_host_file(argv[++i]))
+            {
+                fprintf(stderr, "lcc-run: cannot read %s\n", argv[i]);
+                return 1;
+            }
+        }
         else if (strcmp(argv[i], "-I") == 0 || strcmp(argv[i], "-o") == 0)
         {
             i++;
         }
-        else if (vfs_option(argv[i]) < 0)
+        else if (vfs_option(argv[i]) < 0 || vmhost_option(argv[i]) < 0)
         {
             usage(argv[0]);
         }
@@ -249,7 +257,14 @@ int main(int argc, char** argv)
             i++;
             continue;
         }
-        if (!src && vfs_option(argv[i]) == 1)
+        if (!src && strcmp(argv[i], "-s") == 0 && i + 1 < argc)
+        {
+            /* a source for the driver, put in the file system above */
+            dargv[dargc++] = argv[i];
+            dargv[dargc++] = argv[++i];
+            continue;
+        }
+        if (!src && (vfs_option(argv[i]) == 1 || vmhost_option(argv[i]) == 1))
         {
             /* already set above */
             continue;

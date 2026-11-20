@@ -19,5 +19,8 @@ int vm_remove(const char* path);
 void vm_poison(void* p, int n);
 int vm_strtod(const char* s, double* out);
 int vm_run(const char* path, int argc, char** argv);
+/* the extra heap of the run, from -heap: its first and end addresses, 0 when there is none */
+int vm_heap_start(void);
+int vm_heap_end(void);
 
 #endif

@@ -6,6 +6,7 @@
  */
 
 #include <setjmp.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,11 @@ static char**      host_argv;
 /* exit() in the VM returns to the innermost vmhost_run, see there */
 static jmp_buf* host_exit;
 static int      host_exit_status;
+/* the heap: -heap adds this many bytes to the bss of each image, and the heap of the
+ * image runs from heap_start to heap_end (VM addresses, 0 when there is no extra heap) */
+static size_t   host_heap_extra;
+static intptr_t host_heap_start;
+static intptr_t host_heap_end;
 
 /* host callbacks required by the VM, see README.md */
 void Com_Error(vmErrorCode_t level, const char* error)
@@ -228,6 +234,10 @@ intptr_t vmhost_syscalls(vm_t* vm, intptr_t* args)
         VM_Poison(vm, args[2], (int)strlen(buf) + 1, 1);
         return 0;
     }
+    case -17: /* vm_heap_start(): the first address of the extra heap, 0 for none */
+        return host_heap_start;
+    case -18: /* vm_heap_end(): the end of the extra heap, below the stack */
+        return host_heap_end;
     case -11: /* vm_argc() */
         return host_argc;
     case -12: /* vm_argv(i, buf, n) */
@@ -310,6 +320,78 @@ void vmhost_init(int argc, char** argv)
     host_argv = argv;
 }
 
+static int32_t le32(const uint8_t* p)
+{
+    return (int32_t)((uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24);
+}
+
+static void put_le32(uint8_t* p, int32_t v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
+}
+
+/* a copy of an image whose bss is extra bytes longer: the bytes after the image's data
+ * are the heap. *heap is set to their first address. NULL when the image cannot be copied. */
+static uint8_t* image_with_heap(const uint8_t* image, int size, size_t extra, intptr_t* heap)
+{
+    uint8_t* copy;
+    int32_t  data;
+    int32_t  lit;
+    int32_t  bss;
+
+    if (size < (int)sizeof(vmHeader_t))
+    {
+        return NULL;
+    }
+    data = le32(image + offsetof(vmHeader_t, dataLength));
+    lit  = le32(image + offsetof(vmHeader_t, litLength));
+    bss  = le32(image + offsetof(vmHeader_t, bssLength));
+    copy = malloc(size);
+    if (!copy)
+    {
+        return NULL;
+    }
+    memcpy(copy, image, size);
+    put_le32(copy + offsetof(vmHeader_t, bssLength), (int32_t)(bss + extra));
+    *heap = ((intptr_t)data + lit + bss + 7) & ~(intptr_t)7;
+    return copy;
+}
+
+int vmhost_option(const char* arg)
+{
+    char*         end;
+    unsigned long n;
+
+    if (strncmp(arg, "-heap=", 6) != 0)
+    {
+        return 0;
+    }
+    n = strtoul(arg + 6, &end, 10);
+    if (end == arg + 6)
+    {
+        return -1;
+    }
+    if (*end == 'K' || *end == 'k')
+    {
+        n *= 1024;
+        end++;
+    }
+    else if (*end == 'M' || *end == 'm')
+    {
+        n *= 1024 * 1024;
+        end++;
+    }
+    if (*end != 0 || n > 0x7fffffffUL - VM_PROGRAM_STACK_SIZE)
+    {
+        return -1;
+    }
+    host_heap_extra = (size_t)n;
+    return 1;
+}
+
 /* runs a VM image: main(argc, argv) of the image, with the given arguments.
  * Returns the result of main, or -1 when the image does not load. */
 int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
@@ -320,10 +402,34 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
     jmp_buf*  outer_exit = host_exit;
     int       outer_argc = host_argc;
     char**    outer_argv = host_argv;
+    intptr_t  outer_heap_start = host_heap_start;
+    intptr_t  outer_heap_end = host_heap_end;
+    uint8_t*  patched = NULL;
+    intptr_t  heap = 0;
 
+    host_heap_start = 0;
+    host_heap_end = 0;
+    if (host_heap_extra > 0)
+    {
+        patched = image_with_heap(image, size, host_heap_extra, &heap);
+        if (!patched)
+        {
+            return -1;
+        }
+        image = patched;
+    }
     if (VM_Create(&vm, "vm", image, size, vmhost_syscalls) != 0)
     {
+        free(patched);
+        host_heap_start = outer_heap_start;
+        host_heap_end = outer_heap_end;
         return -1;
+    }
+    /* the heap is the memory after the data, up to the stack */
+    if (patched && (intptr_t)vm.dataMask + 1 - VM_PROGRAM_STACK_SIZE > heap)
+    {
+        host_heap_start = heap;
+        host_heap_end = (intptr_t)vm.dataMask + 1 - VM_PROGRAM_STACK_SIZE;
     }
     /* a run can start another run (vm_run), so the state of the outer one is kept */
     vmhost_init(argc, argv);
@@ -343,9 +449,12 @@ int vmhost_run(const uint8_t* image, int size, int argc, char** argv)
     host_exit = outer_exit;
     host_argc = outer_argc;
     host_argv = outer_argv;
+    host_heap_start = outer_heap_start;
+    host_heap_end = outer_heap_end;
     /* files the image wrote and did not close must reach the disk now */
     vfs_flush();
     fflush(NULL);
     VM_Free(&vm);
+    free(patched);
     return (int)status;
 }

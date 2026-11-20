@@ -118,7 +118,7 @@ selftest: all lcc-run
 
 # lcc-run: one executable with the driver, the compiler, the runtime, the preprocessor,
 # the assembler and the include files inside it (see lcc-run.c and payload.py)
-LCC_RUN_HEADERS = $(wildcard include/*.h)
+LCC_RUN_HEADERS = $(wildcard include/*.h include/sys/*.h)
 LCC_RUN_PAYLOAD = driver.qvm=driver.qvm q3cpp.qvm=q3cpp.qvm q3asm.qvm=q3asm.qvm \
 	rcc.qvm=rcc.qvm lib/vmmain.asm=build/vmmain.asm lib/vmlib.asm=build/vmlib.asm \
 	lib/bg_lib.asm=build/bg_lib.asm lib/vm_syscalls.asm=vm_syscalls.asm \

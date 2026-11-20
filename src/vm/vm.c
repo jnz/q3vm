@@ -81,7 +81,7 @@
 #define OPCODE_TABLE_MASK (OPCODE_TABLE_SIZE - 1)
 
 /** Max. size of BSS section */
-#define VM_MAX_BSS_LENGTH 0x4000000 /* 64 MB: the assembler, q3asm, has 27 MB of bss */
+#define VM_MAX_BSS_LENGTH 0x10000000 /* 256 MB: q3asm has 27 MB of bss, a heap can be bigger */
 
 /******************************************************************************
  * TYPEDEFS
