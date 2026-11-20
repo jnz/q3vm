@@ -8,5 +8,8 @@
 typedef int off_t;
 typedef int mode_t;
 typedef int ssize_t;
+typedef int uid_t;
+typedef int gid_t;
+typedef int pid_t;
 
 #endif

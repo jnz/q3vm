@@ -18,6 +18,15 @@ extern FILE vm_files[3];
 #define stderr (&vm_files[2])
 
 #define EOF (-1)
+#define FILENAME_MAX 4096
+#define _IOFBF 0
+#define _IOLBF 1
+#define _IONBF 2
+int setvbuf(FILE* f, char* buf, int mode, size_t size); /* the VM's files are not buffered */
+int snprintf(char* buf, size_t n, const char* fmt, ...);
+int vsnprintf(char* buf, size_t n, const char* fmt, va_list ap);
+FILE* popen(const char* command, const char* mode); /* the VM has no processes: NULL */
+int   pclose(FILE* f);
 #define BUFSIZ 512
 #define SEEK_SET 0
 #define SEEK_CUR 1

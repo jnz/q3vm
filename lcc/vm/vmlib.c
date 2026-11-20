@@ -10,8 +10,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <dirent.h>
+#include <pwd.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
+#include <utime.h>
 #include "vmsys.h"
 
 int vsprintf(char* buffer, const char* fmt, va_list argptr);
@@ -35,6 +42,10 @@ FILE vm_files[3] = { { 0, 0, 0 }, { 1, 0, 0 }, { 2, 0, 0 } };
 #define VM_BINS (VM_BIN_MAX / VM_ALIGN + 1)
 
 static char   vm_heap[VM_HEAP_SIZE];
+/* the heap: the array above, or the extra heap of -heap (see vm_heap_start). The
+ * first malloc sets it. */
+static char*  vm_base;
+static size_t vm_size;
 static size_t vm_heap_top; /* offset of the next block, set by the first malloc */
 static int    vm_heap_ready;
 static size_t vm_bin[VM_BINS];
@@ -92,7 +103,20 @@ void* malloc(size_t n)
         /* the data of a block must be 8 aligned, and the bss may not be: the first
          * block starts after the padding that aligns it. The offset 0 is never a
          * block, so that 0 can mean no block in a bin. */
-        vm_heap_top   = VM_ALIGN + ((VM_ALIGN - ((size_t)vm_heap & (VM_ALIGN - 1))) & (VM_ALIGN - 1));
+        int start = vm_heap_start();
+        int end   = vm_heap_end();
+
+        if (start != 0 && end > start)
+        {
+            vm_base = (char*)start;
+            vm_size = (size_t)(end - start);
+        }
+        else
+        {
+            vm_base = vm_heap;
+            vm_size = VM_HEAP_SIZE;
+        }
+        vm_heap_top   = VM_ALIGN + ((VM_ALIGN - ((size_t)vm_base & (VM_ALIGN - 1))) & (VM_ALIGN - 1));
         vm_heap_ready = 1;
     }
     if (cap == 0)
@@ -101,17 +125,17 @@ void* malloc(size_t n)
     }
     if (cap <= VM_BIN_MAX && vm_bin[cap / VM_ALIGN])
     {
-        block = (size_t*)(vm_heap + vm_bin[cap / VM_ALIGN]);
+        block = (size_t*)(vm_base + vm_bin[cap / VM_ALIGN]);
         vm_bin[cap / VM_ALIGN] = block[1];
     }
     else
     {
-        if (cap > VM_HEAP_SIZE - vm_heap_top - VM_ALIGN)
+        if (cap > vm_size - vm_heap_top - VM_ALIGN)
         {
             fprintf(stderr, "vm heap exhausted: %u bytes requested, %u used\n", (unsigned)cap, (unsigned)vm_heap_top);
             vm_exit(EXIT_FAILURE);
         }
-        block = (size_t*)(vm_heap + vm_heap_top);
+        block = (size_t*)(vm_base + vm_heap_top);
         vm_heap_top += VM_ALIGN + cap;
     }
     block[0] = cap;
@@ -159,7 +183,7 @@ void free(void* p)
     if (block[0] <= VM_BIN_MAX)
     {
         block[1] = vm_bin[block[0] / VM_ALIGN];
-        vm_bin[block[0] / VM_ALIGN] = (size_t)((char*)block - vm_heap);
+        vm_bin[block[0] / VM_ALIGN] = (size_t)((char*)block - vm_base);
     }
 }
 
@@ -605,6 +629,15 @@ int fflush(FILE* f)
     return 0;
 }
 
+int setvbuf(FILE* f, char* buf, int mode, size_t size)
+{
+    (void)f;
+    (void)buf;
+    (void)mode;
+    (void)size;
+    return 0;
+}
+
 int fseek(FILE* f, long off, int whence)
 {
     f->eof = 0;
@@ -705,9 +738,16 @@ int vfprintf(FILE* f, const char* fmt, va_list ap)
 unsigned long long strtoull(const char* s, char** end, int base)
 {
     unsigned long long value = 0;
+    int                negative = 0;
 
     while (isspace(*s))
     {
+        s++;
+    }
+    /* as in C, a minus sign negates the unsigned result, so "-5" is 2^64 - 5 */
+    if (*s == '-' || *s == '+')
+    {
+        negative = *s == '-';
         s++;
     }
     if (base == 0)
@@ -749,7 +789,7 @@ unsigned long long strtoull(const char* s, char** end, int base)
     {
         *end = (char*)s;
     }
-    return value;
+    return negative ? 0 - value : value;
 }
 
 long long atoll(const char* s)
@@ -818,6 +858,315 @@ int stat(const char* path, struct stat* buf)
     (void)path;
     (void)buf;
     return -1;
+}
+
+int lstat(const char* path, struct stat* buf)
+{
+    return stat(path, buf);
+}
+
+int fstat(int fd, struct stat* buf)
+{
+    (void)fd;
+    (void)buf;
+    return -1;
+}
+
+/* ---------- the POSIX calls the VM has no use for: they fail, see the headers ---------- */
+
+int gettimeofday(struct timeval* tv, void* tz)
+{
+    (void)tz;
+    tv->tv_sec  = time(NULL);
+    tv->tv_usec = 0;
+    return 0;
+}
+
+int getrusage(int who, struct rusage* usage)
+{
+    (void)who;
+    (void)usage;
+    return -1;
+}
+
+int ioctl(int fd, unsigned long request, void* arg)
+{
+    (void)fd;
+    (void)request;
+    (void)arg;
+    return -1;
+}
+
+int isatty(int fd)
+{
+    (void)fd;
+    return 0;
+}
+
+int getpid(void)
+{
+    return 1;
+}
+
+int usleep(unsigned int usec)
+{
+    (void)usec;
+    return 0;
+}
+
+sighandler_t signal(int sig, sighandler_t handler)
+{
+    (void)sig;
+    (void)handler;
+    return SIG_DFL;
+}
+
+int raise(int sig)
+{
+    (void)sig;
+    return -1;
+}
+
+DIR* opendir(const char* name)
+{
+    (void)name;
+    return NULL;
+}
+
+struct dirent* readdir(DIR* dir)
+{
+    (void)dir;
+    return NULL;
+}
+
+int closedir(DIR* dir)
+{
+    (void)dir;
+    return -1;
+}
+
+struct passwd* getpwuid(int uid)
+{
+    (void)uid;
+    return NULL;
+}
+
+int utime(const char* path, const struct utimbuf* times)
+{
+    (void)path;
+    (void)times;
+    return -1;
+}
+
+int system(const char* command)
+{
+    (void)command;
+    return -1;
+}
+
+char* realpath(const char* path, char* resolved)
+{
+    (void)path;
+    (void)resolved;
+    return NULL;
+}
+
+char* strdup(const char* s)
+{
+    size_t n = strlen(s) + 1;
+    char*  p = malloc(n);
+
+    if (p)
+    {
+        memcpy(p, s, n);
+    }
+    return p;
+}
+
+static int in_set(char c, const char* set)
+{
+    for (; *set; set++)
+    {
+        if (*set == c)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+size_t strspn(const char* s, const char* accept)
+{
+    size_t n = 0;
+
+    while (s[n] && in_set(s[n], accept))
+    {
+        n++;
+    }
+    return n;
+}
+
+size_t strcspn(const char* s, const char* reject)
+{
+    size_t n = 0;
+
+    while (s[n] && !in_set(s[n], reject))
+    {
+        n++;
+    }
+    return n;
+}
+
+void* memchr(const void* s, int c, size_t n)
+{
+    const unsigned char* p = s;
+
+    for (; n > 0; n--, p++)
+    {
+        if (*p == (unsigned char)c)
+        {
+            return (void*)p;
+        }
+    }
+    return NULL;
+}
+
+#ifndef LCC_WIDE32
+long long strtoll(const char* s, char** end, int base)
+{
+    return (long long)strtoull(s, end, base);
+}
+#endif
+
+/* snprintf formats into a scratch buffer, then copies at most n - 1 bytes. A result
+ * longer than VM_FORMAT_MAX bytes is not safe: keep the formats of snprintf short. */
+#define VM_FORMAT_MAX 8192
+static char vm_format_buf[VM_FORMAT_MAX];
+
+int vsnprintf(char* buf, size_t n, const char* fmt, va_list ap)
+{
+    int len = vsprintf(vm_format_buf, fmt, ap);
+
+    if (n > 0)
+    {
+        size_t copy = (size_t)len < n ? (size_t)len : n - 1;
+
+        memcpy(buf, vm_format_buf, copy);
+        buf[copy] = '\0';
+    }
+    return len;
+}
+
+int snprintf(char* buf, size_t n, const char* fmt, ...)
+{
+    va_list ap;
+    int     len;
+
+    va_start(ap, fmt);
+    len = vsnprintf(buf, n, fmt, ap);
+    va_end(ap);
+    return len;
+}
+
+/* the VM has no local time, host names, environment, links, file modes or processes:
+ * these calls fail, or do nothing where failing would be wrong */
+struct tm* localtime(const time_t* t)
+{
+    (void)t;
+    return NULL;
+}
+
+size_t strftime(char* buf, size_t max, const char* fmt, const struct tm* tm)
+{
+    (void)buf;
+    (void)max;
+    (void)fmt;
+    (void)tm;
+    return 0;
+}
+
+int gethostname(char* name, size_t len)
+{
+    (void)name;
+    (void)len;
+    return -1;
+}
+
+int getuid(void)
+{
+    return 0;
+}
+
+int unlink(const char* path)
+{
+    return vm_remove(path) == 0 ? 0 : -1;
+}
+
+int symlink(const char* target, const char* path)
+{
+    (void)target;
+    (void)path;
+    return -1;
+}
+
+int readlink(const char* path, char* buf, size_t size)
+{
+    (void)path;
+    (void)buf;
+    (void)size;
+    return -1;
+}
+
+int chmod(const char* path, mode_t mode)
+{
+    (void)path;
+    (void)mode;
+    return 0;
+}
+
+int utimes(const char* path, const struct timeval times[2])
+{
+    (void)path;
+    (void)times;
+    return -1;
+}
+
+int setenv(const char* name, const char* value, int overwrite)
+{
+    (void)name;
+    (void)value;
+    (void)overwrite;
+    return -1;
+}
+
+int unsetenv(const char* name)
+{
+    (void)name;
+    return -1;
+}
+
+int atexit(void (*fn)(void))
+{
+    (void)fn;
+    return 0;
+}
+
+FILE* popen(const char* command, const char* mode)
+{
+    (void)command;
+    (void)mode;
+    return NULL;
+}
+
+int pclose(FILE* f)
+{
+    (void)f;
+    return -1;
+}
+
+int signbit(double x)
+{
+    return x < 0;
 }
 
 /* ---------- math, see include/math.h ----------

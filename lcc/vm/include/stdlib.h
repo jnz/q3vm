@@ -30,6 +30,14 @@ typedef int cmp_t(const void*, const void*);
 void qsort(void* a, size_t n, size_t es, cmp_t* cmp);
 
 char* getenv(const char* name);
+int   system(const char* command); /* the VM has no shell: always fails */
+char* realpath(const char* path, char* resolved); /* the VM has no paths to resolve: NULL */
+int   setenv(const char* name, const char* value, int overwrite); /* fails: no environment */
+int   unsetenv(const char* name);
+int   atexit(void (*fn)(void)); /* the function is not called: the VM exits at once */
+#ifndef LCC_WIDE32
+long long strtoll(const char* s, char** end, int base);
+#endif
 int abs(int n);
 int rand(void);
 void srand(unsigned seed);

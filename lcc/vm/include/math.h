@@ -9,6 +9,11 @@
 
 #define M_PI 3.14159265358979323846
 
+/* INFINITY and HUGE_VAL are the largest double, the VM has no infinity: a value
+ * that overflows is the largest one, and it is not an IEEE infinity */
+#define HUGE_VAL 1.7976931348623157e308
+#define INFINITY HUGE_VAL
+
 double fabs(double x);
 double floor(double x);
 double ceil(double x);
@@ -22,5 +27,6 @@ double atan2(double y, double x);
 double exp(double x);
 double log(double x);
 double pow(double x, double y);
+int    signbit(double x);
 
 #endif
