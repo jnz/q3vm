@@ -282,7 +282,9 @@ does not need the compiler for that:
     > ./lcc-run hello.qvm alpha beta
 
 `-I dir` adds the headers of `dir`, and the arguments after the C file are passed
-to `main`.
+to `main`. `-f file` puts a host file in the virtual file system, for the program
+to open (for example a template for a tool that reads one). A program that
+writes files writes them to the virtual file system only, not to the host.
 The steps are:
 
  * `q3cpp.qvm`, the preprocessor

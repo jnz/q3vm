@@ -123,7 +123,7 @@ static void usage(const char* name)
 {
     fprintf(stderr, "lcc-run: %d-bit target (the compiler and the programs it builds)\n",
             LCC_RUN_WIDTH);
-    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... file.c|file.qvm [arguments...]\n", name);
+    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... [-f file]... file.c|file.qvm [arguments...]\n", name);
     exit(2);
 }
 
@@ -203,10 +203,19 @@ int main(int argc, char** argv)
     /* the files of the VM are in the virtual file system, relative names start from "/" */
     vfs_init("/", 0);
 
-    /* a .qvm file is run as it is, with the arguments after it: no compiler needed */
+    /* the options before the file: -f puts a host file in the file system, for the
+     * program to open. A .qvm file is run as it is, with the arguments after it. */
     for (i = 1; i < argc && argv[i][0] == '-'; i++)
     {
-        if (strcmp(argv[i], "-I") == 0 || strcmp(argv[i], "-o") == 0)
+        if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
+        {
+            if (!put_host_file(argv[++i]))
+            {
+                fprintf(stderr, "lcc-run: cannot read %s\n", argv[i]);
+                return 1;
+            }
+        }
+        else if (strcmp(argv[i], "-I") == 0 || strcmp(argv[i], "-o") == 0)
         {
             i++;
         }
@@ -222,6 +231,12 @@ int main(int argc, char** argv)
     dargv[dargc++] = argv[0];
     for (i = 1; i < argc && dargc < 256; i++)
     {
+        if (!src && strcmp(argv[i], "-f") == 0 && i + 1 < argc)
+        {
+            /* already put in the file system above */
+            i++;
+            continue;
+        }
         if (strcmp(argv[i], "-I") == 0 && i + 1 < argc)
         {
             put_headers(argv[++i]);
