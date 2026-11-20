@@ -15,7 +15,7 @@ static void I(segment)(int n) {
 		}
 }
 
-static void I(address)(Symbol q, Symbol p, long n) {
+static void I(address)(Symbol q, Symbol p, Wide n) {
 	q->x.name = stringf("%s%s%D", p->x.name, n > 0 ? "+" : "", n);
 }
 
@@ -23,21 +23,29 @@ static void I(defaddress)(Symbol p) {
 	print("address %s\n", p->x.name);
 }
 
+/* 64-bit value as two little endian 32-bit words (low word first) */
+/* the assembler reads a value as an int, so a word above 2^31 is printed as the
+ * negative int with the same bits */
+static void defword64(UWide bits) {
+	print("byte 4 %d\n", (int)(unsigned)(bits & 0xFFFFFFFFu));
+	print("byte 4 %d\n", (int)(unsigned)((bits >> 16) >> 16));
+}
+
 static void I(defconst)(int suffix, int size, Value v) {
 	switch (suffix) {
 	case I:
 		if (size > sizeof (int))
-			print("byte %d %D\n", size, v.i);
+			defword64((UWide)v.i);
 		else
 			print("byte %d %d\n", size, v.i);
 		return;
 	case U:
 		if (size > sizeof (unsigned))
-			print("byte %d %U\n", size, v.u);
+			defword64(v.u);
 		else
 			print("byte %d %u\n", size, v.u);
 		return;
-	case P: print("byte %d %U\n", size, (unsigned long)v.p); return;
+	case P: print("byte %d %U\n", size, (UWide)v.p); return;
 	case F:
 		if (size == 4) {
 			floatint_t fi;
@@ -60,24 +68,46 @@ static void I(defstring)(int len, char *str) {
 		print("byte 1 %d\n", (*s)&0377);
 }
 
+/* the file name without its directory, with every other character than a
+ * letter or digit replaced by '_', so it can be part of a label */
+static char *moduleName(void) {
+	char *file = src.file ? src.file : "";
+	char *base = strrchr(file, '/');
+	char *name = stringf("%s", base ? base + 1 : file);
+	char *s;
+
+	for (s = name; *s; s++)
+		if (!(*s >= 'a' && *s <= 'z') && !(*s >= 'A' && *s <= 'Z')
+		&& !(*s >= '0' && *s <= '9'))
+			*s = '_';
+	return name;
+}
+
 static void I(defsymbol)(Symbol p) {
 	if (p->scope == CONSTANTS)
 		switch (optype(ttob(p->type))) {
 		case I: p->x.name = stringf("%D", p->u.c.v.i); break;
 		case U: p->x.name = stringf("%U", p->u.c.v.u); break;
-		case P: p->x.name = stringf("%U", p->u.c.v.p); break;
+		case P: p->x.name = stringf("%U", (UWide)p->u.c.v.p); break;
 		case F:
-			{	// JDC: added this to get inline floats
+			if (p->type->size == 8) {	// double: full 64-bit pattern
+				UWide bits;
+
+				memcpy(&bits, &p->u.c.v.d, sizeof bits);
+				p->x.name = stringf("%U", bits);
+			} else {	// JDC: added this to get inline floats
 				floatint_t temp;
 
 				temp.f = p->u.c.v.d;
-				p->x.name = stringf("%U", temp.ui );
+				p->x.name = stringf("%U", (UWide)temp.ui);
 			}
 			break;// JDC: added this
 		default: assert(0);
 		}
 	else if (p->scope >= LOCAL && p->sclass == STATIC)
 		p->x.name = stringf("$%d", genlabel(1));
+	else if (p->scope == GLOBAL && p->sclass == STATIC && !p->generated)
+		p->x.name = stringf("%s_%s", p->name, moduleName());
 	else if (p->scope == LABELS || p->generated)
 		p->x.name = stringf("$%s", p->name);
 	else
@@ -85,6 +115,20 @@ static void I(defsymbol)(Symbol p) {
 }
 
 static void dumptree(Node p) {
+	/* a 4 byte load from a local and a 4 byte store into one: one instruction each,
+	 * see INDIRL4 and ASGNL4 in the VM. The value of the store is evaluated first,
+	 * the address of a local has no side effects. */
+	if (generic(p->op) == INDIR && generic(p->kids[0]->op) == ADDRL && opsize(p->op) == 4 && optype(p->op) != B) {
+		assert(p->kids[0]->syms[0] && p->kids[0]->syms[0]->x.name);
+		print("INDIRL4 %s\n", p->kids[0]->syms[0]->x.name);
+		return;
+	}
+	if (generic(p->op) == ASGN && generic(p->kids[0]->op) == ADDRL && opsize(p->op) == 4 && optype(p->op) != B) {
+		assert(p->kids[0]->syms[0] && p->kids[0]->syms[0]->x.name);
+		dumptree(p->kids[1]);
+		print("ASGNL4 %s\n", p->kids[0]->syms[0]->x.name);
+		return;
+	}
 	switch (specific(p->op)) {
 	case ASGN+B:
 		assert(p->kids[0]);
@@ -126,7 +170,11 @@ static void dumptree(Node p) {
 		assert(optype(p->op) != B);
 		dumptree(p->kids[0]);
 		print("%s\n", opname(p->op));
-		if ( !p->count ) { printf("pop\n"); };	// JDC
+		if ( !p->count ) {	// JDC
+			printf("pop\n");
+			if (opsize(p->op) == 8)	// 64-bit result is two stack cells
+				printf("pop\n");
+		};
 		return;
 	case ASGN: case BOR: case BAND: case BXOR: case RSH: case LSH:
 	case ADD: case SUB: case DIV: case MUL: case MOD:
@@ -181,6 +229,8 @@ static void gen02(Node p) {
 	assert(p);
 	if (generic(p->op) == ARG) {
 		assert(p->syms[0]);
+		if (p->syms[0]->u.c.v.i == 8)	/* 64-bit args are 8 byte aligned */
+			argoffset = roundup(argoffset, 8);
 		argoffset += (p->syms[0]->u.c.v.i < 4 ? 4 : p->syms[0]->u.c.v.i);
 	} else if (generic(p->op) == CALL) {
 		maxargoffset = (argoffset > maxargoffset ? argoffset : maxargoffset);
@@ -206,7 +256,7 @@ static Node I(gen)(Node p) {
 }
 
 static void I(global)(Symbol p) {
-	print("align %d\n", p->type->align > 4 ? 4 : p->type->align);
+	print("align %d\n", p->type->align);	/* 8 for the 64-bit doubles and long longs */
 	print("LABELV %s\n", p->x.name);
 }
 
@@ -320,18 +370,66 @@ static void I(stabline)(Coordinate *cp) {
 #define b_blockbeg blockbeg
 #define b_blockend blockend
 
+/* Targets. The default, bytecode, is 32-bit: int, long and pointers are 4
+ * bytes, and long long is not supported. bytecode64 is 64-bit: long long is
+ * 8 bytes and the VM must be built with Q3VM_INT64. */
 Interface bytecodeIR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
 	{4, 4, 0},	/* long */
-	{4, 4, 0},	/* long long */
+	{0, 4, 0},	/* long long: not supported by this target */
 	{4, 4, 0},	/* float */				// JDC: use inline floats
-	{4, 4, 0},	/* double */			// JDC: don't ever emit 8 byte double code
-	{4, 4, 0},	/* long double */		// JDC: don't ever emit 8 byte double code
+	{4, 4, 0},	/* double, a float */
+	{4, 4, 0},	/* long double, a float */
 	{4, 4, 0},	/* T* */
 	{0, 4, 0},	/* struct */
-	0,		/* little_endian */
+	1,		/* little_endian: QVM memory is little endian */
+	0,		/* mulops_calls */
+	0,		/* wants_callb */
+	0,		/* wants_argb */
+	1,		/* left_to_right */
+	0,		/* wants_dag */
+	0,		/* unsigned_char */
+	I(address),
+	I(blockbeg),
+	I(blockend),
+	I(defaddress),
+	I(defconst),
+	I(defstring),
+	I(defsymbol),
+	I(emit),
+	I(export),
+	I(function),
+	I(gen),
+	I(global),
+	I(import),
+	I(local),
+	I(progbeg),
+	I(progend),
+	I(segment),
+	I(space),
+	0,		/* I(stabblock) */
+	0,		/* I(stabend) */
+	0,		/* I(stabfend) */
+	0,		/* I(stabinit) */
+	I(stabline),
+	0,		/* I(stabsym) */
+	0,		/* I(stabtype) */
+};
+
+Interface bytecode64IR = {
+	{1, 1, 0},	/* char */
+	{2, 2, 0},	/* short */
+	{4, 4, 0},	/* int */
+	{4, 4, 0},	/* long */
+	{8, 8, 0},	/* long long */			// 64-bit integers are native (2 VM stack cells)
+	{4, 4, 0},	/* float */				// JDC: use inline floats
+	{8, 8, 0},	/* double */			// 64-bit floats are native (2 VM stack cells)
+	{8, 8, 0},	/* long double */		// same as double
+	{4, 4, 0},	/* T* */
+	{0, 4, 0},	/* struct */
+	1,		/* little_endian: QVM memory is little endian */
 	0,		/* mulops_calls */
 	0,		/* wants_callb */
 	0,		/* wants_argb */

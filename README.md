@@ -45,6 +45,8 @@ Features
  * Static memory allocation in C, no unpredictable garbage collector
  * Plan B: you can always go back to native code, as .c files are the input
  * Great tool landscape for C. Use the tools that are available for C
+ * Self-hosted: the C compiler runs in the VM, and `lcc-run` compiles and runs a C file in one executable (see below)
+ * WebAssembly build and a mini IDE in the browser (see below)
  * Computed gotos are used to speed up the interpreter if you compile with GCC (see benchmark section) 
  * Much faster than the Triseism Q3VM interpreter (see benchmark section)
 
@@ -119,11 +121,13 @@ Folder structure
     ├─ doxygen/         Doxygen config and API documentation output
     ├─ example/         Example "hello world" firmware project (bytecode.qvm)
     ├─ lcc/             The LCC compiler (compile .c files to .asm files)
+    │  └─ vm/           The compiler, linker and lcc-run in the VM (self-hosted toolchain)
     ├─ msvc/            Microsoft Visual Studio 2015 project file for q3vm
     ├─ q3asm/           Linker: link the LCC .asm files to a .qvm bytecode file
     ├─ src/             q3vm standalone console application source code
     │  └─ vm/           The core VM source, copy that folder into your project
-    └─ test/            Test environment
+    ├─ test/            Test environment
+    └─ wasm/            WebAssembly build of the VM, and the browser mini IDE
 
 API Documentation
 -----------------
@@ -136,6 +140,62 @@ Install it with `sudo apt-get install doxygen graphviz` on Debian or Ubuntu.
 
 But you can also read `vm.h` directly for the API documentation.
 
+
+32-bit and 64-bit builds
+------------------------
+
+One codebase builds for both widths.
+
+ * The default is 32-bit: the `bytecode` target has `int`, `long` and pointers
+   of 4 bytes, `double` is a 4-byte float, and `long long` is an error. The VM
+   runs it without any setting.
+ * The 64-bit target is `bytecode64` (`lcc -Wf-target=bytecode64`): `long long`
+   and `unsigned long long` are 64-bit integers, and `double` is a 64-bit IEEE
+   754 float. Both are native VM operations, not emulated. `int` and `float`
+   stay 32-bit. The VM must be built with `-DQ3VM_INT64`; a VM built without it
+   rejects 64-bit instructions.
+ * The compiler computes with 64-bit values on the native host, so its output
+   does not depend on the width of `long` on the host. The VM-hosted compiler in
+   `lcc/vm` is built for the 32-bit target by default, or with `make WIDTH=64`.
+
+Compile for a target and run the result on a VM of the same width. The 32-bit
+VM does not run 64-bit bytecode.
+
+64-bit integers and doubles
+---------------------------
+
+These apply to the 64-bit build. Older `.qvm` files need rebuilding with the
+`lcc` and `q3asm` from this repository.
+
+Layout, for bytecode and for the host:
+
+ * A 64-bit value takes two 32-bit words, the low word first (little endian).
+   On the operand stack and in memory it is the same.
+ * A 64-bit function argument is 8-byte aligned in the argument area.
+ * A native (system call) function gets each 64-bit argument as two argument
+   words. Read one with `VMI64(x)` (`x` is the first of the two words). Read a
+   double with `VM_Int64ToDouble(VMI64(x))`.
+ * A native function returns a 64-bit value as `intptr_t`. On a 64-bit host the
+   whole value is kept. `VM_Call` returns `intptr_t` too, so a 64-bit result of
+   `vmMain` is returned in full.
+
+For example, the native side of a call from the bytecode:
+
+```c
+    case -5: /* wide_add(long long a, long long b) */
+        return (intptr_t)(VMI64(1) + VMI64(3));
+```
+
+Limitations:
+
+ * Integer division and modulo by zero are not checked (as for 32-bit).
+ * The host `long` must be 64-bit (LP64, e.g. Linux and macOS) to compile
+   64-bit constants with `lcc`. On hosts where `long` is 32-bit, 64-bit
+   literals are truncated.
+ * Shift counts are taken modulo 64.
+
+The test in `test/wide` runs the same C code in the VM and natively and
+compares the results: `make -C test/wide test`.
 
 Build VM/interpreter
 --------------------
@@ -195,6 +255,101 @@ Build q3asm
 Build the example bytecode:
 
     > make example/bytecode.qvm
+
+Self-hosted C toolchain: lcc-run
+--------------------------------
+
+The C compiler (`lcc`), the preprocessor, the assembler and the driver that ties
+them together also run in the VM. `lcc-run` is one executable that compiles a C
+program and runs it, with nothing else installed: it holds the VM images of the
+toolchain and the runtime library, and it does all the steps in q3vm.
+
+    > cd lcc/vm
+    > make lcc-run
+    > ./lcc-run examples/hello.c alpha beta
+
+`-S` stops after the compiler and writes the `.asm` file. `-o out.qvm` compiles
+and links the program, saves it as a `.qvm` image, and does not run it. The
+image needs the host runner `lcc/vm/vmrun64` (built by `make vmrun64` in
+`lcc/vm`), not the standalone `q3vm`:
+
+    > ./lcc-run -o hello.qvm examples/hello.c
+    > ./vmrun64 hello.qvm alpha beta
+
+`lcc-run` also runs a `.qvm` image directly, with the arguments after it, and
+does not need the compiler for that:
+
+    > ./lcc-run hello.qvm alpha beta
+
+`-I dir` adds the headers of `dir`, and the arguments after the C file are passed
+to `main`. `-f file` puts a host file in the virtual file system, for the program
+to open. For example, lemon reads a template file of its own:
+
+    > ./lcc-run -f lempar.c lemon.c -Tlempar.c grammar.y
+
+The VM's files are in memory, with the VM's `/` as the root. An overlay is a host
+directory behind them, and two options choose how it is used:
+
+ * `-overlay` or `-overlay=DIR`: a file that is not in memory is read from the host
+   directory `DIR`, which is the VM's `/`. `DIR` is `./` by default.
+ * `-overlay-write=memory`: writes stay in memory. This is the default for
+   `lcc-run`.
+ * `-overlay-write=disk`: a file the VM writes is saved to the overlay directory
+   when it is closed. It needs `-overlay`.
+
+The options come before the C file, or the `.qvm` file.
+
+`vmrun64` takes the same options before its image, but its defaults are
+`-overlay` and `-overlay-write=disk`, so the files of the current directory are
+read and written as before:
+
+    > ./vmrun64 -overlay-write=memory image.qvm arguments
+
+The steps are:
+
+ * `q3cpp.qvm`, the preprocessor
+ * `rcc.qvm`, the compiler (`lcc/src`, built with the native `lcc`)
+ * `q3asm.qvm`, the assembler and linker
+ * `driver.qvm`, which runs the three above and then the program, in the VM
+
+The files of the program live in an in-memory file system (`lcc/vm/vfs.c`), and
+the system calls of the VM are in `lcc/vm/vmhost.c`. The VM-hosted compiler can
+compile itself: `make -C lcc/vm selftest` checks that. Build the toolchain for
+the 64-bit target with `make WIDTH=64` in `lcc/vm`.
+
+WebAssembly build and mini IDE
+------------------------------
+
+The VM also builds for the web with Emscripten (`emcc`), and the same toolchain
+runs in a browser page, a small IDE to write, compile and run C programs. The
+files stay in the browser; the page can keep them in local storage.
+
+    > cd lcc/vm && make        # the toolchain, see above
+    > cd ../../wasm
+    > make ide                 # web/vm.js, web/vm.wasm and web/tools/
+    > python3 -m http.server -d web 8000
+
+Then open `http://localhost:8000` in a browser. Browsers do not load WebAssembly
+from `file://`, so a web server is needed. `make` in `wasm/` builds only the
+module, `make node` builds the module for Node.js, and `node test_ide.js` checks
+the IDE core in Node.
+
+sqlite in the VM
+----------------
+
+The sqlite shell runs in the VM, from the sqlite amalgamation (`sqlite3.c`, `sqlite3.h`,
+`shell.c`, `qrf.h`) from sqlite.org, which this repository does not contain. The
+example is in `lcc/vm/examples/sqlite`:
+
+    > make WIDTH=64 -C lcc/vm lcc-run vmrun64
+    > make -C lcc/vm/examples/sqlite SQLITE=/path/to/sqlite
+    > lcc/vm/vmrun64 -heap=200M lcc/vm/examples/sqlite/shell.qvm :memory: < script.sql
+
+It needs the 64-bit tools, and a heap of 200 MB, which is the most the VM's BSS
+limit allows with the shell's image. Databases are in memory: sqlite's
+`memdb` VFS (`ATTACH 'file:NAME?vfs=memdb' AS m;`). The VM has no file layer
+for sqlite, so a file name opens nothing. `vmglue.c` gives sqlite the default
+VFS that it needs under `SQLITE_OS_OTHER`.
 
 Callback functions required in host application
 -----------------------------------------------

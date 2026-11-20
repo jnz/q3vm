@@ -87,7 +87,7 @@ static void emitSymbol(Symbol p) {
 }
 
 /* address - initialize q for addressing expression p+n */
-static void I(address)(Symbol q, Symbol p, long n) {
+static void I(address)(Symbol q, Symbol p, Wide n) {
 	q->name = stringf("%s%s%D", p->name, n > 0 ? "+" : "", n);
 	(*IR->defsymbol)(q);
 	START; print("address "); emitSymbol(q); END;
@@ -407,8 +407,8 @@ Interface symbolicIR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
-	{4, 4, 0},	/* long */
-	{4, 4, 0},	/* long long */
+	{4, 4, 0},	/* Wide */
+	{4, 4, 0},	/* Wide */
 	{4, 4, 1},	/* float */
 	{8, 8, 1},	/* double */
 	{8, 8, 1},	/* long double */
@@ -452,8 +452,8 @@ Interface symbolic64IR = {
 	{1, 1, 0},	/* char */
 	{2, 2, 0},	/* short */
 	{4, 4, 0},	/* int */
-	{8, 8, 0},	/* long */
-	{8, 8, 0},	/* long long */
+	{8, 8, 0},	/* Wide */
+	{8, 8, 0},	/* Wide */
 	{4, 4, 1},	/* float */
 	{8, 8, 1},	/* double */
 	{8, 8, 1},	/* long double */

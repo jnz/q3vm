@@ -11,8 +11,8 @@ float density = 0.5;
 Table stmtlabs;
 
 static int foldcond(Tree e1, Tree e2);
-static void caselabel(Swtch, long, int);
-static void cmp(int, Symbol, long, int);
+static void caselabel(Swtch, Wide, int);
+static void cmp(int, Symbol, Wide, int);
 static Tree conditional(int);
 static void dostmt(int, Swtch, int);
 static int equal(Symbol, Symbol);
@@ -359,12 +359,12 @@ static void swstmt(int loop, int lab, int lev) {
 	codelist->next = head->next;
 	codelist = tail;
 }
-static void caselabel(Swtch swp, long val, int lab) {
+static void caselabel(Swtch swp, Wide val, int lab) {
 	int k;
 
 	if (swp->ncases >= swp->size)
 		{
-		long   *vals = swp->values;
+		Wide   *vals = swp->values;
 		Symbol *labs = swp->labels;
 		swp->size *= 2;
 		swp->values = newarray(swp->size, sizeof *swp->values, FUNC);
@@ -389,7 +389,7 @@ static void caselabel(Swtch swp, long val, int lab) {
 }
 void swgen(Swtch swp) {
 	int *buckets, k, n;
-	long *v = swp->values;
+	Wide *v = swp->values;
 
 	buckets = newarray(swp->ncases + 1,
 		sizeof *buckets, FUNC);
@@ -403,7 +403,7 @@ void swgen(Swtch swp) {
 }
 void swcode(Swtch swp, int b[], int lb, int ub) {
 	int hilab, lolab, l, u, k = (lb + ub)/2;
-	long *v = swp->values;
+	Wide *v = swp->values;
 
 	if (k > lb && k < ub) {
 		lolab = genlabel(1);
@@ -470,7 +470,7 @@ void swcode(Swtch swp, int b[], int lb, int ub) {
 		swcode(swp, b, k + 1, ub);
 	}
 }
-static void cmp(int op, Symbol p, long n, int lab) {
+static void cmp(int op, Symbol p, Wide n, int lab) {
 	Type ty = signedint(p->type);
 
 	listnodes(eqtree(op,

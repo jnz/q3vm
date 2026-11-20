@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>q3vm mini IDE</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fbfbfa; --fg: #1d1d1b; --muted: #77756e;
+          --line: #d8d6cf; --accent: #2f6fb0; --err: #b3261e; --panel: #f0efeb; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1b1c1e; --fg: #e8e6e1; --muted: #9a978f;
+          --line: #3a3c40; --accent: #7fb2e8; --err: #ff8a80; --panel: #25272b; }
+  }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .status { color: var(--muted); margin-left: auto; }
+  main { display: grid; grid-template-columns: 200px 1fr; height: calc(100vh - 110px); }
+  aside { border-right: 1px solid var(--line); padding: 8px; overflow: auto; background: var(--panel); }
+  aside ul { list-style: none; margin: 8px 0; padding: 0; }
+  aside li { padding: 4px 6px; border-radius: 4px; cursor: pointer; word-break: break-all; }
+  aside li.current { background: var(--accent); color: #fff; }
+  section { display: grid; grid-template-rows: auto minmax(0, 1fr) minmax(0, 36vh); min-width: 0; min-height: 0; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .toolbar .name { font-weight: 600; }
+  input[type="text"] { font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); min-width: 0; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--fg); cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  textarea#editor { width: 100%; height: 100%; box-sizing: border-box; border: 0; padding: 8px; resize: none;
+                    font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); color: var(--fg); tab-size: 4; }
+  .panels { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); min-height: 0; border-top: 1px solid var(--line); }
+  pre { margin: 0; padding: 8px; min-height: 0; overflow: auto; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+  #console { border-bottom: 1px solid var(--line); }
+  #console .err { color: var(--err); }
+  #assembly { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; }
+  footer.legal { padding: 4px 12px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+  @media (max-width: 640px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: auto; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+    section { min-height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>q3vm mini IDE</h1>
+  <span class="hint">C programs compiled and run in q3vm, in your browser</span>
+  <span class="status" id="status">loading the toolchain...</span>
+</header>
+<main>
+  <aside>
+    <div class="hint">Files</div>
+    <ul id="files"></ul>
+    <div><button id="new">New file</button></div>
+    <div style="margin-top:6px"><button id="rename">Rename</button> <button id="delete">Delete</button></div>
+    <div class="hint" style="margin-top:12px">Examples</div>
+    <ul id="examples"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <span class="name" id="current">no file</span>
+      <input type="text" id="args" placeholder="program arguments" size="24">
+      <button class="primary" id="run" disabled>Run</button>
+      <button id="compile" disabled>Compile</button>
+      <select id="view" title="what to show after Compile">
+        <option value="asm">assembly</option>
+        <option value="i">preprocessed</option>
+      </select>
+      <button id="clear">Clear output</button>
+    </div>
+    <textarea id="editor" spellcheck="false" disabled></textarea>
+    <div class="panels">
+      <pre id="console"></pre>
+      <pre id="assembly"></pre>
+    </div>
+  </section>
+</main>
+<footer class="legal">
+  This project uses q3vm, lcc, Emscripten, bg_lib and each of them has its own license terms.
+  The compiler is lcc, by Christopher W. Fraser and David R. Hanson, which is available free of charge;
+  bug reports on this IDE go to <a href="https://github.com/mingodad/q3vm">https://github.com/mingodad/q3vm</a>.
+  See the COPYING.txt and COPYRIGHT files of the repository for the terms.
+</footer>
+
+<script src="vm.js"></script>
+<script src="ide.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const KEY = "q3vm-ide-files";
+  const $ = (id) => document.getElementById(id);
+  const consoleEl = $("console");
+  const asmEl = $("assembly");
+  const statusEl = $("status");
+  let ide = null;
+  let files = {};
+  let current = null;
+
+  // localStorage can be blocked (private windows): then the files last only the page
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ files, current }));
+    } catch (e) {
+      /* not kept */
+    }
+  }
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (saved && saved.files) return saved;
+    } catch (e) {
+      /* nothing kept */
+    }
+    return null;
+  }
+
+  function line(text, isError) {
+    const span = document.createElement("span");
+    if (isError) span.className = "err";
+    span.textContent = text + "\n";
+    consoleEl.appendChild(span);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  function renderFiles() {
+    const list = $("files");
+    list.textContent = "";
+    for (const name of Object.keys(files).sort()) {
+      const li = document.createElement("li");
+      li.textContent = name;
+      if (name === current) li.className = "current";
+      li.onclick = () => select(name);
+      list.appendChild(li);
+    }
+    const hasFile = current !== null;
+    $("run").disabled = !ide || !hasFile;
+    $("compile").disabled = !ide || !hasFile;
+    $("editor").disabled = !hasFile;
+    $("rename").disabled = !hasFile;
+    $("delete").disabled = !hasFile;
+    $("current").textContent = hasFile ? current : "no file";
+    $("editor").value = hasFile ? files[current] : "";
+  }
+
+  function select(name) {
+    if (current !== null) files[current] = $("editor").value;
+    current = name;
+    renderFiles();
+    save();
+  }
+
+  function newFile(name, text) {
+    if (current !== null) files[current] = $("editor").value;
+    files[name] = text;
+    current = name;
+    renderFiles();
+    save();
+  }
+
+  // the page fetches the toolchain from the same place as the page
+  async function fetchBytes(rel) {
+    const response = await fetch(rel);
+    if (!response.ok) throw new Error("cannot load " + rel + " (" + response.status + ")");
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  function uniqueName(base) {
+    let name = base;
+    for (let i = 2; files[name] !== undefined; i++) name = base.replace(/\.c$/, "") + i + ".c";
+    return name;
+  }
+
+  function showExamples(examples) {
+    const list = $("examples");
+    for (const entry of examples) {
+      const li = document.createElement("li");
+      li.textContent = entry.name;
+      li.onclick = async () => {
+        const text = await ide.example(entry);
+        newFile(uniqueName(entry.name), text);
+      };
+      list.appendChild(li);
+    }
+  }
+
+  $("new").onclick = () => {
+    const name = prompt("File name", "program.c");
+    if (name && name.trim()) newFile(name.trim(), "");
+  };
+  $("rename").onclick = () => {
+    if (current === null) return;
+    const name = prompt("New name", current);
+    if (!name || !name.trim() || files[name.trim()] !== undefined) return;
+    files[name.trim()] = $("editor").value;
+    delete files[current];
+    current = name.trim();
+    renderFiles();
+    save();
+  };
+  $("delete").onclick = () => {
+    if (current === null || !confirm("Delete " + current + "?")) return;
+    delete files[current];
+    current = Object.keys(files).sort()[0] || null;
+    renderFiles();
+    save();
+  };
+  $("editor").addEventListener("input", () => {
+    if (current !== null) {
+      files[current] = $("editor").value;
+      save();
+    }
+  });
+  $("editor").addEventListener("keydown", (e) => {
+    // Tab inserts spaces, as an editor for programming should
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const t = e.target;
+      const start = t.selectionStart;
+      t.value = t.value.slice(0, start) + "    " + t.value.slice(t.selectionEnd);
+      t.selectionStart = t.selectionEnd = start + 4;
+      t.dispatchEvent(new Event("input"));
+    }
+  });
+
+  $("run").onclick = () => {
+    if (current === null) return;
+    files[current] = $("editor").value;
+    save();
+    const args = $("args").value.trim();
+    const argv = args === "" ? [] : args.split(/\s+/);
+    line("$ " + current + (argv.length ? " " + argv.join(" ") : ""), false);
+    const status = ide.run(current, files, argv);
+    line("exit " + status, status !== 0);
+  };
+
+  // the result of the last Compile, so that the view can change without compiling again
+  let lastBuild = null;
+
+  function showBuild() {
+    if (lastBuild === null) {
+      asmEl.textContent = "";
+      return;
+    }
+    asmEl.textContent = $("view").value === "i" ? lastBuild.preprocessed : lastBuild.asm;
+  }
+
+  $("compile").onclick = () => {
+    if (current === null) return;
+    files[current] = $("editor").value;
+    lastBuild = ide.compile(current, files);
+    if (lastBuild === null) {
+      asmEl.textContent = "the compiler failed, see the console";
+      return;
+    }
+    showBuild();
+  };
+  $("view").onchange = showBuild;
+
+  $("clear").onclick = () => {
+    consoleEl.textContent = "";
+    asmEl.textContent = "";
+    lastBuild = null;
+  };
+
+  async function start() {
+    const saved = load();
+    if (saved) {
+      files = saved.files;
+      current = saved.current && files[saved.current] !== undefined ? saved.current : null;
+    }
+    try {
+      ide = await Q3IDE.start(createQ3vm, fetchBytes, {
+        print: (text) => line(text, false),
+        printErr: (text) => line(text, true),
+      });
+    } catch (e) {
+      statusEl.textContent = "cannot start: " + e.message;
+      return;
+    }
+    if (!saved) {
+      files = {};
+      const first = ide.examples[0];
+      if (first) {
+        files[first.name] = await ide.example(first);
+        current = first.name;
+      }
+    }
+    showExamples(ide.examples);
+    renderFiles();
+    statusEl.textContent = "ready";
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

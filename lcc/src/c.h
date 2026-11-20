@@ -5,13 +5,29 @@
 #include <limits.h>
 #include <string.h>
 
+/* Wide is the integer type of the compiler's own constants and values. The
+ * native compiler uses 64 bits. The compiler built for the 32-bit VM (define
+ * LCC_WIDE32) uses 32 bits, so that its output does not depend on the width
+ * of long on the host, and so that it only needs 32-bit VM instructions. */
+#ifdef LCC_WIDE32
+typedef int Wide;
+typedef unsigned UWide;
+#define WIDE_MAX INT_MAX
+#define UWIDE_MAX UINT_MAX
+#else
+typedef long long Wide;
+typedef unsigned long long UWide;
+#define WIDE_MAX LLONG_MAX
+#define UWIDE_MAX ULLONG_MAX
+#endif
+
 #define NEW(p,a) ((p) = allocate(sizeof *(p), (a)))
 #define NEW0(p,a) memset(NEW((p),(a)), 0, sizeof *(p))
 #define isaddrop(op) (specific(op)==ADDRG+P || specific(op)==ADDRL+P \
 	|| specific(op)==ADDRF+P)
 
 #define	MAXLINE  512
-#define	BUFSIZE 4096
+#define	BUFSIZE 16384	/* also the longest string literal, with its adjacent literals */
 
 #define istypename(t,tsym) (kind[t] == CHAR \
 	|| (t == ID && tsym && tsym->sclass == TYPEDEF))
@@ -32,8 +48,8 @@
 #define roundup(x,n) (((x)+((n)-1))&(~((n)-1)))
 #define mkop(op,ty) (specific((op) + ttob(ty)))
 
-#define extend(x,ty) ((x)&(1<<(8*(ty)->size-1)) ? (x)|((~0UL)<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
-#define ones(n) ((n)>=8*sizeof (unsigned long) ? ~0UL : ~((~0UL)<<(n)))
+#define extend(x,ty) ((x)&((UWide)1<<(8*(ty)->size-1)) ? (x)|((~((UWide)0))<<(8*(ty)->size-1)) : (x)&ones(8*(ty)->size))
+#define ones(n) ((n)>=8*sizeof (UWide) ? ~((UWide)0) : ~((~((UWide)0))<<(n)))
 
 #define isqual(t)     ((t)->op >= CONST)
 #define unqual(t)     (isqual(t) ? (t)->type : (t))
@@ -79,8 +95,8 @@ typedef struct coord {
 typedef struct table *Table;
 
 typedef union value {
-	long i;
-	unsigned long u;
+	Wide i;
+	UWide u;
 	double d;
 	void *p;
 	void (*g)(void);
@@ -126,7 +142,7 @@ typedef struct interface {
 	unsigned left_to_right:1;
 	unsigned wants_dag:1;
 	unsigned unsigned_char:1;
-void (*address)(Symbol p, Symbol q, long n);
+void (*address)(Symbol p, Symbol q, Wide n);
 void (*blockbeg)(Env *);
 void (*blockend)(Env *);
 void (*defaddress)(Symbol);
@@ -355,7 +371,7 @@ struct code {
 		struct {
 			Symbol sym;
 			Symbol base;
-			long offset;
+			Wide offset;
 		} addr;
 		struct {
 			Coordinate src;
@@ -367,7 +383,7 @@ struct code {
 			Symbol table;
 			Symbol deflab;
 			int size;
-			long *values;
+			Wide *values;
 			Symbol *labels;
 		} swtch;
 
@@ -379,7 +395,7 @@ struct swtch {
 	Symbol deflab;
 	int ncases;
 	int size;
-	long *values;
+	Wide *values;
 	Symbol *labels;
 };
 struct symbol {
@@ -551,9 +567,9 @@ extern Type voidtype;
 extern Type unsignedptr;
 extern Type signedptr;
 extern Type widechar;
-extern void  *allocate(unsigned long n, unsigned a);
+extern void  *allocate(UWide n, unsigned a);
 extern void deallocate(unsigned a);
-extern void *newarray(unsigned long m, unsigned long n, unsigned a);
+extern void *newarray(UWide m, UWide n, unsigned a);
 extern void walk(Tree e, int tlab, int flab);
 extern Node listnodes(Tree e, int tlab, int flab);
 extern Node newnode(int op, Node left, Node right, Symbol p);
@@ -648,7 +664,7 @@ extern int findcount(char *, int, int);
 extern Tree constexpression(int);
 extern int intexpr(int, int);
 extern Tree simplify(int, Type, Tree, Tree);
-extern int ispow2(unsigned long u);
+extern int ispow2(UWide u);
 
 extern int reachable(int);
 
@@ -666,7 +682,7 @@ extern void swgen(Swtch);
 
 extern char * string(const char *str);
 extern char *stringn(const char *str, int len);
-extern char *stringd(long n);
+extern char *stringd(Wide n);
 extern Symbol relocate(const char *name, Table src, Table dst);
 extern void use(Symbol p, Coordinate src);
 extern void locus(Table tp, Coordinate *cp);

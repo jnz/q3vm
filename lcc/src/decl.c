@@ -128,6 +128,8 @@ static Type specifier(int *sclass) {
 		ty = longdouble;
 	else if (size == LONG+LONG) {
 		ty = sign == UNSIGNED ? unsignedlonglong : longlong;
+		if (ty->size == 0)
+			error("`long long' is not supported by this target\n");
 		if (Aflag >= 1)
 			warning("`%t' is a non-ANSI type\n", ty);
 	} else if (size == LONG)
@@ -774,7 +776,7 @@ static void funcdefn(int sclass, char *id, Type ty, Symbol params[], Coordinate 
 		if (cp->kind != Jump) {
 			if (rty != voidtype) {
 				warning("missing return value\n");
-				retcode(cnsttree(inttype, 0L));
+				retcode(cnsttree(inttype, ((Wide)0)));
 			} else
 				retcode(NULL);
 		}
@@ -1092,7 +1094,7 @@ Type enumdcl(void) {
 	if (t == '{') {
 		static char follow[] = { IF, 0 };
 		int n = 0;
-		long k = -1;
+		Wide k = -1;
 		List idlist = 0;
 		ty = newstruct(ENUM, tag);
 		t = gettok();

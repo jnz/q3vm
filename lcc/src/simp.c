@@ -29,10 +29,10 @@
 	&&  r->op == CNST+TYPE && r->u.v.VAR == 0)\
 		return eqtree(OP, bittree(BAND, l->kids[0],\
 			cnsttree(unsignedtype, \
-				(unsigned long)fieldmask(l->u.field)<<fieldright(l->u.field))), r)
+				(UWide)fieldmask(l->u.field)<<fieldright(l->u.field))), r)
 #define cfoldcnst(TYPE,VAR,OP) \
 	if (l->op == CNST+TYPE && r->op == CNST+TYPE) \
-		return cnsttree(inttype, (long)(l->u.v.VAR OP r->u.v.VAR))
+		return cnsttree(inttype, (Wide)(l->u.v.VAR OP r->u.v.VAR))
 #define foldaddp(L,R,RTYPE,VAR) \
 	if (L->op == CNST+P && R->op == CNST+RTYPE) { \
 		Tree e = tree(CNST+P, ty, NULL, NULL);\
@@ -42,16 +42,16 @@
 #define sfoldcnst(OP) \
 	if (l->op == CNST+U && r->op == CNST+I \
 	&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size) \
-		return cnsttree(ty, (unsigned long)(l->u.v.u OP r->u.v.i))
+		return cnsttree(ty, (UWide)(l->u.v.u OP r->u.v.i))
 #define geu(L,R,V) \
 	if (R->op == CNST+U && R->u.v.u == 0) do { \
 		warning("result of unsigned comparison is constant\n"); \
-		return tree(RIGHT, inttype, root(L), cnsttree(inttype, (long)(V))); } while(0)
+		return tree(RIGHT, inttype, root(L), cnsttree(inttype, (Wide)(V))); } while(0)
 #define idempotent(OP) if (l->op == OP) return l->kids[0]
 
 int needconst;
 int explicitCast;
-static int addi(long x, long y, long min, long max, int needconst) {
+static int addi(Wide x, Wide y, Wide min, Wide max, int needconst) {
 	int cond = x == 0 || y == 0
 	|| (x < 0 && y < 0 && x >= min - y)
 	|| (x < 0 && y > 0)
@@ -81,7 +81,7 @@ static int addd(double x, double y, double min, double max, int needconst) {
 
 }
 
-static Tree addrtree(Tree e, long n, Type ty) {
+static Tree addrtree(Tree e, Wide n, Type ty) {
 	Symbol p = e->u.sym, q;
 
 	if (p->scope  == GLOBAL
@@ -119,7 +119,7 @@ static Tree addrtree(Tree e, long n, Type ty) {
 }
 
 /* div[id] - return 1 if min <= x/y <= max, 0 otherwise */
-static int divi(long x, long y, long min, long max, int needconst) {
+static int divi(Wide x, Wide y, Wide min, Wide max, int needconst) {
 	int cond = y != 0 && !(x == min && y == -1);
 	if (!cond && needconst) {
 		warning("overflow in constant expression\n");
@@ -145,7 +145,7 @@ static int divd(double x, double y, double min, double max, int needconst) {
 }
 
 /* mul[id] - return 1 if min <= x*y <= max, 0 otherwise */
-static int muli(long x, long y, long min, long max, int needconst) {
+static int muli(Wide x, Wide y, Wide min, Wide max, int needconst) {
 	int cond = (x > -1 && x <= 1) || (y > -1 && y <= 1)
 	|| (x < 0 && y < 0 && -x <= max/-y)
 	|| (x < 0 && y > 0 &&  x >= min/y)
@@ -175,7 +175,7 @@ static int muld(double x, double y, double min, double max, int needconst) {
 
 }
 /* sub[id] - return 1 if min <= x-y <= max, 0 otherwise */
-static int subi(long x, long y, long min, long max, int needconst) {
+static int subi(Wide x, Wide y, Wide min, Wide max, int needconst) {
 	return addi(x, -y, min, max, needconst);
 }
 
@@ -219,18 +219,18 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			identity(r,l,I,i,0);
 			break;
 		case CVI+I:
-			xcvtcnst(I,l->u.v.i,ty,i,(long)extend(l->u.v.i,ty));
+			xcvtcnst(I,l->u.v.i,ty,i,(Wide)extend(l->u.v.i,ty));
 			break;
 		case CVU+I:
 			if (l->op == CNST+U) {
 				if (!explicitCast && l->u.v.u > ty->u.sym->u.limits.max.i)
 					warning("overflow in converting constant expression from `%t' to `%t'\n", l->type, ty);
 				if (needconst || !(l->u.v.u > ty->u.sym->u.limits.max.i))
-					return cnsttree(ty, (long)extend(l->u.v.u,ty));
+					return cnsttree(ty, (Wide)extend(l->u.v.u,ty));
 			}
 			break;
 		case CVP+U:
-			xcvtcnst(P,(unsigned long)l->u.v.p,ty,u,(unsigned long)l->u.v.p);
+			xcvtcnst(P,(UWide)l->u.v.p,ty,u,(UWide)l->u.v.p);
 			break;
 		case CVU+P:
 			xcvtcnst(U,(void*)l->u.v.u,ty,p,(void*)l->u.v.u);
@@ -239,7 +239,17 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			xcvtcnst(P,l->u.v.p,ty,p,l->u.v.p);
 			break;
 		case CVI+U:
-			xcvtcnst(I,l->u.v.i,ty,u,((unsigned long)l->u.v.i)&ones(8*ty->size));
+			if (l->op == CNST+I) {
+				/* a negative value is out of range of an unsigned type narrower
+				 * than 8 bytes, as if it were sign extended to 64 bits, whatever
+				 * the width of Wide: the result does not depend on the host */
+				int big = (l->u.v.i < 0 && ty->size < 8) ||
+					(UWide)l->u.v.i > ty->u.sym->u.limits.max.u;
+				if (!explicitCast && big)
+					warning("overflow in converting constant expression from `%t' to `%t'\n", l->type, ty);
+				if (needconst || !big)
+					return cnsttree(ty, ((UWide)l->u.v.i)&ones(8*ty->size));
+			}
 			break;
 		case CVU+U:
 			xcvtcnst(U,l->u.v.u,ty,u,l->u.v.u&ones(8*ty->size));
@@ -251,7 +261,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			xcvtcnst(U,l->u.v.u,ty,d,(double)l->u.v.u);
 			break;
 		case CVF+I:
-			xcvtcnst(F,l->u.v.d,ty,i,(long)l->u.v.d);
+			xcvtcnst(F,l->u.v.d,ty,i,(Wide)l->u.v.d);
 			break;
 		case CVF+F: {
 			float d = 0.0f;
@@ -271,20 +281,20 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			commute(r,l);
 			identity(r,l,U,u,ones(8*ty->size));
 			if (r->op == CNST+U && r->u.v.u == 0)
-				return tree(RIGHT, ty, root(l), cnsttree(ty, 0UL));
+				return tree(RIGHT, ty, root(l), cnsttree(ty, ((UWide)0)));
 			break;
 		case BAND+I:
 			foldcnst(I,i,&);
 			commute(r,l);
 			identity(r,l,I,i,ones(8*ty->size));
 			if (r->op == CNST+I && r->u.v.u == 0)
-				return tree(RIGHT, ty, root(l), cnsttree(ty, 0L));
+				return tree(RIGHT, ty, root(l), cnsttree(ty, ((Wide)0)));
 			break;
 
 		case MUL+U:
 			commute(l,r);
 			if (l->op == CNST+U && (n = ispow2(l->u.v.u)) != 0)
-				return simplify(LSH, ty, r, cnsttree(inttype, (long)n));
+				return simplify(LSH, ty, r, cnsttree(inttype, (Wide)n));
 			foldcnst(U,u,*);
 			identity(r,l,U,u,1);
 			break;
@@ -350,14 +360,14 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 		case OR+I:
 			op = OR;
 			/* 0||r => r, 1||r => 1 */
-			ufoldcnst(I,l->u.v.i ? cnsttree(ty, 1L) : cond(r));
+			ufoldcnst(I,l->u.v.i ? cnsttree(ty, ((Wide)1)) : cond(r));
 			break;
 		case BCOM+I:
-			ufoldcnst(I,cnsttree(ty, (long)extend((~l->u.v.i)&ones(8*ty->size), ty)));
+			ufoldcnst(I,cnsttree(ty, (Wide)extend((~l->u.v.i)&ones(8*ty->size), ty)));
 			idempotent(BCOM+U);
 			break;
 		case BCOM+U:
-			ufoldcnst(U,cnsttree(ty, (unsigned long)((~l->u.v.u)&ones(8*ty->size))));
+			ufoldcnst(U,cnsttree(ty, (UWide)((~l->u.v.u)&ones(8*ty->size))));
 			idempotent(BCOM+U);
 			break;
 		case BOR+U:
@@ -396,7 +406,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			if (r->op == CNST+U && r->u.v.u == 0)
 				break;
 			if (r->op == CNST+U && (n = ispow2(r->u.v.u)) != 0)
-				return simplify(RSH, ty, l, cnsttree(inttype, (long)n));
+				return simplify(RSH, ty, l, cnsttree(inttype, (Wide)n));
 			foldcnst(U,u,/);
 			break;
 		case EQ+F:
@@ -437,7 +447,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			if (l->op == CNST+I && r->op == CNST+I
 			&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size
 			&& muli(l->u.v.i, 1<<r->u.v.i, ty->u.sym->u.limits.min.i, ty->u.sym->u.limits.max.i, needconst))
-				return cnsttree(ty, (long)(l->u.v.i<<r->u.v.i));
+				return cnsttree(ty, (Wide)(l->u.v.i<<r->u.v.i));
 			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
 				warning("shifting an `%t' by %d bits is undefined\n", ty, r->u.v.i);
 				break;
@@ -464,7 +474,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			break;
 		case MOD+I:
 			if (r->op == CNST+I && r->u.v.i == 1)	/* l%1 => (l,0) */
-				return tree(RIGHT, ty, root(l), cnsttree(ty, 0L));
+				return tree(RIGHT, ty, root(l), cnsttree(ty, ((Wide)0)));
 			if ((r->op == CNST+I && r->u.v.i == 0)
 			||  (l->op == CNST+I && l->u.v.i == ty->u.sym->u.limits.min.i
 			&&  r->op == CNST+I && r->u.v.i == -1))
@@ -495,7 +505,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 					simplify(MUL, ty, l, r->kids[1]));
 			if (l->op == CNST+I && l->u.v.i > 0 && (n = ispow2(l->u.v.i)) != 0)
 				/* 2^n * r => r<<n */
-				return simplify(LSH, ty, r, cnsttree(inttype, (long)n));
+				return simplify(LSH, ty, r, cnsttree(inttype, (Wide)n));
 			identity(r,l,I,i,1);
 			break;
 		case NE+F:
@@ -522,15 +532,15 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			break;
 		case NOT+I:
 			op = NOT;
-			ufoldcnst(I,cnsttree(ty, !l->u.v.i));
+			ufoldcnst(I,cnsttree(ty, (Wide)!l->u.v.i));
 			break;
 		case RSH+I:
 			identity(r,l,I,i,0);
 			if (l->op == CNST+I && r->op == CNST+I
 			&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size) {
-				long n = l->u.v.i>>r->u.v.i;
+				Wide n = l->u.v.i>>r->u.v.i;
 				if (l->u.v.i < 0)
-					n |= ~0UL<<(8*l->type->size - r->u.v.i);
+					n |= ~((UWide)0)<<(8*l->type->size - r->u.v.i);
 				return cnsttree(ty, n);
 			}
 			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
@@ -561,10 +571,10 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			break;
 		case SUB+P:
 			if (l->op == CNST+P && r->op == CNST+P)
-				return cnsttree(ty, (long)((char *)l->u.v.p - (char *)r->u.v.p));
+				return cnsttree(ty, (Wide)((char *)l->u.v.p - (char *)r->u.v.p));
 			if (r->op == CNST+I || r->op == CNST+U)
 				return simplify(ADD, ty, l,
-					cnsttree(inttype, r->op == CNST+I ? -r->u.v.i : -(long)r->u.v.u));
+					cnsttree(inttype, r->op == CNST+I ? -r->u.v.i : -(Wide)r->u.v.u));
 			if (isaddrop(l->op) && r->op == ADD+I && r->kids[1]->op == CNST+I)
 				/* l - (x + c) => l-c - x */
 				return simplify(SUB, ty,
@@ -575,7 +585,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 	return tree(op, ty, l, r);
 }
 /* ispow2 - if u > 1 && u == 2^n, return n, otherwise return 0 */
-int ispow2(unsigned long u) {
+int ispow2(UWide u) {
 	int n;
 
 	if (u > 1 && (u&(u-1)) == 0)

@@ -62,23 +62,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 { "INDIRI1", OP_LOAD1 },
 { "INDIRU1", OP_LOAD1 },
 
-{ "CVFF4", OP_UNDEF },
-{ "CVFI4", OP_CVFI },
-
-{ "CVIF4", OP_CVIF },
-{ "CVII4", OP_SEX8 },   // will be either SEX8 or SEX16
-{ "CVII1", OP_IGNORE },
-{ "CVII2", OP_IGNORE },
-{ "CVIU4", OP_IGNORE },
-
-{ "CVPU4", OP_IGNORE },
-
-{ "CVUI4", OP_IGNORE },
-{ "CVUP4", OP_IGNORE },
-{ "CVUU4", OP_IGNORE },
-
-{ "CVUU1", OP_IGNORE },
-{ "CVUU2", OP_IGNORE },
+// conversions (CV...) depend on the size operand, see AssembleConversion
 
 { "NEGF4", OP_NEGF },
 { "NEGI4", OP_NEGI },
@@ -164,6 +148,70 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 { "NEF4", OP_NEF },
 { "NEI4", OP_NE },
 { "NEU4", OP_NE },
+
+{ "CNSTI8", OP_CONST8 },
+{ "CNSTU8", OP_CONST8 },
+{ "CNSTF8", OP_CONST8 },
+
+{ "ASGNI8", OP_STORE8 },
+{ "ASGNU8", OP_STORE8 },
+{ "ASGNF8", OP_STORE8 },
+
+{ "INDIRI8", OP_LOAD8 },
+{ "INDIRU8", OP_LOAD8 },
+{ "INDIRF8", OP_LOAD8 },
+
+{ "ADDI8", OP_ADD8 },
+{ "ADDU8", OP_ADD8 },
+{ "SUBI8", OP_SUB8 },
+{ "SUBU8", OP_SUB8 },
+{ "MULI8", OP_MUL8 },
+{ "MULU8", OP_MUL8 },
+{ "DIVI8", OP_DIVI8 },
+{ "DIVU8", OP_DIVU8 },
+{ "MODI8", OP_MODI8 },
+{ "MODU8", OP_MODU8 },
+
+{ "BANDI8", OP_BAND8 },
+{ "BANDU8", OP_BAND8 },
+{ "BORI8", OP_BOR8 },
+{ "BORU8", OP_BOR8 },
+{ "BXORI8", OP_BXOR8 },
+{ "BXORU8", OP_BXOR8 },
+{ "BCOMI8", OP_BCOM8 },
+{ "BCOMU8", OP_BCOM8 },
+{ "LSHI8", OP_LSH8 },
+{ "LSHU8", OP_LSH8 },
+{ "RSHI8", OP_RSHI8 },
+{ "RSHU8", OP_RSHU8 },
+{ "NEGI8", OP_NEGI8 },
+{ "NEGU8", OP_NEGI8 },
+
+{ "ADDF8", OP_ADDD },
+{ "SUBF8", OP_SUBD },
+{ "MULF8", OP_MULD },
+{ "DIVF8", OP_DIVD },
+{ "NEGF8", OP_NEGD },
+
+{ "EQI8", OP_EQ8 },
+{ "EQU8", OP_EQ8 },
+{ "NEI8", OP_NE8 },
+{ "NEU8", OP_NE8 },
+{ "LTI8", OP_LTI8 },
+{ "LEI8", OP_LEI8 },
+{ "GTI8", OP_GTI8 },
+{ "GEI8", OP_GEI8 },
+{ "LTU8", OP_LTU8 },
+{ "LEU8", OP_LEU8 },
+{ "GTU8", OP_GTU8 },
+{ "GEU8", OP_GEU8 },
+
+{ "EQF8", OP_EQD },
+{ "NEF8", OP_NED },
+{ "LTF8", OP_LTD },
+{ "LEF8", OP_LED },
+{ "GTF8", OP_GTD },
+{ "GEF8", OP_GED },
 
 { "JUMPV", OP_JUMP },
 

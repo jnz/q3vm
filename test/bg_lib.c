@@ -634,56 +634,115 @@ double fabs(double x)
 #define is_digit(c) ((unsigned)to_digit(c) <= 9)
 #define to_char(n) ((n) + '0')
 
-void AddInt(char** buf_p, int val, int width, int flags)
+/* the integer types of the arguments: the 64-bit ones are only on the 64-bit target */
+#ifdef LCC_WIDE32
+typedef unsigned int bgu_t;
+typedef int          bgs_t;
+#else
+typedef unsigned long long bgu_t;
+typedef long long          bgs_t;
+#endif
+
+/* writes the digits of text, reversed, padded to width: zeros or blanks before them,
+ * or blanks after them with LADJUST */
+static void PadDigits(char** buf_p, const char* text, int digits, int width, int flags)
 {
-    char  text[32];
-    int   digits;
-    int   signedVal;
-    char* buf;
-
-    digits    = 0;
-    signedVal = val;
-    if (val < 0)
-    {
-        val = -val;
-    }
-    do
-    {
-        text[digits++] = '0' + val % 10;
-        val /= 10;
-    } while (val);
-
-    if (signedVal < 0)
-    {
-        text[digits++] = '-';
-    }
-
-    buf = *buf_p;
+    char* buf = *buf_p;
+    int   pad = width > digits ? width - digits : 0;
+    int   i;
 
     if (!(flags & LADJUST))
     {
-        while (digits < width)
+        for (i = 0; i < pad; i++)
         {
             *buf++ = (flags & ZEROPAD) ? '0' : ' ';
-            width--;
         }
     }
-
     while (digits--)
     {
         *buf++ = text[digits];
-        width--;
     }
-
     if (flags & LADJUST)
     {
-        while (width--)
+        for (i = 0; i < pad; i++)
         {
-            *buf++ = (flags & ZEROPAD) ? '0' : ' ';
+            *buf++ = ' ';
         }
     }
-
     *buf_p = buf;
+}
+
+/* the digits of val in base 8, 10 or 16, reversed in text; returns their number */
+static int DigitsOf(char* text, bgu_t val, int base, int upper)
+{
+    const char* set = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+    int         digits = 0;
+
+    do
+    {
+        text[digits++] = set[val % base];
+        val /= base;
+    } while (val);
+    return digits;
+}
+
+static void AddSigned(char** buf_p, bgs_t val, int width, int flags)
+{
+    char text[72];
+    int  digits;
+    bgu_t mag = val < 0 ? 0 - (bgu_t)val : (bgu_t)val;
+
+    digits = DigitsOf(text, mag, 10, 0);
+    if (val < 0)
+    {
+        text[digits++] = '-';
+    }
+    PadDigits(buf_p, text, digits, width, flags);
+}
+
+static void AddUnsigned(char** buf_p, bgu_t val, int base, int upper, int width, int flags)
+{
+    char text[72];
+    int  digits = DigitsOf(text, val, base, upper);
+
+    PadDigits(buf_p, text, digits, width, flags);
+}
+
+/* prints the integer argument at arg, of the conversion conv (d, i, u, x, X, o or p).
+ * longs is the number of l in the conversion: two take a 64-bit argument, which is
+ * aligned to 8 bytes and takes two argument cells. Returns the number of cells used. */
+static int AddIntArg(char** buf_p, int* arg, char conv, int longs, int width, int flags)
+{
+    int  base  = conv == 'o' ? 8 : (conv == 'u' || conv == 'd' || conv == 'i') ? 10 : 16;
+    int  upper = conv == 'X';
+    int  signedConv = conv == 'd' || conv == 'i';
+
+#ifndef LCC_WIDE32
+    if (longs >= 2)
+    {
+        int* a = (int*)(((size_t)arg + 7) & ~(size_t)7);
+
+        if (signedConv)
+        {
+            AddSigned(buf_p, *(bgs_t*)a, width, flags);
+        }
+        else
+        {
+            AddUnsigned(buf_p, *(bgu_t*)a, base, upper, width, flags);
+        }
+        return (int)(a - arg) + 2;
+    }
+#endif
+    (void)longs;
+    if (signedConv)
+    {
+        AddSigned(buf_p, *arg, width, flags);
+    }
+    else
+    {
+        AddUnsigned(buf_p, (unsigned)*arg, base, upper, width, flags);
+    }
+    return 1;
 }
 
 void AddFloat(char** buf_p, float fval, int width, int prec)
@@ -815,6 +874,7 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
     int   prec;
     int   n;
     char  sign;
+    int   longs; /* the number of l in a conversion */
 
     buf_p = buffer;
     arg   = (int*)argptr;
@@ -839,6 +899,7 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
         width = 0;
         prec  = -1;
         sign  = '\0';
+        longs = 0;
 
     rflag:
         ch = *fmt++;
@@ -849,6 +910,15 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
             flags |= LADJUST;
             goto rflag;
         case '.':
+            if (*fmt == '*')
+            {
+                // the precision is the next argument
+                prec = *arg;
+                arg++;
+                fmt++;
+                ch = *fmt++;
+                goto reswitch;
+            }
             n = 0;
             while (is_digit((ch = *fmt++)))
             {
@@ -876,20 +946,50 @@ int vsprintf(char* buffer, const char* fmt, va_list argptr)
             } while (is_digit(ch));
             width = n;
             goto reswitch;
+        case '*':
+            // the width is the next argument, a negative width left-justifies
+            width = *arg;
+            arg++;
+            if (width < 0)
+            {
+                flags |= LADJUST;
+                width = -width;
+            }
+            ch = *fmt++;
+            goto reswitch;
         case 'c':
             *buf_p++ = (char)*arg;
             arg++;
             break;
         case 'd':
         case 'i':
-            AddInt(&buf_p, *arg, width, flags);
-            arg++;
+        case 'u':
+        case 'x':
+        case 'X':
+        case 'o':
+        case 'p':
+            arg += AddIntArg(&buf_p, arg, ch, longs, width, flags);
             break;
+        case 'l':
+            longs++;
+            ch = *fmt++;
+            goto reswitch;
+        case 'h':
+        case 'z':
+        case 'j':
+        case 't':
+        case 'L':
+            ch = *fmt++;
+            goto reswitch;
         case 'f':
-            AddFloat(&buf_p, *(double*)arg, width, prec);
-#ifdef __LCC__
-            arg += 1; // everything is 32 bit in my compiler
+            // a double is 8 bytes, aligned to 8, on the 64-bit target; on the 32-bit
+            // target (LCC_WIDE32) a double is a float, one cell of the arguments
+#ifdef LCC_WIDE32
+            AddFloat(&buf_p, *(float*)arg, width, prec);
+            arg += 1;
 #else
+            arg = (int*)(((size_t)arg + 7) & ~(size_t)7);
+            AddFloat(&buf_p, *(double*)arg, width, prec);
             arg += 2;
 #endif
             break;

@@ -113,7 +113,69 @@ typedef enum {
     OP_MULF,
 
     OP_CVIF,
-    OP_CVFI
+    OP_CVFI,
+
+    /* 64-bit integers and doubles, same order as in vm.c */
+    OP_CONST8,
+    OP_LOAD8,
+    OP_STORE8,
+    OP_ARG8,
+    OP_CALL8,
+
+    OP_ADD8,
+    OP_SUB8,
+    OP_MUL8,
+    OP_DIVI8,
+    OP_DIVU8,
+    OP_MODI8,
+    OP_MODU8,
+    OP_BAND8,
+    OP_BOR8,
+    OP_BXOR8,
+    OP_BCOM8,
+    OP_LSH8,
+    OP_RSHI8,
+    OP_RSHU8,
+    OP_NEGI8,
+
+    OP_ADDD,
+    OP_SUBD,
+    OP_MULD,
+    OP_DIVD,
+    OP_NEGD,
+
+    OP_EQ8,
+    OP_NE8,
+    OP_LTI8,
+    OP_LEI8,
+    OP_GTI8,
+    OP_GEI8,
+    OP_LTU8,
+    OP_LEU8,
+    OP_GTU8,
+    OP_GEU8,
+
+    OP_EQD,
+    OP_NED,
+    OP_LTD,
+    OP_LED,
+    OP_GTD,
+    OP_GED,
+
+    OP_SEXT32,
+    OP_ZEXT32,
+    OP_TRUNC64,
+    OP_I64TOD,
+    OP_DTOI64,
+    OP_I64TOF,
+    OP_FTOD,
+    OP_DTOF,
+
+    OP_ZEX8,
+    OP_ZEX16,
+
+    OP_INDIRL4,
+    OP_ASGNL4
 } opcode_t;
 
 typedef enum {
@@ -127,9 +189,10 @@ typedef enum {
 
 typedef struct
 {
-    byte image[VM_MAX_IMAGE_SIZE];
-    int  imageUsed;
-    int  segmentBase; // only valid on second pass
+    byte* image; // grows on demand, see SegmentReserve
+    int   imageCapacity;
+    int   imageUsed;
+    int   segmentBase; // only valid on second pass
 } segment_t;
 
 typedef struct symbol_s
@@ -509,6 +572,46 @@ static void CodeError(char* fmt, ...)
 
 /*
 ============
+SegmentReserve
+
+Makes room for size bytes of the segment. The new bytes are zero, as the bytes of
+a segment were before the image grew on demand. The bss segment has no bytes.
+============
+*/
+static void SegmentReserve(segment_t* seg, int size)
+{
+    int   capacity;
+    byte* image;
+
+    if (seg == &segment[BSSSEG] || size <= seg->imageCapacity)
+    {
+        return;
+    }
+    if (size > VM_MAX_IMAGE_SIZE)
+    {
+        Error("VM_MAX_IMAGE_SIZE");
+    }
+    capacity = seg->imageCapacity ? seg->imageCapacity : 4096;
+    while (capacity < size)
+    {
+        capacity *= 2;
+    }
+    if (capacity > VM_MAX_IMAGE_SIZE)
+    {
+        capacity = VM_MAX_IMAGE_SIZE;
+    }
+    image = realloc(seg->image, capacity);
+    if (!image)
+    {
+        Error("out of memory for a segment");
+    }
+    memset(image + seg->imageCapacity, 0, capacity - seg->imageCapacity);
+    seg->image         = image;
+    seg->imageCapacity = capacity;
+}
+
+/*
+============
 EmitByte
 ============
 */
@@ -518,6 +621,7 @@ static void EmitByte(segment_t* seg, int v)
     {
         Error("VM_MAX_IMAGE_SIZE");
     }
+    SegmentReserve(seg, seg->imageUsed + 1);
     seg->image[seg->imageUsed] = v;
     seg->imageUsed++;
 }
@@ -533,6 +637,7 @@ static void EmitInt(segment_t* seg, int v)
     {
         Error("VM_MAX_IMAGE_SIZE");
     }
+    SegmentReserve(seg, seg->imageUsed + 4);
     seg->image[seg->imageUsed]     = v & 255;
     seg->image[seg->imageUsed + 1] = (v >> 8) & 255;
     seg->image[seg->imageUsed + 2] = (v >> 16) & 255;
@@ -861,6 +966,22 @@ static void HackToSegment(segmentName_t seg)
     }
 }
 
+/* Initialized data of one label stays in one segment. The first item after a
+ * label picks the segment (see ASM(BYTE)) and the later items of the same label
+ * stay there. Otherwise a struct that mixes byte and word fields is split: its
+ * label moves with the first item only. Big endian hosts swap the data segment
+ * as 32-bit words, so mixed data is only correct on little endian hosts. */
+static int dataSegmentChosen;
+
+static void ChooseDataSegment(segmentName_t seg)
+{
+    if (!dataSegmentChosen)
+    {
+        HackToSegment(seg);
+        dataSegmentChosen = 1;
+    }
+}
+
 //#define STAT(L) report("STAT " L "\n");
 #define STAT(L)
 #define ASM(O) int TryAssemble##O()
@@ -871,13 +992,21 @@ static void HackToSegment(segmentName_t seg)
  -PH
 */
 
+/* the 64-bit versions of the LCC IR ops end with 8, e.g. ARGI8, CALLF8 */
+static int IsWideOp(void)
+{
+    size_t n = strlen(token);
+    return n > 0 && token[n - 1] == '8';
+}
+
 // call instructions reset currentArgOffset
+// CALLI8 (and friends) return a 64-bit value
 ASM(CALL)
 {
     if (!strncmp(token, "CALL", 4))
     {
         STAT("CALL");
-        EmitByte(&segment[CODESEG], OP_CALL);
+        EmitByte(&segment[CODESEG], IsWideOp() ? OP_CALL8 : OP_CALL);
         instructionCount++;
         currentArgOffset = 0;
         return 1;
@@ -886,20 +1015,27 @@ ASM(CALL)
 }
 
 // arg is converted to a reversed store
+// 64-bit arguments are 8 byte aligned, the same as the callee's parameters
 ASM(ARG)
 {
     if (!strncmp(token, "ARG", 3))
     {
+        int is8 = IsWideOp();
+
         STAT("ARG");
-        EmitByte(&segment[CODESEG], OP_ARG);
+        EmitByte(&segment[CODESEG], is8 ? OP_ARG8 : OP_ARG);
         instructionCount++;
+        if (is8)
+        {
+            currentArgOffset = (currentArgOffset + 7) & ~7;
+        }
         if (8 + currentArgOffset >= 256)
         {
             CodeError("currentArgOffset >= 256");
             return 1;
         }
         EmitByte(&segment[CODESEG], 8 + currentArgOffset);
-        currentArgOffset += 4;
+        currentArgOffset += is8 ? 8 : 4;
         return 1;
     }
     return 0;
@@ -969,6 +1105,42 @@ ASM(ADDRL)
     return 0;
 }
 
+// a 4 byte load from a local, see lcc's INDIRL4: the offset is that of ADDRL
+ASM(INDIRL4)
+{
+    int v;
+    if (!strcmp(token, "INDIRL4"))
+    {
+        STAT("INDIRL4");
+        instructionCount++;
+        Parse();
+        v = ParseExpression();
+        v = 8 + currentArgs + v;
+        EmitByte(&segment[CODESEG], OP_INDIRL4);
+        EmitInt(&segment[CODESEG], v);
+        return 1;
+    }
+    return 0;
+}
+
+// a 4 byte store into a local, see lcc's ASGNL4: the offset is that of ADDRL
+ASM(ASGNL4)
+{
+    int v;
+    if (!strcmp(token, "ASGNL4"))
+    {
+        STAT("ASGNL4");
+        instructionCount++;
+        Parse();
+        v = ParseExpression();
+        v = 8 + currentArgs + v;
+        EmitByte(&segment[CODESEG], OP_ASGNL4);
+        EmitInt(&segment[CODESEG], v);
+        return 1;
+    }
+    return 0;
+}
+
 ASM(PROC)
 {
     char name[1024];
@@ -980,10 +1152,12 @@ ASM(PROC)
 
         DefineSymbol(token, instructionCount); // segment[CODESEG].imageUsed );
 
+        /* frames are multiples of 8 bytes, so that a frame whose arguments
+         * are 8 byte values keeps them 8 byte aligned in memory */
         currentLocals = ParseValue(); // locals
-        currentLocals = (currentLocals + 3) & ~3;
+        currentLocals = (currentLocals + 7) & ~7;
         currentArgs   = ParseValue(); // arg marshalling
-        currentArgs   = (currentArgs + 3) & ~3;
+        currentArgs   = (currentArgs + 7) & ~7;
 
         if (8 + currentLocals + currentArgs >= 32767)
         {
@@ -1030,7 +1204,7 @@ ASM(ADDRESS)
         v = ParseExpression();
 
         /* Addresses are 32 bits wide, and therefore go into data segment. */
-        HackToSegment(DATASEG);
+        ChooseDataSegment(DATASEG);
         EmitInt(currentSegment, v);
         if (passNumber == 1 && token[0] == '$') // crude test for labels
             EmitInt(&segment[JTRGSEG], v);
@@ -1147,6 +1321,7 @@ ASM(ALIGN)
         v = ParseValue();
         currentSegment->imageUsed =
             (currentSegment->imageUsed + v - 1) & ~(v - 1);
+        SegmentReserve(currentSegment, currentSegment->imageUsed);
         return 1;
     }
     return 0;
@@ -1160,6 +1335,7 @@ ASM(SKIP)
         STAT("SKIP");
         v = ParseValue();
         currentSegment->imageUsed += v;
+        SegmentReserve(currentSegment, currentSegment->imageUsed);
         return 1;
     }
     return 0;
@@ -1177,17 +1353,19 @@ ASM(BYTE)
         if (v == 1)
         {
             /* Character (1-byte) values go into lit(eral) segment. */
-            HackToSegment(LITSEG);
+            ChooseDataSegment(LITSEG);
         }
         else if (v == 4)
         {
             /* 32-bit (4-byte) values go into data segment. */
-            HackToSegment(DATASEG);
+            ChooseDataSegment(DATASEG);
         }
         else if (v == 2)
         {
-            /* and 16-bit (2-byte) values will cause q3asm to barf. */
-            CodeError("16 bit initialized data not supported");
+            /* 16-bit (2-byte) values are not byte swapped, so they go in the lit
+             * segment with the char data. They are stored little endian, so a
+             * big endian host would need a 16-bit swap at load time. */
+            ChooseDataSegment(LITSEG);
         }
 
         // emit little endien
@@ -1211,6 +1389,7 @@ ASM(LABEL)
     {
         STAT("LABEL");
         Parse();
+        dataSegmentChosen = 0;
         if (currentSegment == &segment[CODESEG])
         {
             DefineSymbol(token, instructionCount);
@@ -1222,6 +1401,142 @@ ASM(LABEL)
         return 1;
     }
     return 0;
+}
+
+static void EmitOp(int opcode)
+{
+    EmitByte(&segment[CODESEG], opcode);
+    instructionCount++;
+}
+
+/* truncate to a 1 or 2 byte integer: sign extend for signed, zero extend for
+ * unsigned types, so that the value in the cell is the converted value */
+static void EmitNarrow(char dst, int dstSize)
+{
+    if (dst == 'I')
+    {
+        EmitOp(dstSize == 1 ? OP_SEX8 : OP_SEX16);
+    }
+    else
+    {
+        EmitOp(dstSize == 1 ? OP_ZEX8 : OP_ZEX16);
+    }
+}
+
+/*
+==============
+AssembleConversion
+
+LCC names conversions CV<src><dst><dstsize> and gives the source size as the
+operand, e.g. CVII4 1 (char to int), CVFI8 8 (double to long long). The source
+size decides which ops are needed. A value of 8 bytes takes two stack cells.
+==============
+*/
+static void AssembleConversion(void)
+{
+    char src     = token[2];
+    char dst     = token[3];
+    int  dstSize = token[4] - '0';
+    int  srcSize;
+
+    Parse();
+    srcSize = atoiNoCap(token);
+
+    if (dst == 'F')
+    {
+        if (dstSize == 8)
+        {
+            if (src == 'F')
+            {
+                if (srcSize == 4)
+                {
+                    EmitOp(OP_FTOD);
+                }
+            }
+            else
+            {
+                if (srcSize != 8)
+                {
+                    EmitOp(src == 'U' ? OP_ZEXT32 : OP_SEXT32);
+                }
+                EmitOp(OP_I64TOD);
+            }
+        }
+        else if (src == 'F')
+        {
+            if (srcSize == 8)
+            {
+                EmitOp(OP_DTOF);
+            }
+        }
+        else if (srcSize == 8)
+        {
+            EmitOp(OP_I64TOF);
+        }
+        else
+        {
+            EmitOp(OP_CVIF);
+        }
+    }
+    else if (src == 'F')
+    {
+        if (srcSize == 4)
+        {
+            if (dstSize == 8)
+            {
+                EmitOp(OP_FTOD);
+                EmitOp(OP_DTOI64);
+            }
+            else
+            {
+                EmitOp(OP_CVFI);
+            }
+        }
+        else
+        {
+            EmitOp(OP_DTOI64);
+            if (dstSize != 8)
+            {
+                EmitOp(OP_TRUNC64);
+            }
+        }
+    }
+    else if (srcSize == 8)
+    {
+        if (dstSize != 8)
+        {
+            EmitOp(OP_TRUNC64);
+            if (dstSize < 4)
+            {
+                EmitNarrow(dst, dstSize);
+            }
+        }
+    }
+    else if (dstSize == 8)
+    {
+        if (src == 'I' && srcSize == 1)
+        {
+            EmitOp(OP_SEX8);
+        }
+        else if (src == 'I' && srcSize == 2)
+        {
+            EmitOp(OP_SEX16);
+        }
+        EmitOp(src == 'I' ? OP_SEXT32 : OP_ZEXT32);
+    }
+    else if (dstSize == 4 && src == 'I' && srcSize == 1)
+    {
+        EmitOp(OP_SEX8);
+    }
+    else if (dstSize == 4 && src == 'I' && srcSize == 2)
+    {
+        EmitOp(OP_SEX16);
+    }
+    else if (dstSize < 4 && srcSize > dstSize)
+    {
+        EmitNarrow(dst, dstSize);
+    }
+    /* otherwise the value is already in the right form, e.g. CVUI4 4 */
 }
 
 /*
@@ -1240,6 +1555,12 @@ static void AssembleLine(void)
     Parse();
     if (!token[0])
     {
+        return;
+    }
+
+    if (!strncmp(token, "CV", 2))
+    {
+        AssembleConversion();
         return;
     }
 
@@ -1270,30 +1591,25 @@ static void AssembleLine(void)
                 return; // we ignore most conversions
             }
 
-            // sign extensions need to check next parm
             opcode = op->opcode;
-            if (opcode == OP_SEX8)
-            {
-                Parse();
-                if (token[0] == '1')
-                {
-                    opcode = OP_SEX8;
-                }
-                else if (token[0] == '2')
-                {
-                    opcode = OP_SEX16;
-                }
-                else
-                {
-                    CodeError("Bad sign extension: %s\n", token);
-                    return;
-                }
-            }
 
             // check for expression
             Parse();
-            if (token[0] && op->opcode != OP_CVIF && op->opcode != OP_CVFI)
+            if (token[0])
             {
+                if (opcode == OP_CONST8)
+                {
+                    /* 64-bit constants do not fit in an expression: low word
+                       first, like the data segment */
+                    uint64_t value = strtoull(token, NULL, 10);
+
+                    EmitByte(&segment[CODESEG], opcode);
+                    EmitInt(&segment[CODESEG], (int)(uint32_t)value);
+                    EmitInt(&segment[CODESEG], (int)(uint32_t)(value >> 32));
+                    instructionCount++;
+                    return;
+                }
+
                 expression = ParseExpression();
 
                 // code like this can generate non-dword block copies:
@@ -1356,6 +1672,8 @@ Empirical frequency statistics from FI 2001.01.23:
         return;
 
     ASM(ADDRL)
+    ASM(INDIRL4)
+    ASM(ASGNL4)
     ASM(BYTE)
     ASM(LINE)
     ASM(ARG)
@@ -1502,13 +1820,13 @@ static void WriteVmFile(void)
     CreatePath(imageName);
     f = SafeOpenWrite(imageName);
     SafeWrite(f, &header, headerSize);
-    SafeWrite(f, &segment[CODESEG].image, segment[CODESEG].imageUsed);
-    SafeWrite(f, &segment[DATASEG].image, segment[DATASEG].imageUsed);
-    SafeWrite(f, &segment[LITSEG].image, segment[LITSEG].imageUsed);
+    SafeWrite(f, segment[CODESEG].image, segment[CODESEG].imageUsed);
+    SafeWrite(f, segment[DATASEG].image, segment[DATASEG].imageUsed);
+    SafeWrite(f, segment[LITSEG].image, segment[LITSEG].imageUsed);
 
     if (!options.vanillaQ3Compatibility)
     {
-        SafeWrite(f, &segment[JTRGSEG].image, segment[JTRGSEG].imageUsed);
+        SafeWrite(f, segment[JTRGSEG].image, segment[JTRGSEG].imageUsed);
     }
 
     fclose(f);
@@ -1546,8 +1864,11 @@ static void Assemble(void)
         {
             segment[i].imageUsed = 0;
         }
-        segment[DATASEG].imageUsed =
-            4; // skip the 0 byte, so NULL pointers are fixed up properly
+        // skip the first 8 bytes, so NULL pointers are fixed up properly. The data is
+        // 8 aligned, like every segment below: the VM has 8 byte values (double, long
+        // long), and an address of a segment is the offset of the segment in the VM data.
+        segment[DATASEG].imageUsed = 8;
+        SegmentReserve(&segment[DATASEG], 8);
         instructionCount = 0;
 
         for (i = 0; i < numAsmFiles; i++)
@@ -1568,7 +1889,8 @@ static void Assemble(void)
         // align all segment
         for (i = 0; i < NUM_SEGMENTS; i++)
         {
-            segment[i].imageUsed = (segment[i].imageUsed + 3) & ~3;
+            segment[i].imageUsed = (segment[i].imageUsed + 7) & ~7;
+            SegmentReserve(&segment[i], segment[i].imageUsed);
         }
         if (passNumber == 0)
         {
