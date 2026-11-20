@@ -11,7 +11,7 @@ int main(int argc, char** argv);
 int vmMain(void)
 {
     int    argc = vm_argc();
-    char** argv = malloc(argc * sizeof(char*));
+    char** argv = malloc((argc + 1) * sizeof(char*));
     int    i;
 
     for (i = 0; i < argc; i++)
@@ -19,5 +19,7 @@ int vmMain(void)
         argv[i] = malloc(VM_ARG_MAX);
         vm_argv(i, argv[i], VM_ARG_MAX);
     }
+    /* as in a native program, argv ends with a NULL pointer */
+    argv[argc] = NULL;
     return main(argc, argv);
 }

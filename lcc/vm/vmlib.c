@@ -446,6 +446,22 @@ FILE* fopen(const char* name, const char* mode)
     return vm_new_file(handle);
 }
 
+/* the VM has no file permissions: a file that can be opened can be read, and
+ * the other modes are not checked (see unistd.h) */
+int access(const char* path, int mode)
+{
+    FILE* f;
+
+    (void)mode;
+    f = fopen(path, "r");
+    if (!f)
+    {
+        return -1;
+    }
+    fclose(f);
+    return 0;
+}
+
 FILE* freopen(const char* name, const char* mode, FILE* f)
 {
     int handle = vm_open(name, mode);
