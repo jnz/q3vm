@@ -8,10 +8,15 @@
 
 typedef struct vfs_file vfs_file_t;
 
-/* cwd is the absolute directory that relative names start from. With os_backup,
- * a file missing from memory is read from the host, and a file the VM writes is
- * saved to the host when it is closed. */
-void         vfs_init(const char* cwd, int os_backup);
+/* the VM's files are in memory, with the absolute path of the VM's "/" as the root.
+ * vfs_init sets the directory that relative names start from, and no overlay.
+ * vfs_option takes the overlay options of a command line: -overlay[=DIR] (the host
+ * directory of "/", "./" by default) and -overlay-write=memory|disk. It returns 1
+ * for an option, 0 for another argument and -1 for a bad value. vfs_check returns
+ * the reason the options do not fit together, or NULL. */
+void         vfs_init(const char* cwd);
+int          vfs_option(const char* arg);
+const char*  vfs_check(void);
 vfs_file_t*  vfs_open(const char* name, const char* mode);
 size_t       vfs_read(vfs_file_t* f, void* buf, size_t n);
 size_t       vfs_write(vfs_file_t* f, const void* buf, size_t n);

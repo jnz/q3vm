@@ -1,7 +1,8 @@
 /* lcc-run.c -- one executable that compiles a C program with the compiler running
  * in q3vm, links it with the VM runtime and runs it in q3vm.
  *
- * Usage: lcc-run [-S] [-I dir]... file.c [arguments...]
+ * Usage: lcc-run [-S | -o out.qvm] [-I dir]... [-f file]... [-overlay[=DIR]]
+ *        [-overlay-write=memory|disk] file.c|file.qvm [arguments...]
  *
  * -S compiles only: the program is not linked or run. -I dir adds the headers of dir.
  *
@@ -123,7 +124,8 @@ static void usage(const char* name)
 {
     fprintf(stderr, "lcc-run: %d-bit target (the compiler and the programs it builds)\n",
             LCC_RUN_WIDTH);
-    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... [-f file]... file.c|file.qvm [arguments...]\n", name);
+    fprintf(stderr, "usage: %s [-S | -o out.qvm] [-I dir]... [-f file]... [-overlay[=DIR]]\n"
+            "       [-overlay-write=memory|disk] file.c|file.qvm [arguments...]\n", name);
     exit(2);
 }
 
@@ -201,10 +203,11 @@ int main(int argc, char** argv)
     }
 
     /* the files of the VM are in the virtual file system, relative names start from "/" */
-    vfs_init("/", 0);
+    vfs_init("/");
 
     /* the options before the file: -f puts a host file in the file system, for the
-     * program to open. A .qvm file is run as it is, with the arguments after it. */
+     * program to open, and -overlay reads the host files behind it. A .qvm file is
+     * run as it is, with the arguments after it. */
     for (i = 1; i < argc && argv[i][0] == '-'; i++)
     {
         if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
@@ -219,6 +222,15 @@ int main(int argc, char** argv)
         {
             i++;
         }
+        else if (vfs_option(argv[i]) < 0)
+        {
+            usage(argv[0]);
+        }
+    }
+    if (vfs_check())
+    {
+        fprintf(stderr, "lcc-run: %s\n", vfs_check());
+        return 2;
     }
     if (i < argc && strlen(argv[i]) > 4 && strcmp(argv[i] + strlen(argv[i]) - 4, ".qvm") == 0)
     {
@@ -235,6 +247,11 @@ int main(int argc, char** argv)
         {
             /* already put in the file system above */
             i++;
+            continue;
+        }
+        if (!src && vfs_option(argv[i]) == 1)
+        {
+            /* already set above */
             continue;
         }
         if (strcmp(argv[i], "-I") == 0 && i + 1 < argc)

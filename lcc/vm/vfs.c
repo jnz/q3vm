@@ -1,7 +1,8 @@
 /* vfs.c -- the files of the VM. Every file lives in memory under its absolute path.
- * With os_backup, the host's files are the backup: a file that is not in memory is
- * read from the host, and a file the VM changed is saved to the host on close and
- * on vfs_flush. Without it, the files exist only in memory, as in a browser.
+ * With an overlay, a host directory is behind the memory: the VM's "/" is that
+ * directory. A file that is not in memory is read from the host, and with the
+ * write mode "disk" a file the VM changed is saved to the host on close and on
+ * vfs_flush. Without an overlay the files exist only in memory, as in a browser.
  */
 
 #include <stdio.h>
@@ -32,12 +33,73 @@ struct vfs_file
 
 static vfs_node* nodes;
 static char      cwd[VFS_PATH_MAX] = "/";
-static int       os_backup;
+static char      overlay[VFS_PATH_MAX]; /* the host directory of "/", as a prefix */
+static int       has_overlay;
+static int       write_disk;
 
-void vfs_init(const char* dir, int backup)
+void vfs_init(const char* dir)
 {
     snprintf(cwd, sizeof cwd, "%s", dir);
-    os_backup = backup;
+    has_overlay = 0;
+    write_disk = 0;
+}
+
+int vfs_option(const char* arg)
+{
+    if (strcmp(arg, "-overlay") == 0)
+    {
+        snprintf(overlay, sizeof overlay, "./");
+        has_overlay = 1;
+        return 1;
+    }
+    if (strncmp(arg, "-overlay=", 9) == 0)
+    {
+        snprintf(overlay, sizeof overlay, "%s", arg + 9);
+        has_overlay = 1;
+        return 1;
+    }
+    if (strcmp(arg, "-overlay-write=memory") == 0)
+    {
+        write_disk = 0;
+        return 1;
+    }
+    if (strcmp(arg, "-overlay-write=disk") == 0)
+    {
+        write_disk = 1;
+        return 1;
+    }
+    if (strncmp(arg, "-overlay", 8) == 0)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+const char* vfs_check(void)
+{
+    if (write_disk && !has_overlay)
+    {
+        return "-overlay-write=disk needs -overlay=DIR";
+    }
+    return NULL;
+}
+
+/* the host path of an absolute path of the VM: the overlay directory, then the path
+ * without its leading slash, so that "./" and "dir" both give "./x" and "dir/x" */
+static int host_path(const char* path, char* out)
+{
+    size_t len = strlen(overlay);
+    int    n;
+
+    if (len > 0 && overlay[len - 1] == '/')
+    {
+        n = snprintf(out, VFS_PATH_MAX, "%s%s", overlay, path + 1);
+    }
+    else
+    {
+        n = snprintf(out, VFS_PATH_MAX, "%s%s", overlay, path);
+    }
+    return n < 0 || n >= VFS_PATH_MAX ? -1 : 0;
 }
 
 /* the absolute path of name, with "." and ".." removed; -1 when it is too long */
@@ -177,11 +239,17 @@ static int reserve(vfs_node* n, size_t size)
 /* reads the host file into memory, NULL when the host has no such file */
 static vfs_node* load(const char* path)
 {
-    FILE*     f = fopen(path, "rb");
+    char      host[VFS_PATH_MAX];
+    FILE*     f;
     long      size;
     vfs_node* n;
     size_t    got;
 
+    if (host_path(path, host) != 0)
+    {
+        return NULL;
+    }
+    f = fopen(host, "rb");
     if (!f)
     {
         return NULL;
@@ -212,9 +280,15 @@ static vfs_node* load(const char* path)
 /* saves the node to the host */
 static int save(vfs_node* n)
 {
-    FILE* f = fopen(n->path, "wb");
+    char   host[VFS_PATH_MAX];
+    FILE*  f;
     size_t put;
 
+    if (host_path(n->path, host) != 0)
+    {
+        return -1;
+    }
+    f = fopen(host, "wb");
     if (!f)
     {
         return -1;
@@ -254,7 +328,7 @@ vfs_file_t* vfs_open(const char* name, const char* mode)
         n->size = 0;
         n->dirty = 1;
     }
-    else if (!n && os_backup)
+    else if (!n && has_overlay)
     {
         n = load(path);
     }
@@ -355,7 +429,7 @@ int vfs_close(vfs_file_t* f)
 {
     int result = 0;
 
-    if (f->writable && f->node->dirty && os_backup)
+    if (f->writable && f->node->dirty && write_disk)
     {
         result = save(f->node);
     }
@@ -366,6 +440,7 @@ int vfs_close(vfs_file_t* f)
 int vfs_remove(const char* name)
 {
     char      path[VFS_PATH_MAX];
+    char      host[VFS_PATH_MAX];
     vfs_node* n;
     int       removed = 0;
 
@@ -379,7 +454,7 @@ int vfs_remove(const char* name)
         unlink_node(n);
         removed = 1;
     }
-    if (os_backup && remove(path) == 0)
+    if (write_disk && host_path(path, host) == 0 && remove(host) == 0)
     {
         removed = 1;
     }
@@ -406,7 +481,9 @@ void vfs_put(const char* name, const void* data, size_t n)
     }
     memcpy(node->data, data, n);
     node->size = n;
-    node->dirty = 1;
+    /* a file from the host is the same as its host copy: only the VM's writes are
+     * saved back to the host */
+    node->dirty = 0;
 }
 
 long vfs_size(const char* name)
@@ -444,7 +521,7 @@ void vfs_flush(void)
 {
     vfs_node* n;
 
-    if (!os_backup)
+    if (!write_disk)
     {
         return;
     }

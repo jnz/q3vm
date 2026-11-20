@@ -24,7 +24,7 @@
 EMSCRIPTEN_KEEPALIVE
 void vm_init(void)
 {
-    vfs_init("/", 0);
+    vfs_init("/");
 }
 
 EMSCRIPTEN_KEEPALIVE

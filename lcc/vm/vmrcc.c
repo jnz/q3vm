@@ -1,6 +1,10 @@
 /* vmrcc.c -- host runner for a .qvm image: runs main() of the image in q3vm.
  *
- * Usage: vmrcc image.qvm [arguments...]
+ * Usage: vmrcc [-overlay[=DIR]] [-overlay-write=memory|disk] image.qvm [arguments...]
+ *
+ * The files of the VM are in memory, and the overlay is a host directory behind them
+ * (see vfs.h). By default it is the current directory, and the files the VM writes are
+ * saved to it.
  */
 
 #include <stdio.h>
@@ -37,28 +41,46 @@ int main(int argc, char** argv)
     uint8_t* image;
     int      size = 0;
     int      status;
-    char     cwd[4096];
+    int      first = 1;
 
-    if (argc < 2)
+    /* the VM's files are the host's files in the current directory, written back to
+     * it, unless the options say otherwise (see vfs.h) */
+    vfs_init("/");
+    vfs_option("-overlay");
+    vfs_option("-overlay-write=disk");
+    while (first < argc && argv[first][0] == '-')
     {
-        fprintf(stderr, "usage: %s image.qvm [arguments]\n", argv[0]);
+        int option = vfs_option(argv[first]);
+
+        if (option == 0)
+        {
+            break;
+        }
+        if (option < 0)
+        {
+            fprintf(stderr, "%s: bad option %s\n", argv[0], argv[first]);
+            return 2;
+        }
+        first++;
+    }
+    if (first >= argc || vfs_check())
+    {
+        fprintf(stderr, "usage: %s [-overlay[=DIR]] [-overlay-write=memory|disk] image.qvm [arguments]\n",
+                argv[0]);
+        if (vfs_check())
+        {
+            fprintf(stderr, "%s: %s\n", argv[0], vfs_check());
+        }
         return 2;
     }
-    /* the VM's files are the host's files in the current directory */
-    if (!getcwd(cwd, sizeof cwd))
-    {
-        fprintf(stderr, "cannot find the current directory\n");
-        return 2;
-    }
-    vfs_init(cwd, 1);
-    image = readFile(argv[1], &size);
+    image = readFile(argv[first], &size);
     if (!image)
     {
-        fprintf(stderr, "cannot read %s\n", argv[1]);
+        fprintf(stderr, "cannot read %s\n", argv[first]);
         return 2;
     }
     /* the image's argv[0] is the name of the image, not of this runner */
-    status = vmhost_run(image, size, argc - 1, argv + 1);
+    status = vmhost_run(image, size, argc - first, argv + first);
     free(image);
     return status < 0 ? 2 : status;
 }
